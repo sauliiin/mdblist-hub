@@ -70,8 +70,20 @@
             <a class="btn ghost"
                [href]="'https://www.themoviedb.org/' + (d.type === 'show' ? 'tv' : 'movie') + '/' + d.tmdbId"
                target="_blank" rel="noopener">TMDB</a>
-            @if (d.homepage) {
-              <a class="btn ghost" [href]="d.homepage" target="_blank" rel="noopener">Site oficial</a>
+          </div>
+
+          <div class="library">
+            @for (action of libraryActions; track action.bucket) {
+              <button
+                type="button"
+                class="lib-btn"
+                [class.on]="library()[action.bucket]"
+                [disabled]="pending()[action.bucket]"
+                (click)="toggleBucket(action.bucket)"
+                [title]="library()[action.bucket] ? action.undo : action.label">
+                <span class="lib-icon" [innerHTML]="library()[action.bucket] ? '✓' : '+'"></span>
+                {{ library()[action.bucket] ? action.done : action.label }}
+              </button>
             }
           </div>
         </div>
@@ -127,10 +139,6 @@
               <span class="count-tag">{{ d.reviews.length }}</span>
             }
           </div>
-
-          @for (warning of d.warnings; track warning) {
-            <p class="warning">{{ warning }}</p>
-          }
 
           @if (reviews().length) {
             <div class="reviews">

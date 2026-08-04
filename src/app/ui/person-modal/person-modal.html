@@ -55,7 +55,11 @@
           <div class="bio-head">
             <h3>Biografia</h3>
             <span class="src" [class.tmdb]="biography.source === 'tmdb'">
-              {{ biography.source === 'wikipedia' ? 'Wikipedia' : 'TMDB' }}
+              @if (biography.source === 'wikipedia') {
+                Wikipedia <small>{{ wiki()?.lang }}</small>
+              } @else {
+                TMDB
+              }
             </span>
           </div>
           <p class="bio-text">{{ biography.text }}</p>

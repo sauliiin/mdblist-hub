@@ -23,8 +23,13 @@ const PROP = {
   birthplace: 'P19',
 } as const;
 
-/** Below this the pt article is treated as a stub and English is preferred. */
-const MIN_BIO_CHARS = 600;
+/**
+ * Below this the pt article is treated as a stub and English is preferred.
+ * embuary uses 600, but most actor articles in pt sit between 200 and 400
+ * characters, which sent nearly every biography to English on a site that is
+ * otherwise in Portuguese. 200 keeps real paragraphs and still skips stubs.
+ */
+const MIN_BIO_CHARS = 200;
 const LANG = 'pt';
 
 export interface WikiBio {
@@ -171,7 +176,7 @@ export class WikipediaService {
       .pipe(
         map((res) => {
           const pages = Object.values(res?.query?.pages ?? {});
-          return pages.find((p) => p.extract)?.extract?.trim() ?? '';
+          return clean(pages.find((p) => p.extract)?.extract ?? '');
         }),
         catchError(() => of('')),
       );
@@ -226,6 +231,18 @@ interface WikidataEntities {
 
 interface WikipediaExtract {
   query?: { pages?: Record<string, { extract?: string }> };
+}
+
+/**
+ * Article intros sometimes end with leftovers from stripped infoboxes — a line
+ * holding nothing but a period, for instance.
+ */
+function clean(extract: string): string {
+  return extract
+    .split('\n')
+    .filter((line) => /\p{L}|\p{N}/u.test(line))
+    .join('\n')
+    .trim();
 }
 
 /**

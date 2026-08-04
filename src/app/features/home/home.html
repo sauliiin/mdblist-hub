@@ -1,10 +1,18 @@
-<app-hero />
+@if (!browseMode()) {
+  <app-hero />
+}
 
-<div class="toolbar shell">
+<div class="toolbar shell" [class.compact]="browseMode()">
   <div class="summary">
-    <strong>{{ lists().length }}</strong> listas
-    <span class="dot"></span>
-    <strong>{{ totalItems() | number }}</strong> títulos
+    @if (browseMode()) {
+      <strong>{{ visibleResults().length }}</strong> resultado{{ visibleResults().length === 1 ? '' : 's' }}
+      <span class="dot"></span>
+      <span class="for">{{ resultsLabel() }}</span>
+    } @else {
+      <strong>{{ lists().length }}</strong> listas
+      <span class="dot"></span>
+      <strong>{{ totalItems() | number }}</strong> títulos
+    }
   </div>
 
   <div class="controls">
@@ -13,12 +21,26 @@
         <circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" />
       </svg>
       <input
-        type="search"
-        placeholder="Filtrar listas…"
+        type="text"
+        placeholder="Buscar filmes ou séries…"
         [value]="query()"
         (input)="onQuery($event)"
-        aria-label="Filtrar listas pelo nome" />
+        aria-label="Buscar filmes ou séries" />
     </label>
+
+    <label class="genre">
+      <select [value]="genre()" (change)="onGenre($event)" aria-label="Filtrar por gênero">
+        <option value="">Filtrar por gênero</option>
+        @for (option of genres(); track option.name) {
+          <option [value]="option.name">{{ option.name }}</option>
+        }
+      </select>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
+    </label>
+
+    @if (browseMode()) {
+      <button type="button" class="clear-all" (click)="clearAll()">Limpar</button>
+    }
 
     <div class="segmented" role="group" aria-label="Tipo de mídia">
       <button type="button" [class.on]="filter() === 'all'" (click)="filter.set('all')">Tudo</button>
@@ -29,7 +51,40 @@
 </div>
 
 <main class="rows">
-  @if (loading()) {
+  @if (browseMode()) {
+    @if (searching()) {
+      <div class="results shell">
+        @for (s of [1,2,3,4,5,6,7,8,9,10]; track $index) {
+          <div class="skeleton result-skeleton"></div>
+        }
+      </div>
+    } @else if (visibleResults().length) {
+      <div class="results shell">
+        @for (result of visibleResults(); track result.media_type + result.id) {
+          <a class="result" [routerLink]="['/title', result.media_type, result.id]">
+            <div class="poster">
+              @if (result.poster_path) {
+                <img [src]="poster(result)" [alt]="titleOf(result)" loading="lazy" />
+              } @else {
+                <div class="poster-empty">{{ titleOf(result).charAt(0) }}</div>
+              }
+              <span class="kind">{{ result.media_type === 'tv' ? 'Série' : 'Filme' }}</span>
+              @if (result.vote_average) {
+                <span class="vote">{{ result.vote_average.toFixed(1) }}</span>
+              }
+            </div>
+            <p class="result-title">{{ titleOf(result) }}</p>
+            <p class="result-year">{{ yearOf(result) || '—' }}</p>
+          </a>
+        }
+      </div>
+    } @else {
+      <div class="state shell">
+        <h2>Nada encontrado para {{ resultsLabel() }}</h2>
+        <p>Tente outro termo, outro gênero, ou volte o filtro para “Tudo”.</p>
+      </div>
+    }
+  } @else if (loading()) {
     @for (s of [1, 2, 3]; track $index) {
       <div class="row-placeholder">
         <div class="skeleton head"></div>
@@ -58,8 +113,14 @@
     } @empty {
       <div class="state shell">
         <h2>Nenhuma lista corresponde ao filtro</h2>
-        <p>Tente outro termo ou volte para “Tudo”.</p>
+        <p>Volte para “Tudo” para ver todas as suas listas.</p>
       </div>
+    }
+
+    @defer (on viewport; prefetch on idle) {
+      <app-because-you-watched />
+    } @placeholder {
+      <div class="feed-anchor"></div>
     }
   }
 </main>

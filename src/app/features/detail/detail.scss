@@ -22,6 +22,7 @@
   object-fit: cover;
   object-position: 50% 18%;
   z-index: -2;
+  filter: brightness(1.12) saturate(1.05);
   animation: fade-in 0.9s var(--ease) both;
 }
 
@@ -30,8 +31,10 @@
   inset: 0;
   z-index: -1;
   background:
-    linear-gradient(to top, var(--bg) 2%, rgba(7, 8, 12, 0.86) 34%, rgba(7, 8, 12, 0.55) 70%, rgba(7, 8, 12, 0.75)),
-    linear-gradient(to right, rgba(7, 8, 12, 0.9) 8%, rgba(7, 8, 12, 0.3) 62%, transparent);
+    /* Only the header corner is darkened, so the artwork stays bright. */
+    radial-gradient(62% 52% at 100% 0%, rgba(7, 8, 12, 0.88), rgba(7, 8, 12, 0.34) 52%, transparent 76%),
+    linear-gradient(to top, var(--bg) 2%, rgba(7, 8, 12, 0.78) 32%, rgba(7, 8, 12, 0.34) 66%, rgba(7, 8, 12, 0.2)),
+    linear-gradient(to right, rgba(7, 8, 12, 0.86) 8%, rgba(7, 8, 12, 0.26) 56%, transparent 76%);
 }
 
 .back {
@@ -181,6 +184,64 @@ h1 {
   margin-top: 16px;
   width: 100%;
   justify-content: center;
+}
+
+/* ------------------------------------------- mdblist library actions */
+
+.library {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin-top: 12px;
+}
+
+.lib-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  border-radius: 99px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-dim);
+  background: rgba(10, 12, 18, 0.55);
+  border: 1px solid var(--border);
+  backdrop-filter: blur(12px);
+  transition: color 0.25s var(--ease), background 0.25s var(--ease),
+    border-color 0.25s var(--ease), transform 0.2s var(--ease);
+
+  .lib-icon {
+    display: grid;
+    place-items: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    font-size: 11px;
+    font-weight: 800;
+    line-height: 1;
+    border: 1px solid currentColor;
+  }
+
+  &:hover:not(:disabled) {
+    color: var(--text);
+    background: rgba(255, 255, 255, 0.12);
+    border-color: var(--border-strong);
+    transform: translateY(-2px);
+  }
+
+  &.on {
+    color: #a9f0e2;
+    background: rgba(18, 214, 196, 0.14);
+    border-color: rgba(18, 214, 196, 0.42);
+
+    .lib-icon {
+      background: var(--accent-2);
+      color: #06231f;
+      border-color: transparent;
+    }
+  }
+
+  &:disabled { opacity: 0.55; cursor: progress; }
 }
 
 /* ========================================================== body */

@@ -5,8 +5,11 @@ import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { RouterLink } from '@angular/router';
 import { switchMap, tap } from 'rxjs';
 import { tmdbImg } from '../../core/api.config';
+import { Bucket, LibraryService, LibraryStatus, LibraryTarget } from '../../core/library.service';
 import { castCharacter, MediaDetailService } from '../../core/media-detail.service';
-import { Review, TmdbCastMember, TmdbRecommendation, toMediaType } from '../../core/models';
+import {
+  MediaDetail, Review, TmdbCastMember, TmdbRecommendation, toMediaType,
+} from '../../core/models';
 import { PersonModal } from '../../ui/person-modal/person-modal';
 import { RatingBadges } from '../../ui/rating-badges/rating-badges';
 
@@ -21,6 +24,7 @@ export class Detail {
   private readonly service = inject(MediaDetailService);
   private readonly location = inject(Location);
   private readonly sanitizer = inject(DomSanitizer);
+  private readonly libraryService = inject(LibraryService);
 
   /** Route params, bound by `withComponentInputBinding()`. */
   readonly type = input.required<string>();
@@ -33,6 +37,41 @@ export class Detail {
   protected readonly trailerOpen = signal(false);
   /** Cast member whose Wikipedia biography is open. */
   protected readonly selectedPerson = signal<TmdbCastMember | null>(null);
+
+  /** mdblist buckets this title belongs to, and the in-flight writes. */
+  protected readonly library = signal<LibraryStatus>({
+    watchlist: false,
+    watched: false,
+    collection: false,
+  });
+  protected readonly pending = signal<Record<Bucket, boolean>>({
+    watchlist: false,
+    watched: false,
+    collection: false,
+  });
+
+  protected readonly libraryActions: {
+    bucket: Bucket; label: string; done: string; undo: string;
+  }[] = [
+    {
+      bucket: 'watchlist',
+      label: 'Watchlist',
+      done: 'Na watchlist',
+      undo: 'Remover da watchlist',
+    },
+    {
+      bucket: 'collection',
+      label: 'Coleção',
+      done: 'Na coleção',
+      undo: 'Remover da coleção',
+    },
+    {
+      bucket: 'watched',
+      label: 'Marcar como assistido',
+      done: 'Assistido',
+      undo: 'Desmarcar como assistido',
+    },
+  ];
 
   private readonly params = computed(() => ({
     type: toMediaType(this.type()),
@@ -47,7 +86,10 @@ export class Detail {
         this.trailerOpen.set(false);
       }),
       switchMap(({ type, id }) => this.service.load(type, id)),
-      tap(() => this.loading.set(false)),
+      tap((detail) => {
+        this.loading.set(false);
+        if (detail) this.loadLibraryStatus(detail);
+      }),
     ),
     { initialValue: null },
   );
@@ -116,6 +158,32 @@ export class Detail {
 
   protected openPerson(member: TmdbCastMember): void {
     this.selectedPerson.set(member);
+  }
+
+  private loadLibraryStatus(detail: MediaDetail): void {
+    this.library.set({ watchlist: false, watched: false, collection: false });
+    this.libraryService.status(this.target(detail)).subscribe((status) => this.library.set(status));
+  }
+
+  /** Adds or removes the title from an mdblist bucket. */
+  protected toggleBucket(bucket: Bucket): void {
+    const detail = this.detail();
+    if (!detail || this.pending()[bucket]) return;
+
+    const add = !this.library()[bucket];
+    this.pending.update((state) => ({ ...state, [bucket]: true }));
+
+    this.libraryService.toggle(bucket, this.target(detail), add).subscribe({
+      next: (state) => {
+        this.library.update((current) => ({ ...current, [bucket]: state }));
+        this.pending.update((state) => ({ ...state, [bucket]: false }));
+      },
+      error: () => this.pending.update((state) => ({ ...state, [bucket]: false })),
+    });
+  }
+
+  private target(detail: MediaDetail): LibraryTarget {
+    return { imdbId: detail.imdbId, tmdbId: detail.tmdbId, type: detail.type };
   }
 
   protected profile(member: TmdbCastMember): string | null {

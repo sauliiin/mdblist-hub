@@ -186,9 +186,39 @@ export interface TmdbPersonCredit {
   popularity: number;
 }
 
+export interface TmdbGenre {
+  id: number;
+  name: string;
+}
+
+/** Movie and TV genre lists overlap by name but not by id. */
+export interface GenreOption {
+  /** Portuguese label, for the dropdown. */
+  name: string;
+  /**
+   * The English name lowercased, which is exactly how mdblist tags its list
+   * items — this is what matches a genre against the user's own lists.
+   */
+  slug: string;
+  movieId: number | null;
+  tvId: number | null;
+}
+
+/** One tile in the results grid, whatever the source. */
+export interface GridItem {
+  key: string;
+  id: number;
+  tmdbType: 'movie' | 'tv';
+  title: string;
+  poster: string | null;
+  year: string;
+  vote: number | null;
+}
+
 export interface TmdbSearchResult {
   id: number;
   media_type: string;
+  genre_ids?: number[];
   title?: string;
   name?: string;
   overview: string | null;
@@ -299,6 +329,4 @@ export interface MediaDetail {
   omdb: OmdbResponse | null;
   budget: number | null;
   revenue: number | null;
-  /** Non-fatal problems worth surfacing in the UI (e.g. OMDb quota). */
-  warnings: string[];
 }

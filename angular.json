@@ -89,7 +89,10 @@
               "buildTarget": "mdblist-hub:build:development"
             }
           },
-          "defaultConfiguration": "development"
+          "defaultConfiguration": "development",
+          "options": {
+            "proxyConfig": "proxy.config.json"
+          }
         }
       }
     }

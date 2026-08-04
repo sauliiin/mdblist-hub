@@ -33,7 +33,7 @@ export class MediaDetailService {
           tmdbReviews: this.tmdb.reviews(type, tmdbId),
         }).pipe(
           map(({ info, omdb, tmdbReviews }) =>
-            assemble(type, tmdbId, imdbId, tmdb, info, omdb.data, omdb.error, tmdbReviews),
+            assemble(type, tmdbId, imdbId, tmdb, info, omdb.data, tmdbReviews),
           ),
         );
       }),
@@ -48,12 +48,10 @@ function assemble(
   tmdb: TmdbDetail,
   info: MdbInfo | null,
   omdb: OmdbResponse | null,
-  omdbError: string | null,
   tmdbReviews: TmdbReview[],
 ): MediaDetail {
   const credits = tmdb.credits ?? tmdb.aggregate_credits;
   const crew = credits?.crew ?? [];
-  const warnings: string[] = [];
 
   // Reviews are merged from both sources rather than picked between, the way
   // embuary does it: TMDB first, then everything mdblist mirrors that TMDB did
@@ -63,10 +61,6 @@ function assemble(
     ...tmdbReviews.map(fromTmdb),
     ...(info?.reviews ?? []).map(fromMdblist),
   ]);
-
-  if (omdbError) {
-    warnings.push(`OMDb: ${omdbError}`);
-  }
 
   let ratings = toBadges(info?.ratings);
   if (!ratings.length) ratings = badgesFromOmdb(omdb);
@@ -106,7 +100,6 @@ function assemble(
     omdb,
     budget: tmdb.budget || info?.budget || null,
     revenue: tmdb.revenue || info?.revenue || null,
-    warnings,
   };
 }
 

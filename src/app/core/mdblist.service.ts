@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { Observable, catchError, map, of } from 'rxjs';
+import { Observable, catchError, forkJoin, map, of, switchMap } from 'rxjs';
 import { API } from './api.config';
 import { curate } from './list-catalog';
 import { MdbInfo, MdbItem, MdbList, MediaType } from './models';
@@ -14,9 +14,25 @@ export class MdblistService {
    * sorted alphabetically.
    */
   lists(): Observable<MdbList[]> {
+    return this.allLists().pipe(map(curate));
+  }
+
+  /**
+   * Every non-empty list, catalogued or not. The recommendations feed reads
+   * "Last Watched" through here, which `curate()` deliberately hides.
+   */
+  allLists(): Observable<MdbList[]> {
     return this.http
       .get<MdbList[]>(`${API.mdblist.base}/lists/user`, { params: { apikey: API.mdblist.key } })
-      .pipe(map((lists) => curate(lists.filter((l) => l.items > 0))));
+      .pipe(map((lists) => lists.filter((l) => l.items > 0)));
+  }
+
+  /** Looks a list up by its exact mdblist name, case-insensitively. */
+  listByName(name: string): Observable<MdbList | null> {
+    const needle = name.trim().toLowerCase();
+    return this.allLists().pipe(
+      map((lists) => lists.find((l) => l.name.trim().toLowerCase() === needle) ?? null),
+    );
   }
 
   /**
@@ -38,6 +54,35 @@ export class MdblistService {
         map((items) => (Array.isArray(items) ? items : [])),
         catchError(() => of([])),
       );
+  }
+
+  /**
+   * Every item across the curated lists, deduplicated. Backs the genre filter,
+   * which searches the user's own lists rather than the TMDB catalogue. The
+   * requests are cached by the HTTP interceptor, so switching genres after the
+   * first load hits no network.
+   */
+  allItems(perList = 200): Observable<MdbItem[]> {
+    return this.lists().pipe(
+      switchMap((lists) =>
+        lists.length
+          ? forkJoin(lists.map((list) => this.listItems(list.id, perList)))
+          : of<MdbItem[][]>([]),
+      ),
+      map((pages) => {
+        const seen = new Set<string>();
+        const items: MdbItem[] = [];
+
+        for (const item of pages.flat()) {
+          const key = `${item.mediatype}:${item.id}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          items.push(item);
+        }
+
+        return items;
+      }),
+    );
   }
 
   /**

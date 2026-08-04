@@ -59,7 +59,11 @@ h2 {
 .viewport {
   position: relative;
 
-  &:hover .nav:not(.hidden) { opacity: 1; }
+  &:hover .nav:not(.hidden) {
+    opacity: 1;
+
+    svg { animation: none; }
+  }
 }
 
 .track {
@@ -83,15 +87,24 @@ h2 {
   width: clamp(38px, 3.4vw, 54px);
   display: grid;
   place-items: center;
-  opacity: 0;
+  /* Visible at rest so the row reads as scrollable, full strength on hover. */
+  opacity: 0.72;
   transition: opacity 0.25s var(--ease), background 0.25s var(--ease);
   background: linear-gradient(to right, rgba(7, 8, 12, 0.94), rgba(7, 8, 12, 0));
 
   &.next {
     right: 0;
     background: linear-gradient(to left, rgba(7, 8, 12, 0.94), rgba(7, 8, 12, 0));
+
+    svg { animation: nudge-right 2.4s var(--ease) infinite; }
   }
-  &.prev { left: 0; }
+
+  &.prev {
+    left: 0;
+
+    svg { animation: nudge-left 2.4s var(--ease) infinite; }
+  }
+
   &.hidden { opacity: 0 !important; pointer-events: none; }
 
   svg {
@@ -99,14 +112,29 @@ h2 {
     height: 26px;
     fill: none;
     stroke: #fff;
-    stroke-width: 2.2;
+    stroke-width: 2.4;
     stroke-linecap: round;
     stroke-linejoin: round;
-    filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.8));
+    filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.85));
     transition: transform 0.25s var(--ease);
   }
 
   &:hover svg { transform: scale(1.25); }
+}
+
+/* A short hop every couple of seconds, then a long pause. */
+@keyframes nudge-right {
+  0%, 62%, 100% { transform: translateX(0); }
+  72% { transform: translateX(5px); }
+  82% { transform: translateX(0); }
+  90% { transform: translateX(3px); }
+}
+
+@keyframes nudge-left {
+  0%, 62%, 100% { transform: translateX(0); }
+  72% { transform: translateX(-5px); }
+  82% { transform: translateX(0); }
+  90% { transform: translateX(-3px); }
 }
 
 @media (hover: none) {
