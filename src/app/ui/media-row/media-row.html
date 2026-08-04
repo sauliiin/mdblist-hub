@@ -1,0 +1,59 @@
+<section class="row">
+  <header class="row-head">
+    <div class="heading">
+      <h2>{{ list().name }}</h2>
+      <span class="count">{{ list().items }}</span>
+    </div>
+    <div class="row-meta">
+      <span class="chip">{{ kindLabel() }}</span>
+      @if (list().dynamic) { <span class="chip accent">dinâmica</span> }
+    </div>
+  </header>
+
+  <div class="viewport">
+    <button
+      type="button"
+      class="nav prev"
+      [class.hidden]="atStart()"
+      (click)="scrollBy(-1)"
+      aria-label="Anterior">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" /></svg>
+    </button>
+
+    <div class="track" #track (scroll)="syncEdges()">
+      @if (loading()) {
+        @for (s of [1,2,3,4,5,6,7,8]; track $index) {
+          <div class="card-skeleton">
+            <div class="skeleton poster"></div>
+            <div class="skeleton line"></div>
+            <div class="skeleton line short"></div>
+          </div>
+        }
+      } @else {
+        @for (item of items(); track item.mediatype + item.id; let i = $index) {
+          <app-media-card [item]="item" [index]="ranked() ? i : null" />
+        } @empty {
+          <p class="empty">Nenhum item nesta lista.</p>
+        }
+
+        @if (loadingMore()) {
+          @for (s of [1,2,3]; track $index) {
+            <div class="card-skeleton">
+              <div class="skeleton poster"></div>
+              <div class="skeleton line"></div>
+            </div>
+          }
+        }
+      }
+    </div>
+
+    <button
+      type="button"
+      class="nav next"
+      [class.hidden]="atEnd()"
+      (click)="scrollBy(1)"
+      aria-label="Próximo">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7" /></svg>
+    </button>
+  </div>
+</section>

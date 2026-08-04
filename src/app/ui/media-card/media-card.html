@@ -1,0 +1,41 @@
+<a class="card" [routerLink]="link()" [attr.aria-label]="item().title">
+  <div class="poster">
+    @if (poster()) {
+      <img [src]="poster()" [alt]="item().title" loading="lazy" decoding="async" />
+    } @else {
+      <div class="poster-fallback">
+        <span>{{ item().title.charAt(0) }}</span>
+      </div>
+    }
+
+    <div class="scrim"></div>
+
+    @if (index() !== null) {
+      <span class="rank">{{ index()! + 1 }}</span>
+    }
+
+    <span class="type" [class.is-show]="item().mediatype === 'show'">
+      {{ item().mediatype === 'show' ? 'Série' : 'Filme' }}
+    </span>
+
+    <div class="hover">
+      <p class="hover-title">{{ item().title }}</p>
+      <div class="hover-meta">
+        @if (item().release_year) { <span>{{ item().release_year }}</span> }
+        @if (runtime()) { <span>{{ runtime() }}</span> }
+      </div>
+      @if (genres().length) {
+        <div class="hover-genres">
+          @for (g of genres(); track g) {
+            <span class="tag">{{ g }}</span>
+          }
+        </div>
+      }
+    </div>
+  </div>
+
+  <div class="caption">
+    <p class="title">{{ item().title }}</p>
+    <p class="sub">{{ item().release_year || '—' }}</p>
+  </div>
+</a>

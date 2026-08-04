@@ -1,0 +1,65 @@
+<app-hero />
+
+<div class="toolbar shell">
+  <div class="summary">
+    <strong>{{ lists().length }}</strong> listas
+    <span class="dot"></span>
+    <strong>{{ totalItems() | number }}</strong> títulos
+  </div>
+
+  <div class="controls">
+    <label class="search">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" />
+      </svg>
+      <input
+        type="search"
+        placeholder="Filtrar listas…"
+        [value]="query()"
+        (input)="onQuery($event)"
+        aria-label="Filtrar listas pelo nome" />
+    </label>
+
+    <div class="segmented" role="group" aria-label="Tipo de mídia">
+      <button type="button" [class.on]="filter() === 'all'" (click)="filter.set('all')">Tudo</button>
+      <button type="button" [class.on]="filter() === 'movie'" (click)="filter.set('movie')">Filmes</button>
+      <button type="button" [class.on]="filter() === 'show'" (click)="filter.set('show')">Séries</button>
+    </div>
+  </div>
+</div>
+
+<main class="rows">
+  @if (loading()) {
+    @for (s of [1, 2, 3]; track $index) {
+      <div class="row-placeholder">
+        <div class="skeleton head"></div>
+        <div class="posters">
+          @for (p of [1,2,3,4,5,6,7,8]; track $index) { <div class="skeleton poster"></div> }
+        </div>
+      </div>
+    }
+  } @else if (failed()) {
+    <div class="state shell">
+      <h2>Não foi possível carregar suas listas</h2>
+      <p>Verifique a chave da API do mdblist e sua conexão, depois recarregue a página.</p>
+    </div>
+  } @else {
+    @for (list of visible(); track list.id) {
+      @defer (on viewport; prefetch on idle) {
+        <app-media-row [list]="list" />
+      } @placeholder (minimum 100ms) {
+        <div class="row-placeholder">
+          <div class="skeleton head"></div>
+          <div class="posters">
+            @for (p of [1,2,3,4,5,6,7,8]; track $index) { <div class="skeleton poster"></div> }
+          </div>
+        </div>
+      }
+    } @empty {
+      <div class="state shell">
+        <h2>Nenhuma lista corresponde ao filtro</h2>
+        <p>Tente outro termo ou volte para “Tudo”.</p>
+      </div>
+    }
+  }
+</main>
