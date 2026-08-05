@@ -1,11 +1,12 @@
 import { DecimalPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { toObservable, toSignal } from '@angular/core/rxjs-interop';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import {
   Observable, debounceTime, distinctUntilChanged, forkJoin, map, of, switchMap, tap,
 } from 'rxjs';
 import { tmdbImg, upscalePoster } from '../../core/api.config';
+import { AuthService } from '../../core/auth.service';
 import { MdblistService } from '../../core/mdblist.service';
 import {
   GenreOption, GridItem, MdbItem, MdbList, TmdbKeyword, TmdbSearchResult, toTmdbType,
@@ -39,6 +40,8 @@ interface SearchOutcome {
 export class Home {
   private readonly mdblist = inject(MdblistService);
   private readonly tmdb = inject(TmdbService);
+  private readonly auth = inject(AuthService);
+  private readonly router = inject(Router);
 
   protected readonly lists = signal<MdbList[]>([]);
   protected readonly loading = signal(true);
@@ -186,6 +189,12 @@ export class Home {
   protected clearAll(): void {
     this.query.set('');
     this.genre.set('');
+  }
+
+  /** Way out of a key that stopped working mid-session. */
+  protected reauth(): void {
+    this.auth.signOut();
+    this.router.navigate(['/login']);
   }
 }
 

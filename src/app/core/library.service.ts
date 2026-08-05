@@ -1,7 +1,8 @@
 import { HttpClient } from '@angular/common/http';
-import { Injectable, inject } from '@angular/core';
+import { Injectable, effect, inject } from '@angular/core';
 import { Observable, catchError, forkJoin, map, of, tap } from 'rxjs';
 import { API } from './api.config';
+import { AuthService } from './auth.service';
 import { MediaType } from './models';
 
 /** The three mdblist buckets a title can belong to. */
@@ -49,6 +50,7 @@ const ROUTES: Record<Bucket, { read: string; add: string; remove: string }> = {
 @Injectable({ providedIn: 'root' })
 export class LibraryService {
   private readonly http = inject(HttpClient);
+  private readonly auth = inject(AuthService);
 
   /**
    * Membership sets keyed by TMDB id, filled on the first read and kept in
@@ -56,6 +58,14 @@ export class LibraryService {
    * the (interceptor-cached) lists after each toggle.
    */
   private readonly members = new Map<Bucket, Set<number>>();
+
+  constructor() {
+    // Another account has another watchlist, collection and history.
+    effect(() => {
+      this.auth.key();
+      this.members.clear();
+    });
+  }
 
   /** Whether the title is already in each bucket. */
   status(target: LibraryTarget): Observable<LibraryStatus> {
@@ -81,7 +91,7 @@ export class LibraryService {
 
     return this.http
       .post<unknown>(`${WRITE_BASE}${route}`, body, {
-        params: { apikey: API.mdblist.key },
+        params: { apikey: this.auth.key() },
       })
       .pipe(
         map(() => add),
@@ -99,7 +109,7 @@ export class LibraryService {
 
     return this.http
       .get<BucketResponse>(`${API.mdblist.base}${ROUTES[bucket].read}`, {
-        params: { apikey: API.mdblist.key },
+        params: { apikey: this.auth.key() },
       })
       .pipe(
         map((res) => {

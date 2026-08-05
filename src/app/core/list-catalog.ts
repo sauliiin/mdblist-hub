@@ -1,9 +1,11 @@
 import { MdbList } from './models';
 
 /**
- * The curated set of lists the site shows, keyed by their exact mdblist name
- * (lowercased) and mapped to a Portuguese label. Lists outside this map are
- * hidden, and rows are ordered alphabetically by the translated label.
+ * The curated set of lists the site shows **to the owner**, keyed by their
+ * exact mdblist name (lowercased) and mapped to a Portuguese label. Lists
+ * outside this map are hidden, and rows are ordered alphabetically by the
+ * translated label. Any other visitor sees every list they own instead, via
+ * `alphabetical()`.
  */
 const CATALOG: Record<string, string> = {
   'ação e aventura': 'Ação e Aventura',
@@ -35,6 +37,14 @@ export function curate(lists: MdbList[]): MdbList[] {
     .filter((list) => CATALOG[key(list)])
     .map((list) => ({ ...list, originalName: list.name, name: CATALOG[key(list)] }))
     .sort((a, b) => collator.compare(a.name, b.name));
+}
+
+/**
+ * The view for every other account: nothing hidden, nothing renamed — just
+ * their own lists in alphabetical order.
+ */
+export function alphabetical(lists: MdbList[]): MdbList[] {
+  return [...lists].sort((a, b) => collator.compare(a.name, b.name));
 }
 
 function key(list: MdbList): string {

@@ -2,28 +2,37 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, catchError, forkJoin, map, of, switchMap } from 'rxjs';
 import { API } from './api.config';
-import { curate } from './list-catalog';
+import { AuthService } from './auth.service';
+import { alphabetical, curate } from './list-catalog';
 import { MdbInfo, MdbItem, MdbList, MediaType } from './models';
 
 @Injectable({ providedIn: 'root' })
 export class MdblistService {
   private readonly http = inject(HttpClient);
+  private readonly auth = inject(AuthService);
 
   /**
-   * The curated lists: only the catalogued ones, renamed to Portuguese and
-   * sorted alphabetically.
+   * The lists the home page renders, for whoever is signed in. The owner gets
+   * the curated set — only the catalogued lists, renamed to Portuguese; every
+   * other account gets all of its own lists, alphabetically.
+   *
+   * The route guard resolves the profile before any page loads, so `isOwner()`
+   * is already settled by the time this runs.
    */
   lists(): Observable<MdbList[]> {
-    return this.allLists().pipe(map(curate));
+    return this.allLists().pipe(
+      map((lists) => (this.auth.isOwner() ? curate(lists) : alphabetical(lists))),
+    );
   }
 
   /**
-   * Every non-empty list, catalogued or not. The recommendations feed reads
-   * "Last Watched" through here, which `curate()` deliberately hides.
+   * Every non-empty list of the signed-in account, catalogued or not. The
+   * recommendations feed reads "Last Watched" through here, which `curate()`
+   * deliberately hides.
    */
   allLists(): Observable<MdbList[]> {
     return this.http
-      .get<MdbList[]>(`${API.mdblist.base}/lists/user`, { params: { apikey: API.mdblist.key } })
+      .get<MdbList[]>(`${API.mdblist.base}/lists/user`, { params: { apikey: this.auth.key() } })
       .pipe(map((lists) => lists.filter((l) => l.items > 0)));
   }
 
@@ -43,7 +52,7 @@ export class MdblistService {
     return this.http
       .get<MdbItem[]>(`${API.mdblist.base}/lists/${listId}/items`, {
         params: {
-          apikey: API.mdblist.key,
+          apikey: this.auth.key(),
           unified: 'true',
           append_to_response: 'poster,genre,ratings',
           limit,
@@ -93,7 +102,7 @@ export class MdblistService {
   info(type: MediaType, tmdbId: number): Observable<MdbInfo | null> {
     return this.http
       .get<MdbInfo>(`${API.mdblist.base}/tmdb/${type}/${tmdbId}`, {
-        params: { apikey: API.mdblist.key, append_to_response: 'review' },
+        params: { apikey: this.auth.key(), append_to_response: 'review' },
       })
       .pipe(catchError(() => of(null)));
   }

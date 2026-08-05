@@ -4,6 +4,9 @@ Um front-end em Angular para as suas listas do [mdblist](https://mdblist.com):
 todas as listas em fileiras horizontais e, ao clicar num título, uma página com
 elenco, notas de todos os agregadores, reviews e biografias vindas da Wikipedia.
 
+Você entra com a chave da API da sua própria conta do mdblist, e o site mostra
+as **suas** listas.
+
 Roda inteiramente no navegador — não há backend, banco de dados nem build de
 servidor. As quatro APIs usadas respondem com `Access-Control-Allow-Origin: *`.
 
@@ -32,19 +35,40 @@ em vez de depender do atalho `ng` — funciona com ou sem symlinks, inclusive no
 
 ### Configuração
 
-As chaves de API ficam em [`src/app/core/api.config.ts`](src/app/core/api.config.ts).
-As listas exibidas, seus nomes em português e a ordem estão em
+A chave do mdblist **não fica no código**: cada visitante entra com a sua na
+tela de login. As do TMDB e do OMDb, que são do app e não do usuário, ficam em
+[`src/app/core/api.config.ts`](src/app/core/api.config.ts).
+
+Esse mesmo arquivo tem a constante `OWNER_USERNAME`, que decide qual das duas
+visões a home mostra (veja [Login e as duas visões](#login-e-as-duas-visões)).
+As listas curadas, seus nomes em português e a ordem estão em
 [`src/app/core/list-catalog.ts`](src/app/core/list-catalog.ts) — para incluir
 outra lista, basta adicionar uma entrada com o nome exato dela no mdblist.
-
-> As chaves estão versionadas junto com o código. Se o repositório for público,
-> qualquer pessoa poderá ler **e escrever** na conta mdblist correspondente
-> (watchlist, coleção e histórico). Para evitar isso, mova o objeto `API` para um
-> arquivo fora do controle de versão.
 
 ---
 
 ## Funcionalidades
+
+### Login e as duas visões
+
+A primeira tela pede a chave da API do mdblist (ela está em
+[mdblist.com/preferences](https://mdblist.com/preferences/), na seção *API
+Key*). A chave é validada contra `GET /user` e guardada em `localStorage` — só
+no navegador, sem passar por servidor nenhum. Um guard de rota
+(`core/auth.guard.ts`) segura o app até essa checagem terminar, e leva de volta
+para a página que você tentou abrir depois de entrar.
+
+O `GET /user` também devolve o username, e é ele que escolhe a visão:
+
+| Quem entrou | O que a home mostra |
+| --- | --- |
+| A conta em `OWNER_USERNAME` | As listas curadas: só as catalogadas, com nome em português, em ordem alfabética |
+| Qualquer outra conta | **Todas** as listas dela, com o nome original, em ordem alfabética |
+
+Ou seja, a exclusão de listas do `list-catalog.ts` vale só para o dono do site;
+para as outras pessoas nada é escondido nem renomeado. O link "Minhas listas no
+mdblist" e as ações de watchlist/coleção/assistido seguem sempre a conta que
+está logada, e "Sair" limpa a chave e o cache HTTP.
 
 ### Home
 
@@ -176,10 +200,13 @@ Não é preciso `--base-href` aqui, porque o site fica na raiz do domínio.
 
 ### Aviso sobre as chaves
 
-O site publicado é uma página que roda no navegador de quem acessa: as chaves de
-API vão junto no JavaScript e ficam legíveis por qualquer visitante — isso vale
-mesmo com o repositório privado. Como a chave do mdblist permite **escrever** na
-sua conta, considere manter a URL restrita a você ou usar uma chave dedicada.
+O site publicado é uma página que roda no navegador de quem acessa: as chaves
+que estão no `api.config.ts` (TMDB e OMDb) vão junto no JavaScript e ficam
+legíveis por qualquer visitante — isso vale mesmo com o repositório privado.
+
+A do mdblist não: ela é digitada na tela de login e fica no `localStorage` de
+cada visitante. Como ela permite **escrever** na conta (watchlist, coleção,
+histórico), é por isso que ela não é embutida no bundle.
 
 ---
 
@@ -202,9 +229,10 @@ sua conta, considere manter a URL restrita a você ou usar uma chave dedicada.
 
 ```
 src/app/
-  core/       services, modelos, cache HTTP, normalização de notas
+  core/       services, modelos, cache HTTP, normalização de notas, sessão
   ui/         media-card, media-row (carrossel), rating-badges, person-modal
   features/
+    login/    chave da API do mdblist
     home/     destaque + fileiras + busca/gênero + "porque você assistiu"
     detail/   backdrop, notas, sinopse, elenco, reviews, recomendações
 ```

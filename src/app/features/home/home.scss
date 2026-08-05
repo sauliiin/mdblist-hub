@@ -304,6 +304,29 @@
 
   h2 { font-size: 20px; margin-bottom: 8px; }
   p { color: var(--text-dim); font-size: 14px; }
+
+  a {
+    color: var(--text);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+}
+
+.restate {
+  margin-top: 6px;
+  padding: 9px 18px;
+  border-radius: 99px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-dim);
+  font-size: 13.5px;
+  transition: color 0.25s var(--ease), border-color 0.25s var(--ease), background 0.25s var(--ease);
+
+  &:hover {
+    color: var(--text);
+    border-color: var(--border-strong);
+    background: var(--surface-strong);
+  }
 }
 
 @media (max-width: 620px) {

@@ -101,7 +101,8 @@
   } @else if (failed()) {
     <div class="state shell">
       <h2>Não foi possível carregar suas listas</h2>
-      <p>Verifique a chave da API do mdblist e sua conexão, depois recarregue a página.</p>
+      <p>Verifique sua conexão, ou entre de novo se a chave da API mudou.</p>
+      <button type="button" class="restate" (click)="reauth()">Entrar com outra chave</button>
     </div>
   } @else {
     @for (list of visible(); track list.id) {
@@ -117,8 +118,17 @@
       }
     } @empty {
       <div class="state shell">
-        <h2>Nenhuma lista corresponde ao filtro</h2>
-        <p>Volte para “Tudo” para ver todas as suas listas.</p>
+        @if (lists().length) {
+          <h2>Nenhuma lista corresponde ao filtro</h2>
+          <p>Volte para “Tudo” para ver todas as suas listas.</p>
+        } @else {
+          <h2>Sua conta ainda não tem listas</h2>
+          <p>
+            Crie uma no
+            <a href="https://mdblist.com" target="_blank" rel="noopener">mdblist</a>
+            e ela aparece aqui.
+          </p>
+        }
       </div>
     }
 

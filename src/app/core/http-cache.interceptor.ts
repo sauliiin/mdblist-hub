@@ -11,6 +11,12 @@ const cache = new Map<string, CacheEntry>();
 /** In-flight requests, so two rows asking for the same URL only hit the wire once. */
 const inFlight = new Map<string, Observable<HttpEvent<unknown>>>();
 
+/** Drops everything cached — used when the signed-in account changes. */
+export function clearHttpCache(): void {
+  cache.clear();
+  inFlight.clear();
+}
+
 /**
  * Caches GET responses in memory for 10 minutes and de-duplicates concurrent
  * identical requests. Navigating back to the home page is then instant instead

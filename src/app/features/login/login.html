@@ -1,0 +1,52 @@
+<main class="login">
+  <section class="card">
+    <img class="mark" src="mdblist.png" alt="" width="52" height="52" />
+
+    <h1>Entre com sua conta do mdblist</h1>
+    <p class="lead">
+      Suas listas, do jeito que estão no mdblist. Basta a chave da API — ela fica
+      salva só neste navegador e não passa por servidor nenhum.
+    </p>
+
+    <form (submit)="submit($event)">
+      <label class="field">
+        <span class="label">Chave da API</span>
+        <span class="input">
+          <input
+            [type]="revealed() ? 'text' : 'password'"
+            [value]="key()"
+            (input)="onKey($event)"
+            name="apikey"
+            autocomplete="off"
+            autocapitalize="off"
+            spellcheck="false"
+            placeholder="cole aqui sua chave"
+            [attr.aria-invalid]="error() ? 'true' : null"
+            aria-describedby="apikey-help" />
+          <button
+            type="button"
+            class="reveal"
+            (click)="revealed.set(!revealed())"
+            [attr.aria-label]="revealed() ? 'Ocultar a chave' : 'Mostrar a chave'">
+            {{ revealed() ? 'Ocultar' : 'Mostrar' }}
+          </button>
+        </span>
+      </label>
+
+      @if (error()) {
+        <p class="error" role="alert">{{ error() }}</p>
+      }
+
+      <button type="submit" class="submit" [disabled]="!key().trim() || busy()">
+        {{ busy() ? 'Entrando…' : 'Entrar' }}
+      </button>
+    </form>
+
+    <p class="help" id="apikey-help">
+      A chave está em
+      <a href="https://mdblist.com/preferences/" target="_blank" rel="noopener">mdblist.com/preferences</a>,
+      na seção <em>API Key</em>. Não tem conta?
+      <a href="https://mdblist.com" target="_blank" rel="noopener">Crie uma de graça</a>.
+    </p>
+  </section>
+</main>

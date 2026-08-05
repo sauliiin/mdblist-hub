@@ -11,6 +11,18 @@ export function toMediaType(tmdbType: string): MediaType {
 
 // ---------------------------------------------------------------- mdblist
 
+/** What `GET /user` answers — the account behind the API key. */
+export interface MdbUser {
+  user_id: number;
+  username: string;
+  name: string | null;
+  avatar_url: string | null;
+  patron_status?: string;
+  plan?: string;
+  api_requests?: number;
+  api_requests_count?: number;
+}
+
 export interface MdbList {
   id: number;
   /** Portuguese label once the list passes through `curate()`. */
