@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { Observable } from 'rxjs';
 import { AddonsService } from '../../core/stremio/addons.service';
-import { InstalledAddon, ManifestResource } from '../../core/stremio/models';
+import { ImportReport, InstalledAddon, ManifestResource } from '../../core/stremio/models';
 import { StremioAccountService } from '../../core/stremio/stremio-account.service';
 
 /** Addons worth pointing people at, with what each one is for. */
@@ -41,7 +41,7 @@ export class Addons {
   protected readonly password = signal('');
   protected readonly syncing = signal(false);
   protected readonly syncError = signal<string | null>(null);
-  protected readonly synced = signal<number | null>(null);
+  protected readonly report = signal<ImportReport | null>(null);
 
   /**
    * All four source addons hand out a per-user URL at their own configuration
@@ -163,19 +163,19 @@ export class Addons {
 
   protected signOut(): void {
     this.stremio.logout().subscribe();
-    this.synced.set(null);
+    this.report.set(null);
     this.syncError.set(null);
   }
 
-  private run(request: Observable<number>, onDone?: () => void): void {
+  private run(request: Observable<ImportReport>, onDone?: () => void): void {
     this.syncing.set(true);
     this.syncError.set(null);
-    this.synced.set(null);
+    this.report.set(null);
 
     request.subscribe({
-      next: (count) => {
+      next: (report) => {
         this.syncing.set(false);
-        this.synced.set(count);
+        this.report.set(report);
         onDone?.();
       },
       error: (err: Error) => {

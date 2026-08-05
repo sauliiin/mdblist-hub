@@ -37,6 +37,9 @@ export class VideoPlayer {
   readonly subtitleLabel = input<string>('Legenda');
   readonly subtitleLang = input<string>('pt');
   readonly theater = input(false);
+  /** Shown over the top edge in fullscreen, where the page header is gone. */
+  readonly mediaTitle = input<string>('');
+  readonly mediaSubtitle = input<string | null>(null);
 
   readonly theaterChange = output<boolean>();
   readonly playbackError = output<void>();

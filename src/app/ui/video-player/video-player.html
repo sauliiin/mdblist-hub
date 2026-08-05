@@ -30,6 +30,16 @@
   <!-- Click target over the video, so the controls below stay clickable. -->
   <div class="curtain" (click)="togglePlay()" (dblclick)="toggleFullscreen()"></div>
 
+  <!-- Only rendered in fullscreen, where the page's own header is gone. -->
+  @if (mediaTitle()) {
+    <div class="titlebar" [class.hidden]="playing() && !controls()">
+      <p class="title">{{ mediaTitle() }}</p>
+      @if (mediaSubtitle(); as sub) {
+        <p class="subtitle">{{ sub }}</p>
+      }
+    </div>
+  }
+
   @if (waiting()) {
     <div class="spinner" aria-label="Carregando"></div>
   }

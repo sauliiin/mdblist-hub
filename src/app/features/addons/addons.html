@@ -59,10 +59,51 @@
     @if (syncError()) {
       <p class="error" role="alert">{{ syncError() }}</p>
     }
-    @if (synced() !== null) {
+    @if (report(); as r) {
       <p class="ok" role="status">
-        {{ synced() }} addon(s) importado(s) da sua conta Stremio.
+        {{ r.imported.length }} de {{ r.received }} addon(s) da sua conta importado(s).
       </p>
+
+      @if (r.imported.length) {
+        <p class="report">Vieram: {{ r.imported.join(', ') }}.</p>
+      }
+
+      @if (r.skipped.length) {
+        <div class="warn">
+          <p>Não deu para importar {{ r.skipped.length }}:</p>
+          <ul>
+            @for (s of r.skipped; track s.url + s.name) {
+              <li><strong>{{ s.name }}</strong> — {{ s.reason }}</li>
+            }
+          </ul>
+        </div>
+      }
+
+      @if (!r.received) {
+        <p class="report">
+          A conta respondeu sem nenhum addon. Se você instalou pelo app do Stremio sem estar
+          logado, a coleção fica só naquele aparelho e não sobe para a conta.
+        </p>
+      }
+
+      @if (r.entries.length) {
+        <details class="raw">
+          <summary>O que a API do Stremio respondeu ({{ r.entries.length }})</summary>
+          <p class="report">
+            Esta é a coleção da sua conta, sem filtro nenhum. Se um addon que você instalou no
+            Stremio não estiver nesta lista, ele não chegou à conta — normalmente porque o app
+            estava deslogado quando você o adicionou, ou o Stremio ainda não subiu a alteração.
+          </p>
+          <ol>
+            @for (e of r.entries; track e.url) {
+              <li>
+                <strong>{{ e.name }}</strong>
+                <span class="raw-url">{{ e.url }}</span>
+              </li>
+            }
+          </ol>
+        </details>
+      }
     }
   </section>
 

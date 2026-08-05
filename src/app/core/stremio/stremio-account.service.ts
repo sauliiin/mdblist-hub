@@ -3,7 +3,7 @@ import { Injectable, inject, signal } from '@angular/core';
 import { Observable, catchError, map, of, switchMap, tap, throwError } from 'rxjs';
 import { noCache } from '../http-cache.interceptor';
 import { AddonsService } from './addons.service';
-import { StremioManifest } from './models';
+import { ImportReport, StremioManifest } from './models';
 
 const API = 'https://api.strem.io/api';
 const STORAGE_KEY = 'mdblist-hub.stremio';
@@ -23,7 +23,7 @@ interface LoginResult {
 }
 
 interface CollectionResult {
-  addons?: { transportUrl: string; manifest: StremioManifest }[];
+  addons?: { transportUrl?: string; manifest?: StremioManifest }[];
 }
 
 /** The stored session — the key the API hands back, never the password. */
@@ -53,8 +53,8 @@ export class StremioAccountService {
 
   readonly account = this.session.asReadonly();
 
-  /** Signs in and immediately imports the collection, answering how many came. */
-  login(email: string, password: string): Observable<number> {
+  /** Signs in and immediately imports the collection. */
+  login(email: string, password: string): Observable<ImportReport> {
     return this.post<LoginResult>('login', {
       type: 'Login',
       email: email.trim(),
@@ -69,15 +69,16 @@ export class StremioAccountService {
   }
 
   /** Re-reads the collection for the session already stored. */
-  sync(): Observable<number> {
+  sync(): Observable<ImportReport> {
     const session = this.session();
     if (!session) return throwError(() => new Error('Entre na sua conta Stremio primeiro.'));
 
     return this.post<CollectionResult>('addonCollectionGet', {
       type: 'AddonCollectionGet',
       authKey: session.authKey,
-      // Asks the API to refresh each manifest before answering, so a
-      // reconfigured addon arrives configured.
+      // What the official client sends. Without it the API can answer from a
+      // stored snapshot, so an addon added in Stremio minutes ago never shows
+      // up here — which is exactly the failure this flag was tried against.
       update: true,
     }).pipe(
       map((result) => this.addons.importCollection(result.addons ?? [])),

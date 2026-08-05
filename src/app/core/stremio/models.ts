@@ -75,6 +75,29 @@ export interface StremioSubtitle {
   SubEncoding?: string;
 }
 
+/**
+ * What an import from a Stremio account actually did.
+ *
+ * A bare count hides the interesting half: an addon that the account has but
+ * that never lands here is exactly the case worth reporting, and it needs a
+ * reason attached to be actionable.
+ */
+export interface ImportReport {
+  /** Entries the API returned. */
+  received: number;
+  /** Names of the addons that landed. */
+  imported: string[];
+  skipped: { name: string; url: string; reason: string }[];
+  /**
+   * Every entry the API answered with, untouched.
+   *
+   * This is the ground truth for "I added it in Stremio and it did not come":
+   * if an addon is missing here, it never reached the account, and no amount
+   * of fixing on this side would produce it.
+   */
+  entries: { name: string; url: string }[];
+}
+
 /** An addon the visitor added, kept in `localStorage`. */
 export interface InstalledAddon {
   /** Transport URL with `/manifest.json` stripped, no trailing slash. */

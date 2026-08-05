@@ -23,6 +23,8 @@
             [subtitleLabel]="subtitle()?.label ?? 'Legenda'"
             [subtitleLang]="subtitle()?.srclang ?? 'pt'"
             [theater]="theater()"
+            [mediaTitle]="d.title"
+            [mediaSubtitle]="episodeLabel()"
             (theaterChange)="theater.set($event)"
             (playbackError)="onPlaybackError()" />
 

@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Observable, catchError, map, throwError } from 'rxjs';
 import {
-  InstalledAddon, StremioManifest, StremioType, normaliseAddonUrl, serves,
+  ImportReport, InstalledAddon, StremioManifest, StremioType, normaliseAddonUrl, serves,
 } from './models';
 
 const STORAGE_KEY = 'mdblist-hub.addons';
@@ -84,19 +84,33 @@ export class AddonsService {
    * which also means an addon whose host is momentarily down still imports.
    * Merging rather than replacing keeps addons added by hand on this browser.
    */
-  importCollection(entries: { transportUrl: string; manifest: StremioManifest }[]): number {
+  importCollection(
+    entries: { transportUrl?: string; manifest?: StremioManifest }[],
+  ): ImportReport {
     const imported: InstalledAddon[] = [];
+    const skipped: ImportReport['skipped'] = [];
 
     for (const entry of entries) {
-      if (!entry?.transportUrl || !entry?.manifest?.id) continue;
+      const url = entry?.transportUrl ?? '';
+      const name = entry?.manifest?.name || url || 'addon sem nome';
+
+      if (!url) {
+        skipped.push({ name, url, reason: 'a conta não guardou a URL deste addon' });
+        continue;
+      }
+      if (!entry?.manifest?.id) {
+        skipped.push({ name, url, reason: 'o manifest veio sem id' });
+        continue;
+      }
+
       try {
         imported.push({
-          base: normaliseAddonUrl(entry.transportUrl),
+          base: normaliseAddonUrl(url),
           manifest: entry.manifest,
           addedAt: new Date().toISOString(),
         });
       } catch {
-        // A transport URL we cannot parse — skip it rather than lose the rest.
+        skipped.push({ name, url, reason: 'URL que não dá para interpretar' });
       }
     }
 
@@ -104,7 +118,15 @@ export class AddonsService {
     this.addons.update((list) => [...list.filter((a) => !bases.has(a.base)), ...imported]);
     this.persist();
 
-    return imported.length;
+    return {
+      received: entries.length,
+      imported: imported.map((a) => a.manifest.name),
+      skipped,
+      entries: entries.map((e) => ({
+        name: e?.manifest?.name || '(sem nome)',
+        url: e?.transportUrl || '(sem URL)',
+      })),
+    };
   }
 
   remove(base: string): void {
