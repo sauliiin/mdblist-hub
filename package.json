@@ -2,11 +2,11 @@
   "name": "mdblist-hub",
   "version": "1.0.0",
   "scripts": {
-    "ng": "ng",
-    "start": "ng serve",
-    "build": "ng build",
-    "watch": "ng build --watch --configuration development",
-    "test": "ng test"
+    "ng": "node node_modules/@angular/cli/bin/ng.js",
+    "start": "node node_modules/@angular/cli/bin/ng.js serve",
+    "build": "node node_modules/@angular/cli/bin/ng.js build",
+    "watch": "node node_modules/@angular/cli/bin/ng.js build --watch --configuration development",
+    "test": "node node_modules/@angular/cli/bin/ng.js test"
   },
   "private": true,
   "packageManager": "npm@12.0.2",
