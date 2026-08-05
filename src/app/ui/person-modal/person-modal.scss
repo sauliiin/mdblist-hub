@@ -192,11 +192,12 @@ h3 {
 
 .known { margin-top: 30px; }
 
+/* Layout now lives in ScrollTrack; this only sets its item spacing. */
 .credits {
-  display: flex;
-  gap: 12px;
-  overflow-x: auto;
-  padding-bottom: 8px;
+  display: block;
+  --track-gap: 12px;
+  /* Matches the panel's own background so the arrow fade blends in. */
+  --track-fade: #0d0f16;
 }
 
 .credit {

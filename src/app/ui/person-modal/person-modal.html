@@ -76,7 +76,7 @@
       @if (knownFor().length) {
         <section class="known">
           <h3>Mais conhecido por</h3>
-          <div class="credits">
+          <app-scroll-track class="credits">
             @for (credit of knownFor(); track credit.media_type + credit.id) {
               <a class="credit" [routerLink]="creditLink(credit)" (click)="close()">
                 <img [src]="creditPoster(credit)" [alt]="creditTitle(credit)" loading="lazy" />
@@ -87,7 +87,7 @@
                 <span class="credit-year">{{ creditYear(credit) }}</span>
               </a>
             }
-          </div>
+          </app-scroll-track>
         </section>
       }
     </div>

@@ -2,11 +2,13 @@ import { DecimalPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
-import { Observable, debounceTime, distinctUntilChanged, map, of, switchMap, tap } from 'rxjs';
+import {
+  Observable, debounceTime, distinctUntilChanged, forkJoin, map, of, switchMap, tap,
+} from 'rxjs';
 import { tmdbImg, upscalePoster } from '../../core/api.config';
 import { MdblistService } from '../../core/mdblist.service';
 import {
-  GenreOption, GridItem, MdbItem, MdbList, TmdbSearchResult, toTmdbType,
+  GenreOption, GridItem, MdbItem, MdbList, TmdbKeyword, TmdbSearchResult, toTmdbType,
 } from '../../core/models';
 import { TmdbService } from '../../core/tmdb.service';
 import { MediaRow } from '../../ui/media-row/media-row';
@@ -19,6 +21,12 @@ interface Criteria {
   query: string;
   genre: string;
   kind: Filter;
+}
+
+/** Text search results plus, when the query also matched a TMDB keyword tag. */
+interface SearchOutcome {
+  items: GridItem[];
+  keyword: string | null;
 }
 
 @Component({
@@ -56,7 +64,7 @@ export class Home {
     kind: this.filter(),
   }));
 
-  protected readonly results = toSignal(
+  private readonly outcome = toSignal(
     toObservable(this.criteria).pipe(
       debounceTime(300),
       distinctUntilChanged(
@@ -66,8 +74,12 @@ export class Home {
       switchMap((c) => this.fetch(c)),
       tap(() => this.searching.set(false)),
     ),
-    { initialValue: [] as GridItem[] },
+    { initialValue: { items: [], keyword: null } as SearchOutcome },
   );
+
+  protected readonly results = computed(() => this.outcome().items);
+  /** The keyword tag the query also matched, e.g. "zombie" — null otherwise. */
+  protected readonly matchedKeyword = computed(() => this.outcome().keyword);
 
   /** The grid also honours the Filmes/Séries toggle. */
   protected readonly visibleResults = computed(() => {
@@ -112,29 +124,55 @@ export class Home {
   /**
    * A genre always means "inside my lists" — it scans every curated list and
    * matches mdblist's own genre tags, narrowed further by the text if any.
-   * Text on its own searches the whole TMDB catalogue instead.
+   *
+   * Plain text searches the TMDB catalogue two ways at once: by title, and by
+   * matching a TMDB keyword tag (e.g. "zombie", "time travel", "female
+   * assassin") — which additionally surfaces titles that never mention the
+   * word but are thematically tagged with it. Keyword tags are English-only
+   * and matched by TMDB's own fuzzy index, so a Portuguese phrase typically
+   * won't hit one unless it happens to coincide with an English tag.
    */
-  private fetch(criteria: Criteria): Observable<GridItem[]> {
+  private fetch(criteria: Criteria): Observable<SearchOutcome> {
     if (criteria.genre) {
       const slug = this.genres().find((g) => g.name === criteria.genre)?.slug;
-      if (!slug) return of([]);
+      if (!slug) return of({ items: [], keyword: null });
       const needle = criteria.query.toLowerCase();
 
       return this.mdblist.allItems().pipe(
-        map((items) =>
-          items
+        map((items) => ({
+          items: items
             .filter((item) => (item.genre ?? []).includes(slug))
             .filter((item) => !needle || item.title.toLowerCase().includes(needle))
             .map(fromMdbItem),
-        ),
+          keyword: null,
+        })),
       );
     }
 
     if (criteria.query.length >= 2) {
-      return this.tmdb.search(criteria.query).pipe(map((results) => results.map(fromTmdb)));
+      return forkJoin({
+        titles: this.tmdb.search(criteria.query),
+        keywords: this.tmdb.searchKeywords(criteria.query),
+      }).pipe(
+        switchMap(({ titles, keywords }) => {
+          const keyword = bestKeyword(keywords, criteria.query);
+          if (!keyword) return of({ titles, keyword: null as TmdbKeyword | null });
+
+          return forkJoin([
+            this.tmdb.discoverByKeyword('movie', keyword.id),
+            this.tmdb.discoverByKeyword('tv', keyword.id),
+          ]).pipe(
+            map(([movies, shows]) => ({ titles: [...titles, ...movies, ...shows], keyword })),
+          );
+        }),
+        map(({ titles, keyword }) => ({
+          items: dedupeResults(titles).map(fromTmdb),
+          keyword: keyword?.name ?? null,
+        })),
+      );
     }
 
-    return of([]);
+    return of({ items: [], keyword: null });
   }
 
   protected onQuery(event: Event): void {
@@ -149,6 +187,27 @@ export class Home {
     this.query.set('');
     this.genre.set('');
   }
+}
+
+/** Prefers an exact (case-insensitive) tag name over TMDB's fuzzy top hit. */
+function bestKeyword(keywords: TmdbKeyword[], query: string): TmdbKeyword | null {
+  if (!keywords.length) return null;
+  const needle = query.trim().toLowerCase();
+  return keywords.find((k) => k.name.toLowerCase() === needle) ?? keywords[0];
+}
+
+function dedupeResults(results: TmdbSearchResult[]): TmdbSearchResult[] {
+  const seen = new Set<string>();
+  const unique: TmdbSearchResult[] = [];
+
+  for (const result of results) {
+    const key = `${result.media_type}:${result.id}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    unique.push(result);
+  }
+
+  return unique;
 }
 
 function fromMdbItem(item: MdbItem): GridItem {

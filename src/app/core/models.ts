@@ -217,6 +217,11 @@ export interface GridItem {
   vote: number | null;
 }
 
+export interface TmdbKeyword {
+  id: number;
+  name: string;
+}
+
 export interface TmdbSearchResult {
   id: number;
   media_type: string;

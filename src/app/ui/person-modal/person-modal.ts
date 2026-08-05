@@ -8,10 +8,11 @@ import { tmdbImg } from '../../core/api.config';
 import { TmdbPerson, TmdbPersonCredit } from '../../core/models';
 import { TmdbService } from '../../core/tmdb.service';
 import { WikiBio, WikipediaService } from '../../core/wikipedia.service';
+import { ScrollTrack } from '../scroll-track/scroll-track';
 
 @Component({
   selector: 'app-person-modal',
-  imports: [DatePipe, RouterLink],
+  imports: [DatePipe, RouterLink, ScrollTrack],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './person-modal.html',
   styleUrl: './person-modal.scss',

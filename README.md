@@ -51,7 +51,13 @@ outra lista, basta adicionar uma entrada com o nome exato dela no mdblist.
 - **Destaque** sorteado entre as suas listas, com botão para re-sortear.
 - **Fileiras** — uma por lista, carregadas só quando entram na tela (`@defer`),
   paginando de 30 em 30 conforme você rola para o lado.
-- **Busca por texto** — procura no catálogo completo do TMDB.
+- **Busca por texto e por tema** — procura no catálogo completo do TMDB, por
+  título e, ao mesmo tempo, pela tag de palavra-chave do TMDB (`zombie`,
+  `time travel`, `female assassin`...). Isso traz títulos que nunca mencionam a
+  palavra mas são tematicamente marcados com ela — buscar “zombie” encontra
+  também “Guerra Mundial Z”, por exemplo. As tags são só em inglês, então um
+  termo em português só entra nessa busca temática se coincidir com uma tag
+  (nomes de título em português continuam funcionando normalmente).
 - **Filtro por gênero** — procura **dentro das suas listas**, não no TMDB: varre
   todas as listas catalogadas e casa com as tags de gênero do próprio mdblist.
   Com um gênero ativo, o texto digitado vira um filtro de título dentro dele.
@@ -68,6 +74,17 @@ trailer e ficha técnica. Além disso:
   nascimento, idade, local e os trabalhos mais conhecidos.
 - **Ações do mdblist** — adicionar à watchlist, à coleção e marcar como
   assistido, com o estado atual já refletido no botão.
+
+As tiras horizontais (elenco, e "mais conhecido por" no perfil do ator) têm
+setas de navegação com uma leve animação de "pulinho" para indicar que dá pra
+rolar — mesmo componente (`ui/scroll-track`) usado nas fileiras da home.
+
+## Mobile
+
+O layout é fluido (unidades `clamp()`/`min()`/`vw`, grades que se reorganizam
+sozinhas) e recebeu uma checagem dedicada em viewport de celular: busca e
+filtros empilham em colunas de largura cheia, a página do título reflui para
+uma coluna, e a ficha técnica desce para depois do conteúdo principal.
 
 ---
 

@@ -3,8 +3,8 @@ import { Injectable, inject } from '@angular/core';
 import { Observable, catchError, forkJoin, map, of } from 'rxjs';
 import { API } from './api.config';
 import {
-  GenreOption, MediaType, TmdbDetail, TmdbGenre, TmdbPerson, TmdbReview, TmdbSearchResult,
-  toTmdbType,
+  GenreOption, MediaType, TmdbDetail, TmdbGenre, TmdbKeyword, TmdbPerson, TmdbReview,
+  TmdbSearchResult, toTmdbType,
 } from './models';
 
 @Injectable({ providedIn: 'root' })
@@ -97,6 +97,21 @@ export class TmdbService {
 
   /** Browses a whole genre, most popular first. */
   discover(tmdbType: 'movie' | 'tv', genreId: number): Observable<TmdbSearchResult[]> {
+    return this.discoverBy(tmdbType, { with_genres: genreId });
+  }
+
+  /**
+   * Titles tagged with a thematic keyword (e.g. "zombie", "female assassin"),
+   * as opposed to genre or free-text search.
+   */
+  discoverByKeyword(tmdbType: 'movie' | 'tv', keywordId: number): Observable<TmdbSearchResult[]> {
+    return this.discoverBy(tmdbType, { with_keywords: keywordId });
+  }
+
+  private discoverBy(
+    tmdbType: 'movie' | 'tv',
+    filter: Record<string, number>,
+  ): Observable<TmdbSearchResult[]> {
     return this.http
       .get<{ results: TmdbSearchResult[] }>(`${API.tmdb.base}/discover/${tmdbType}`, {
         params: {
@@ -105,12 +120,29 @@ export class TmdbService {
           include_adult: 'false',
           sort_by: 'popularity.desc',
           'vote_count.gte': 40,
-          with_genres: genreId,
+          ...filter,
         },
       })
       .pipe(
         // `discover` omits media_type; the endpoint already tells us what it is.
         map((res) => (res.results ?? []).map((r) => ({ ...r, media_type: tmdbType }))),
+        catchError(() => of([])),
+      );
+  }
+
+  /**
+   * Looks up TMDB's keyword tags (e.g. "zombie", "time travel", "female
+   * assassin"). These are English-only and matched by TMDB's own fuzzy text
+   * index — a Portuguese phrase typically won't hit unless it happens to
+   * coincide with an English tag.
+   */
+  searchKeywords(query: string): Observable<TmdbKeyword[]> {
+    return this.http
+      .get<{ results: TmdbKeyword[] }>(`${API.tmdb.base}/search/keyword`, {
+        params: { api_key: API.tmdb.key, query },
+      })
+      .pipe(
+        map((res) => res.results ?? []),
         catchError(() => of([])),
       );
   }

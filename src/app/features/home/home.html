@@ -22,10 +22,10 @@
       </svg>
       <input
         type="text"
-        placeholder="Buscar filmes ou séries…"
+        placeholder="Buscar por título ou tema (zombie, viagem no tempo…)"
         [value]="query()"
         (input)="onQuery($event)"
-        aria-label="Buscar filmes ou séries" />
+        aria-label="Buscar por título ou palavra-chave" />
     </label>
 
     <label class="genre">
@@ -59,6 +59,11 @@
         }
       </div>
     } @else if (visibleResults().length) {
+      @if (matchedKeyword()) {
+        <p class="keyword-hint shell">
+          Também buscando pelo tema <strong>{{ matchedKeyword() }}</strong>
+        </p>
+      }
       <div class="results shell">
         @for (result of visibleResults(); track result.key) {
           <a class="result" [routerLink]="['/title', result.tmdbType, result.id]">

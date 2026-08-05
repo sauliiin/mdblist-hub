@@ -12,10 +12,11 @@ import {
 } from '../../core/models';
 import { PersonModal } from '../../ui/person-modal/person-modal';
 import { RatingBadges } from '../../ui/rating-badges/rating-badges';
+import { ScrollTrack } from '../../ui/scroll-track/scroll-track';
 
 @Component({
   selector: 'app-detail',
-  imports: [DatePipe, DecimalPipe, RouterLink, PersonModal, RatingBadges],
+  imports: [DatePipe, DecimalPipe, RouterLink, PersonModal, RatingBadges, ScrollTrack],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './detail.html',
   styleUrl: './detail.scss',

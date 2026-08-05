@@ -204,6 +204,17 @@
 
 /* ---------------------------------------------------- search results */
 
+.keyword-hint {
+  margin: 0 0 16px;
+  font-size: 13px;
+  color: var(--text-dim);
+
+  strong {
+    color: #cbbcff;
+    text-transform: capitalize;
+  }
+}
+
 .results {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
@@ -297,8 +308,30 @@
 
 @media (max-width: 620px) {
   .toolbar { align-items: stretch; }
-  .controls { width: 100%; }
-  .search { flex: 1; input { width: 100%; } }
+
+  /* Cramming search + genre + clear + segmented onto shared rows squeezes the
+     search input down to a few visible characters; stacking each control as
+     its own full-width row keeps them all usable with a thumb. */
+  .controls {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .search,
+  .search input,
+  .genre,
+  .genre select {
+    width: 100%;
+  }
+
+  .clear-all { align-self: flex-start; }
+
+  .segmented {
+    width: 100%;
+    button { flex: 1; }
+  }
 }
 
 .feed-anchor { height: 320px; }
