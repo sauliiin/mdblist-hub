@@ -329,6 +329,19 @@
   }
 }
 
+@media (max-width: 860px) {
+  /* The row of counts is desk furniture; the toolbar is for reaching controls. */
+  .summary { display: none; }
+
+  .toolbar { padding-block: 0 18px; }
+
+  /* Every control gets a 44px box — below that a thumb misses as often as it hits. */
+  .search { height: 46px; }
+  .genre select { height: 46px; }
+
+  .segmented button { padding: 9px 16px; min-height: 40px; }
+}
+
 @media (max-width: 620px) {
   .toolbar { align-items: stretch; }
 

@@ -7,8 +7,10 @@
 
     <nav class="links">
       @if (user(); as account) {
-        <a routerLink="/addons" routerLinkActive="on">Addons</a>
-        <a [href]="listsUrl()" target="_blank" rel="noopener">Minhas listas no mdblist</a>
+        <a class="nav-link" routerLink="/addons" routerLinkActive="on">Addons</a>
+        <a class="nav-link" [href]="listsUrl()" target="_blank" rel="noopener">
+          Minhas listas no mdblist
+        </a>
 
         <span class="account" [title]="'@' + account.username">
           @if (account.avatar_url && !avatarBroken()) {
@@ -34,6 +36,8 @@
 </header>
 
 <router-outlet />
+
+<app-bottom-nav />
 
 <footer class="foot shell">
   <p>

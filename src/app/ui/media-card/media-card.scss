@@ -189,3 +189,50 @@
   color: var(--text-faint);
   font-variant-numeric: tabular-nums;
 }
+
+/*
+ * Touch devices.
+ *
+ * The hover panel is the problem here, not the size: on touch, `:hover` latches
+ * after a tap and the overlay stays open over the artwork until something else
+ * is touched. So the panel is dropped entirely and the tile answers a finger
+ * with a press instead — the same trade the skin makes, where focus scales the
+ * tile rather than revealing a layer.
+ */
+@media (pointer: coarse) {
+  .card {
+    &:hover,
+    &:focus-visible {
+      transform: none;
+
+      img { transform: none; }
+      .hover { opacity: 0; }
+      .scrim { opacity: 0; }
+    }
+
+    /* The skin scales the focused tile up; touch has no focus, so press down. */
+    &:active {
+      transform: scale(0.955);
+
+      .poster {
+        border-color: rgba(124, 92, 255, 0.45);
+        box-shadow: var(--shadow-lift);
+      }
+    }
+  }
+
+  .hover { display: none; }
+}
+
+@media (max-width: 860px) {
+  .card { width: var(--card-w, 132px); }
+
+  .caption { padding-top: 8px; }
+
+  .title { font-size: 12px; }
+  .sub { font-size: 10.5px; }
+
+  /* Badges shrink with the tile, or they eat the poster. */
+  .type { font-size: 9.5px; padding: 3px 7px; }
+  .rank { font-size: 12px; }
+}

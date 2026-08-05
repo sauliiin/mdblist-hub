@@ -1,0 +1,42 @@
+:host {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 70;
+  display: block;
+
+  &[hidden] { display: none; }
+}
+
+.tabs {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  /* The gesture bar sits below this; without the inset the tabs land on it. */
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  background: rgba(8, 9, 14, 0.92);
+  backdrop-filter: blur(20px) saturate(150%);
+  border-top: 1px solid var(--border);
+
+  a {
+    display: grid;
+    justify-items: center;
+    gap: 3px;
+    /* 56px clears Android's 48dp minimum with room to spare. */
+    min-height: 56px;
+    padding: 9px 4px 8px;
+    color: var(--text-faint);
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    text-decoration: none;
+    transition: color 0.2s var(--ease);
+
+    svg { width: 23px; height: 23px; fill: currentColor; }
+
+    /* Touch has no hover, so the pressed state is the only feedback there is. */
+    &:active { color: var(--text-dim); }
+    &.on { color: var(--accent); }
+  }
+}

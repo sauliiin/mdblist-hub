@@ -63,7 +63,7 @@
               </a>
             }
             @if (d.trailerKey) {
-              <button type="button" class="btn ghost" (click)="trailerOpen.set(true)">
+              <button type="button" class="btn ghost" (click)="openTrailer()">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg>
                 Trailer
               </button>
@@ -267,7 +267,7 @@
 
   <!-- --------------------------------------------------- trailer -->
   @if (trailerOpen() && d.trailerKey) {
-    <div class="lightbox" (click)="trailerOpen.set(false)">
+    <div #lightbox class="lightbox" (click)="closeTrailer()">
       <button type="button" class="close" aria-label="Fechar">✕</button>
       <div class="frame" (click)="$event.stopPropagation()">
         <iframe

@@ -1,6 +1,6 @@
 import { Location } from '@angular/common';
 import {
-  ChangeDetectionStrategy, Component, DestroyRef, computed, inject, input, signal,
+  ChangeDetectionStrategy, Component, DestroyRef, computed, effect, inject, input, signal,
 } from '@angular/core';
 import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -11,7 +11,9 @@ import { AddonsService } from '../../core/stremio/addons.service';
 import {
   PlayableStream, StreamQuery, SubtitleOption, stremioId, toStremioType,
 } from '../../core/stremio/models';
+import { PlatformService } from '../../core/platform.service';
 import { ScrobbleTarget } from '../../core/scrobble/models';
+import { TvService } from '../../core/tv/tv.service';
 import { ScrobbleService } from '../../core/scrobble/scrobble.service';
 import { StremioService } from '../../core/stremio/stremio.service';
 import { TmdbService } from '../../core/tmdb.service';
@@ -39,6 +41,8 @@ export class Player {
   private readonly tmdb = inject(TmdbService);
   private readonly addons = inject(AddonsService);
   private readonly scrobble = inject(ScrobbleService);
+  private readonly tv = inject(TvService);
+  private readonly platform = inject(PlatformService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly location = inject(Location);
@@ -53,6 +57,16 @@ export class Player {
 
   /** Theater mode drops the source list below the video instead of beside it. */
   protected readonly theater = signal(false);
+
+  /**
+   * On a television and on a phone, picking a source is a decision to watch —
+   * so playback opens fullscreen straight away. A desktop browser keeps the
+   * windowed player, where comparing sources back to back is the common case
+   * and being thrown into fullscreen each time would fight the user.
+   */
+  protected readonly autoFullscreen = computed(
+    () => this.tv.isTv() || this.platform.handset(),
+  );
 
   protected readonly selected = signal<PlayableStream | null>(null);
   protected readonly playbackError = signal(false);
@@ -230,6 +244,22 @@ export class Player {
   private lastProgress = 0;
 
   constructor() {
+    /*
+     * On a TV, arriving here from "Assistir" should slide straight to the
+     * sources: the video pane is empty until one is picked, so leaving focus
+     * anywhere else means the first press of the remote goes nowhere useful.
+     */
+    effect(() => {
+      const streams = this.streams();
+      if (!this.tv.isTv() || this.selected() || !streams.length) return;
+
+      setTimeout(() => {
+        const first = document.querySelector<HTMLElement>('.source:not([disabled])');
+        first?.focus({ preventScroll: true });
+        first?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      });
+    });
+
     // A subtitle is a Blob the page minted; nothing else will free it.
     inject(DestroyRef).onDestroy(() => {
       this.revoke();

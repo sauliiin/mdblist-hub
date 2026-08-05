@@ -31,7 +31,7 @@ const HEARTBEAT = 60_000;
   },
 })
 export class VideoPlayer {
-  private readonly host = inject(ElementRef<HTMLElement>);
+  private readonly host: ElementRef<HTMLElement> = inject(ElementRef);
 
   readonly src = input.required<string>();
   /** A `blob:` URL of a WebVTT file, or null when no subtitle is loaded. */
@@ -48,6 +48,9 @@ export class VideoPlayer {
 
   /** Where to pick up, 0–100. Applied once, on the first metadata load. */
   readonly resumeAt = input<number | null>(null);
+
+  /** Go straight to fullscreen when a source is handed over. */
+  readonly autoFullscreen = input(false);
 
   /** Drives scrobbling; `progress` is 0–100. */
   readonly playbackState = output<{ action: 'start' | 'pause' | 'stop'; progress: number }>();
@@ -124,6 +127,11 @@ export class VideoPlayer {
       this.settingsOpen.set(false);
       this.resumed = false;
       this.show();
+
+      // Fullscreen needs transient user activation. The click that picked the
+      // source granted it moments ago and it lasts a few seconds, so asking
+      // once this component has rendered still lands inside the window.
+      if (this.autoFullscreen()) setTimeout(() => this.enterFullscreen());
     });
 
     inject(DestroyRef).onDestroy(() => this.stopHeartbeat());
@@ -357,7 +365,23 @@ export class VideoPlayer {
 
   protected toggleFullscreen(): void {
     if (document.fullscreenElement) void document.exitFullscreen();
-    else void this.host.nativeElement.requestFullscreen?.().catch(() => undefined);
+    else this.enterFullscreen();
+  }
+
+  /**
+   * Refusal is normal and harmless — the browser may have decided the click is
+   * too far in the past — so the failure just leaves the player windowed.
+   */
+  enterFullscreen(): void {
+    if (document.fullscreenElement) return;
+
+    void this.host.nativeElement.requestFullscreen?.().catch(() => undefined);
+    this.focusShell();
+  }
+
+  /** Puts the remote's focus inside the player, so arrows seek rather than roam. */
+  private focusShell(): void {
+    this.host.nativeElement.querySelector<HTMLElement>('.shell')?.focus({ preventScroll: true });
   }
 
   protected onFullscreenChange(): void {

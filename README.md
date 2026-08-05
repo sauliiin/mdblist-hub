@@ -222,6 +222,34 @@ sozinhas) e recebeu uma checagem dedicada em viewport de celular: busca e
 filtros empilham em colunas de largura cheia, a página do título reflui para
 uma coluna, e a ficha técnica desce para depois do conteúdo principal.
 
+### APK Android para uso pessoal
+
+O projeto Android em `android/` empacota a mesma interface Angular com
+[Capacitor](https://capacitorjs.com/). No APK, as requisições `fetch`/XHR usam a
+pilha HTTP nativa: isso contorna CORS e permite que as ações de
+watchlist/coleção/assistido falem diretamente com o mdblist, sem o proxy do
+servidor de desenvolvimento.
+
+Pré-requisitos para recompilar: Node 22+, JDK 21, Android SDK 36 e Android Build
+Tools 35.0.0. Com `ANDROID_HOME` apontando para o SDK:
+
+```bash
+npm install
+npm run android:apk
+```
+
+O APK de teste, assinado automaticamente com a chave de debug do Android, sai
+em `android/app/build/outputs/apk/debug/app-debug.apk`. Para instalar num
+aparelho conectado com depuração USB:
+
+```bash
+adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+```
+
+O manifesto permite tráfego HTTP e conteúdo misto porque alguns addons
+pessoais devolvem links de vídeo `http://`. Instale apenas addons em que você
+confia: essa exceção é intencional para o player e não é necessária no site.
+
 ---
 
 ## Como os dados são montados

@@ -26,6 +26,7 @@
             [mediaTitle]="d.title"
             [mediaSubtitle]="episodeLabel()"
             [resumeAt]="resumeAt()"
+            [autoFullscreen]="autoFullscreen()"
             (theaterChange)="theater.set($event)"
             (playbackState)="onPlaybackState($event)"
             (playbackError)="onPlaybackError()" />

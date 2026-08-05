@@ -34,11 +34,19 @@
   --radius-lg: 22px;
   --shadow: 0 18px 50px rgba(0, 0, 0, 0.55);
   --shadow-lift: 0 26px 70px rgba(0, 0, 0, 0.7);
-  --header-h: 68px;
+  --header-content-h: 68px;
+  --header-h: calc(var(--header-content-h) + env(safe-area-inset-top, 0px));
 
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
 
+  /* Height the bottom tab bar takes on a handset; 0 elsewhere. */
+  --tabs-h: 0px;
+
   color-scheme: dark;
+}
+
+@media (max-width: 860px) and (orientation: portrait) {
+  :root { --tabs-h: calc(56px + env(safe-area-inset-bottom, 0px)); }
 }
 
 * {
@@ -61,7 +69,48 @@ body {
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
   overflow-x: hidden;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
+
+/* ------------------------------------------------------- touch base */
+
+/*
+ * What separates an app from a page on Android. The blue flash on tap, the
+ * text selection that fires on a long press, and the rubber-band overscroll
+ * that reveals the page behind are all browser defaults that read as "website"
+ * the moment a finger touches them.
+ */
+html.native,
+html.native body {
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+}
+
+html.native {
+  /* Text in a native shell is content, not something to select — except where
+     it genuinely is, like the addon URL field. */
+  user-select: none;
+
+  input,
+  textarea,
+  [contenteditable] { user-select: text; }
+}
+
+/* Momentum scrolling and no scrollbar furniture inside carousels. */
+@media (pointer: coarse) {
+  ::-webkit-scrollbar { width: 0; height: 0; }
+
+  * { scrollbar-width: none; }
+
+  /* Hover states latch on touch — the tile stays "hovered" after a tap until
+     something else is touched. Everything visual moves to :active instead. */
+  a,
+  button { -webkit-tap-highlight-color: transparent; }
+}
+
+/* Keeps content clear of the tab bar. */
+body { padding-bottom: calc(env(safe-area-inset-bottom, 0px) + var(--tabs-h)); }
 
 /* Ambient light behind the whole app. */
 body::before {
@@ -186,4 +235,102 @@ img { display: block; }
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* ============================================================
+   Android TV — 10-foot UI
+   ============================================================ */
+
+/*
+ * A television is read from three metres away with a remote, not from arm's
+ * length with a finger. Two things follow: everything scales up, and focus has
+ * to be unmistakable — on a TV the focus ring is the cursor, and losing track
+ * of it means losing the ability to navigate at all.
+ */
+html.tv {
+  font-size: 18px;
+
+  /* Broadcast overscan still clips the edges on plenty of sets. */
+  --overscan: 3vmin;
+  /* Fallback only — rows set their own, closer in the inheritance chain. */
+  --card-w: clamp(190px, 15.5vw, 300px);
+  --header-content-h: 88px;
+  /* The bottom bar is a touch idiom; on TV the D-pad reaches everything. */
+  --tabs-h: 0px;
+
+  body { font-size: 17px; }
+
+  .shell { padding-inline: max(var(--overscan), clamp(16px, 3.6vw, 56px)); }
+
+  app-bottom-nav { display: none; }
+
+  /* The logo and wordmark are branding for a website; on a TV they only eat
+     the top of a screen already short on vertical room. */
+  .brand { display: none; }
+
+  /* With the brand gone, `space-between` has a single child left and parks it
+     on the left. The account and sign-out belong in the right corner. */
+  .topbar-inner { justify-content: flex-end; }
+
+  .links {
+    gap: 22px;
+    font-size: 16px;
+  }
+
+  .account { max-width: none; }
+
+  .avatar { width: 30px; height: 30px; }
+
+  /*
+   * The header retreats as soon as the focus leaves the top of the page.
+   * On a TV nothing above the artwork earns permanent space, and the header
+   * is not a navigation target here anyway — the D-pad reaches everything.
+   */
+  .topbar {
+    transition: transform 0.3s var(--ease), opacity 0.3s var(--ease);
+  }
+
+  .topbar.solid {
+    transform: translateY(-100%);
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  /*
+   * `:focus-visible` is keyboard-only by design, but on TV *every* focus is
+   * keyboard focus, and the WebView does not always agree. Styling `:focus`
+   * outright is the only way to guarantee the ring is there.
+   */
+  a:focus,
+  button:focus,
+  select:focus,
+  input:focus,
+  [tabindex]:focus {
+    outline: 3px solid var(--accent);
+    outline-offset: 4px;
+    border-radius: 8px;
+  }
+
+  /* Scrolling a focused tile into view should not bring it flush to the edge. */
+  * { scroll-margin: 12vh 14vw; }
+
+  h1 { font-size: clamp(40px, 4.4vw, 68px); }
+  h2 { font-size: clamp(22px, 2vw, 30px); }
+
+  /* Hover is meaningless without a pointer; focus carries the same weight. */
+  .card:focus-within {
+    transform: translateY(-8px) scale(1.06);
+    z-index: 3;
+  }
+
+  .card:focus .poster,
+  .card:focus-within .poster {
+    border-color: var(--accent);
+    box-shadow: var(--shadow-lift), 0 0 0 3px var(--accent-glow);
+  }
+}
+
+/* Sets are almost always landscape and short on vertical room. */
+@media (orientation: landscape) and (max-height: 600px) {
+  html.tv .hero { min-height: 88svh; }
 }

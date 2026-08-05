@@ -4,6 +4,16 @@
   animation: fade-up 0.5s var(--ease) both;
 }
 
+/*
+ * The TV size has to be set here, not on `html`: this `:host` rule sits closer
+ * to the cards in the inheritance chain, so a value on the root would never
+ * reach them. Posters scale with the viewport rather than being pinned, so a
+ * 720p set and a 4K one both land near five tiles across.
+ */
+:host-context(html.tv) {
+  --card-w: clamp(190px, 15.5vw, 300px);
+}
+
 .row {
   padding-block: 6px 30px;
 }
@@ -29,6 +39,22 @@ h2 {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+/*
+ * Handset rows follow the skin's widget headers: small, uppercase and widely
+ * tracked, so the artwork below carries the weight instead of the label.
+ */
+@media (max-width: 860px) {
+  h2 {
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+
+  .count { display: none; }
 }
 
 .count {

@@ -1,6 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, effect, inject } from '@angular/core';
 import { Observable, catchError, forkJoin, map, of, tap } from 'rxjs';
+import { Capacitor } from '@capacitor/core';
 import { API } from './api.config';
 import { AuthService } from './auth.service';
 import { MediaType } from './models';
@@ -23,7 +24,7 @@ export interface LibraryTarget {
  * The API only accepts a JSON body (form-encoded is mis-parsed), which leaves
  * proxying as the only route. Reads are plain GETs and need no proxy.
  */
-const WRITE_BASE = '/mdblist-api';
+const WRITE_BASE = Capacitor.isNativePlatform() ? API.mdblist.base : '/mdblist-api';
 
 /**
  * The write endpoints and the reads that back them. All three take

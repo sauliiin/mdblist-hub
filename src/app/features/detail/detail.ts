@@ -1,5 +1,7 @@
 import { DatePipe, DecimalPipe, Location } from '@angular/common';
-import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy, Component, ElementRef, computed, inject, input, signal, viewChild,
+} from '@angular/core';
 import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { RouterLink } from '@angular/router';
@@ -10,6 +12,7 @@ import { castCharacter, MediaDetailService } from '../../core/media-detail.servi
 import {
   MediaDetail, Review, TmdbCastMember, TmdbRecommendation, toMediaType,
 } from '../../core/models';
+import { TvService } from '../../core/tv/tv.service';
 import { PersonModal } from '../../ui/person-modal/person-modal';
 import { RatingBadges } from '../../ui/rating-badges/rating-badges';
 import { ScrollTrack } from '../../ui/scroll-track/scroll-track';
@@ -26,6 +29,9 @@ export class Detail {
   private readonly location = inject(Location);
   private readonly sanitizer = inject(DomSanitizer);
   private readonly libraryService = inject(LibraryService);
+  private readonly tv = inject(TvService);
+
+  private readonly lightbox = viewChild<ElementRef<HTMLElement>>('lightbox');
 
   /** Route params, bound by `withComponentInputBinding()`. */
   readonly type = input.required<string>();
@@ -149,6 +155,29 @@ export class Detail {
     const seasons = `${d.seasons} temporada${d.seasons > 1 ? 's' : ''}`;
     return d.episodes ? `${seasons} · ${d.episodes} eps` : seasons;
   });
+
+  /**
+   * On a TV the trailer is the whole screen, not a box inside a page — the
+   * lightbox itself goes fullscreen so the video fills the set.
+   *
+   * Elsewhere the overlay is already large enough and being thrown into
+   * fullscreen for a two-minute trailer would be heavy-handed.
+   */
+  protected openTrailer(): void {
+    this.trailerOpen.set(true);
+    if (!this.tv.isTv()) return;
+
+    // The element only exists once the template has reacted to the signal, and
+    // the click that got us here keeps the activation valid meanwhile.
+    setTimeout(() =>
+      void this.lightbox()?.nativeElement.requestFullscreen?.().catch(() => undefined),
+    );
+  }
+
+  protected closeTrailer(): void {
+    this.trailerOpen.set(false);
+    if (document.fullscreenElement) void document.exitFullscreen().catch(() => undefined);
+  }
 
   protected back(): void {
     this.location.back();

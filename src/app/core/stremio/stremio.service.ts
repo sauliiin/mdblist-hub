@@ -1,6 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, catchError, forkJoin, map, of } from 'rxjs';
+import { Capacitor } from '@capacitor/core';
 import { noCache } from '../http-cache.interceptor';
 import {
   InstalledAddon, PlayableStream, StreamQuery, StremioStream, StremioSubtitle, StremioType,
@@ -112,7 +113,12 @@ function normalise(stream: StremioStream, addon: InstalledAddon, index: number):
   };
 
   if (stream.url) {
-    const insecure = stream.url.startsWith('http://') && location.protocol === 'https:';
+    // The Android container explicitly accepts cleartext streams. A regular
+    // HTTPS browser page must still reject them as mixed content.
+    const insecure =
+      !Capacitor.isNativePlatform() &&
+      stream.url.startsWith('http://') &&
+      location.protocol === 'https:';
     return {
       ...base,
       url: insecure ? null : stream.url,

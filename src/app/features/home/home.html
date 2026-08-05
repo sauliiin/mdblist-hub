@@ -2,7 +2,12 @@
   <app-hero />
 }
 
-<div class="toolbar shell" [class.compact]="browseMode()">
+<!--
+  `data-nav-skip` only means anything under spatial navigation, which is the TV
+  build. There the D-pad steps between the hero and the rows directly; this bar
+  sits between them and would otherwise swallow every vertical press.
+-->
+<div class="toolbar shell" [class.compact]="browseMode()" data-nav-skip>
   <div class="summary">
     @if (browseMode()) {
       <strong>{{ visibleResults().length }}</strong> resultado{{ visibleResults().length === 1 ? '' : 's' }}
@@ -105,6 +110,10 @@
       <button type="button" class="restate" (click)="reauth()">Entrar com outra chave</button>
     </div>
   } @else {
+    <!-- Above the lists, not below: it is the row someone coming back wants
+         first, and it is what "down" from the hero should reach. -->
+    <app-continue-watching />
+
     @for (list of visible(); track list.id) {
       @defer (on viewport; prefetch on idle) {
         <app-media-row [list]="list" />
@@ -131,8 +140,6 @@
         }
       </div>
     }
-
-    <app-continue-watching />
 
     @defer (on viewport; prefetch on idle) {
       <app-because-you-watched />
