@@ -1,87 +1,213 @@
 # mdblist hub
 
-Site em Angular 22 + TypeScript que mostra suas listas do mdblist em fileiras
-horizontais. Ao clicar em um título, abre a página de detalhes com **elenco**,
-**notas** e **reviews**.
+Um front-end em Angular para as suas listas do [mdblist](https://mdblist.com):
+todas as listas em fileiras horizontais e, ao clicar num título, uma página com
+elenco, notas de todos os agregadores, reviews e biografias vindas da Wikipedia.
+
+Roda inteiramente no navegador — não há backend, banco de dados nem build de
+servidor. As quatro APIs usadas respondem com `Access-Control-Allow-Origin: *`.
+
+**Stack:** Angular 22 (standalone, zoneless, signals), TypeScript, SCSS.
+
+---
 
 ## Rodando
 
 ```bash
-npm install     # o .npmrc já desativa bin-links (o disco é exFAT e não aceita symlinks)
+npm install
 npm start       # http://localhost:4200
 npm run build   # gera dist/mdblist-hub
 ```
 
-## Como os dados são montados
+Use `npm start` para o uso normal: os botões de watchlist/coleção/assistido
+dependem do proxy declarado em `proxy.config.json`, que só existe no dev server
+(o porquê está em [Escrita no mdblist](#escrita-no-mdblist)).
 
-Todas as APIs são chamadas direto do navegador — as quatro respondem com
-`Access-Control-Allow-Origin: *`, então não há backend nem proxy.
+O `.npmrc` do projeto traz `bin-links=false`, necessário em sistemas de arquivos
+sem suporte a symlinks (exFAT, por exemplo). Em ext4/NTFS/APFS pode remover.
+
+### Configuração
+
+As chaves de API ficam em [`src/app/core/api.config.ts`](src/app/core/api.config.ts).
+As listas exibidas, seus nomes em português e a ordem estão em
+[`src/app/core/list-catalog.ts`](src/app/core/list-catalog.ts) — para incluir
+outra lista, basta adicionar uma entrada com o nome exato dela no mdblist.
+
+> As chaves estão versionadas junto com o código. Se o repositório for público,
+> qualquer pessoa poderá ler **e escrever** na conta mdblist correspondente
+> (watchlist, coleção e histórico). Para evitar isso, mova o objeto `API` para um
+> arquivo fora do controle de versão.
+
+---
+
+## Funcionalidades
+
+### Home
+
+- **Destaque** sorteado entre as suas listas, com botão para re-sortear.
+- **Fileiras** — uma por lista, carregadas só quando entram na tela (`@defer`),
+  paginando de 30 em 30 conforme você rola para o lado.
+- **Busca por texto** — procura no catálogo completo do TMDB.
+- **Filtro por gênero** — procura **dentro das suas listas**, não no TMDB: varre
+  todas as listas catalogadas e casa com as tags de gênero do próprio mdblist.
+  Com um gênero ativo, o texto digitado vira um filtro de título dentro dele.
+- **Porque você assistiu** — fileiras de recomendações do TMDB semeadas por
+  títulos sorteados entre os últimos 45 vistos (lista `Last Watched`), excluindo
+  o que já foi assistido. Um botão re-sorteia as sementes.
+
+### Página do título
+
+Backdrop, notas em anéis de progresso, sinopse, elenco, reviews, recomendações,
+trailer e ficha técnica. Além disso:
+
+- **Elenco clicável** — abre a biografia do ator vinda da Wikipedia, com data de
+  nascimento, idade, local e os trabalhos mais conhecidos.
+- **Ações do mdblist** — adicionar à watchlist, à coleção e marcar como
+  assistido, com o estado atual já refletido no botão.
+
+---
+
+## Como os dados são montados
 
 | Fonte | Uso | Arquivo |
 | --- | --- | --- |
-| **mdblist** | listas, itens e **todas as notas** (IMDb, Rotten Tomatoes, Metacritic, Trakt, Letterboxd, TMDB, Roger Ebert) | `core/mdblist.service.ts` |
-| **TMDB** | elenco, backdrop, sinopse, trailer, recomendações e reviews de fallback | `core/tmdb.service.ts` |
-| **Trakt** | reviews (endpoint de comentários) | `core/trakt.service.ts` |
+| **mdblist** | listas, itens, todas as notas (IMDb, Rotten Tomatoes, Metacritic, Trakt, Letterboxd, TMDB, Roger Ebert), reviews espelhadas, watchlist/coleção/assistidos | `core/mdblist.service.ts`, `core/library.service.ts` |
+| **TMDB** | elenco, backdrop, sinopse, trailer, busca, gêneros, recomendações e reviews | `core/tmdb.service.ts` |
+| **Wikipedia / Wikidata** | biografia dos atores | `core/wikipedia.service.ts` |
 | **OMDb** | classificação indicativa, prêmios, bilheteria | `core/omdb.service.ts` |
 
 `core/media-detail.service.ts` junta tudo: o TMDB vem primeiro porque resolve o
-IMDb id de que Trakt e OMDb dependem; o resto roda em paralelo e cada fonte
-degrada para `null` em vez de derrubar a página.
+IMDb id de que o OMDb depende; o resto roda em paralelo e cada fonte degrada
+para `null` em vez de derrubar a página.
 
-As chaves ficam em `core/api.config.ts`.
+### Reviews
 
-### Estado das chaves (04/08/2026)
+Vêm mescladas: primeiro as do TMDB, depois as que o mdblist espelha,
+deduplicadas por autor + início do texto. Cada review mostra sua origem.
 
-- **mdblist** e **TMDB**: funcionando.
-- **Trakt**: retorna **403 Forbidden** em todos os endpoints. Foi testada a
-  requisição idêntica à do addon `script.showimdb` (mesma chave, mesmos headers,
-  `limit=200&sort=likes`, inclusive via `requests` em Python) — mesmo 403, com
-  headers de resposta do Rails, ou seja, é rejeição do próprio Trakt: o client id
-  está revogado ou suspenso. Basta trocar `API.trakt.clientId` por uma chave
-  válida que as reviews do Trakt voltam automaticamente.
-- **OMDb**: `Request limit reached!` (cota de 1000/dia estourada). Volta sozinha
-  no dia seguinte; enquanto isso as notas vêm do mdblist.
+O mdblist espelha reviews de outras plataformas em
+`GET /tmdb/{type}/{id}?append_to_response=review`, onde `provider_id: 1` é Trakt
+e `2` é TMDB. É assim que as reviews do Trakt aparecem sem nenhuma chamada
+direta à API do Trakt.
 
-Quando o Trakt falha, a página mostra um aviso e cai para as reviews do TMDB.
-
-### Reviews do Trakt
-
-Replicam `resources/lib/trakt_api.py` do addon:
+### Biografias (Wikipedia)
 
 ```
-filmes: https://api.trakt.tv/movies/{imdb_id}/comments
-séries: https://api.trakt.tv/shows/{imdb_id}/comments
-        headers: trakt-api-version: 2, trakt-api-key
-        params:  limit=200&sort=likes
+TMDB person id → Wikidata (haswbstatement:P4985=<id>) → Q-id
+               → wbgetentities (sitelinks + claims)
+               → intro do artigo (prop=extracts&exintro)
 ```
 
-Filtros iguais aos do addon (máx. 50 reviews, descarta vazias, aceita apenas
-usuários com idioma pt/en/es). A única diferença: comentários longos e spoilers
-não são descartados — a web recolhe os longos com “Ler tudo” e esconde spoilers
-atrás de um clique, o que o skin do Kodi não conseguia fazer.
+Todas as chamadas levam `origin=*`, que é o que libera CORS anônimo. O artigo em
+português é preferido; abaixo de 200 caracteres ele é tratado como esboço e a
+versão em inglês entra no lugar, com o idioma indicado ao lado do rótulo.
 
-## Listas exibidas
+### Escrita no mdblist
 
-`core/list-catalog.ts` define as 16 listas mostradas, o rótulo em português de
-cada uma e a ordem (alfabética, colação pt-BR). Para incluir outra lista, basta
-adicionar uma entrada com o nome exato dela no mdblist.
+```
+POST /watchlist/items/add     |  /watchlist/items/remove
+POST /sync/collection         |  /sync/collection/remove
+POST /sync/watched            |  /sync/watched/remove
+corpo: {"movies":[{"imdb":"tt..."}]}   (ou {"tmdb": 123}, ou "shows")
+```
+
+Essas chamadas **não funcionam direto do navegador**: um POST com corpo JSON
+dispara preflight CORS e o mdblist responde `405` no `OPTIONS`; form-encoded ele
+até aceita, mas interpreta errado. Por isso as escritas passam pelo proxy do dev
+server (`proxy.config.json`, prefixo `/mdblist-api`). As leituras são GET comum e
+não precisam de proxy.
+
+Se for servir o `dist/` em outro lugar, replique essa regra de proxy no servidor
+(nginx, Caddy, etc.) — sem ela, as três ações de biblioteca não gravam.
+
+---
+
+## Publicando
+
+O site é estático, então qualquer host de arquivos serve. A única diferença
+entre as opções é o proxy: **sem ele, tudo funciona menos os três botões de
+biblioteca** (watchlist, coleção e assistido), que passam a mostrar um aviso.
+
+### GitHub Pages — sem proxy
+
+Já existe um workflow em `.github/workflows/deploy.yml`. Depois de enviar o
+repositório, vá em **Settings → Pages → Source** e escolha **GitHub Actions**.
+Cada push na `main` publica em `https://<usuario>.github.io/<repo>/`.
+
+O workflow já cuida de dois detalhes: o `--base-href` apontando para a subpasta
+do repositório e a cópia do `index.html` para `404.html`, sem a qual abrir um
+link direto (`/title/movie/278`) devolveria erro.
+
+### Cloudflare Pages ou Netlify — com proxy, tudo funciona
+
+Ambos são gratuitos, publicam a partir do mesmo repositório do GitHub e
+respeitam o arquivo `public/_redirects`, que já contém a regra de proxy. É a
+opção recomendada se você quiser os botões de biblioteca funcionando.
+
+Configuração em qualquer um dos dois:
+
+| Campo | Valor |
+| --- | --- |
+| Build command | `npm run build` |
+| Output directory | `dist/mdblist-hub/browser` |
+
+Não é preciso `--base-href` aqui, porque o site fica na raiz do domínio.
+
+### Aviso sobre as chaves
+
+O site publicado é uma página que roda no navegador de quem acessa: as chaves de
+API vão junto no JavaScript e ficam legíveis por qualquer visitante — isso vale
+mesmo com o repositório privado. Como a chave do mdblist permite **escrever** na
+sua conta, considere manter a URL restrita a você ou usar uma chave dedicada.
+
+---
+
+## Limitações conhecidas
+
+- **Trakt** — a API não é chamada diretamente. A chave usada pelos addons de
+  Kodi que inspiraram este projeto retorna `403` em todos os endpoints (client id
+  revogado), e a rota `/{tipo}/tmdb/{id}/comments` nem existe na API do Trakt
+  (responde `405`). As reviews chegam espelhadas pelo mdblist, como descrito
+  acima. Para voltar a usar o Trakt direto, é preciso um client id válido e um
+  proxy — a API do Trakt também não responde ao preflight.
+- **OMDb** — o plano gratuito tem cota de 1000 requisições por dia. Estourada a
+  cota, a página apenas omite os campos que vêm dele (classificação indicativa,
+  prêmios, bilheteria), sem exibir erro. As notas não dependem do OMDb.
+- **Escrita sem proxy** — ver acima.
+
+---
 
 ## Estrutura
 
 ```
 src/app/
   core/       services, modelos, cache HTTP, normalização de notas
-  ui/         media-card, media-row (carrossel), rating-badges
+  ui/         media-card, media-row (carrossel), rating-badges, person-modal
   features/
-    home/     hero + fileiras (cada fileira é @defer on viewport)
+    home/     destaque + fileiras + busca/gênero + "porque você assistiu"
     detail/   backdrop, notas, sinopse, elenco, reviews, recomendações
 ```
 
 Detalhes de implementação que valem nota:
 
-- `core/http-cache.interceptor.ts` guarda GETs por 10 min e deduplica
-  requisições simultâneas iguais — voltar para a home é instantâneo.
-- Cada fileira só busca seus itens quando entra na viewport (`@defer`), e pagina
-  de 30 em 30 conforme você rola para o lado (teto de 120 por fileira).
+- `core/http-cache.interceptor.ts` guarda respostas GET por 10 minutos e
+  deduplica requisições simultâneas idênticas — por isso o filtro de gênero, que
+  varre todas as listas, só paga a rede na primeira vez.
 - Os pôsteres do mdblist vêm em `w200`; a URL é reescrita para `w342`
-  (`upscalePoster`) para não ficarem borrados.
+  (`upscalePoster`) para não ficarem borrados em telas retina.
+- Cada fileira só busca seus itens quando entra na viewport, com teto de 120
+  itens por fileira para não construir milhares de nós no DOM.
+
+---
+
+## Créditos
+
+Dados de [mdblist](https://mdblist.com), [TMDB](https://www.themoviedb.org),
+[Trakt](https://trakt.tv), [OMDb](https://www.omdbapi.com) e
+[Wikipedia](https://www.wikipedia.org).
+
+Este produto usa a API do TMDB, mas não é endossado nem certificado pelo TMDB.
+
+## Licença
+
+[MIT](LICENSE).

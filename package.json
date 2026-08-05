@@ -1,6 +1,6 @@
 {
   "name": "mdblist-hub",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
@@ -26,5 +26,7 @@
     "@angular/compiler-cli": "^22.1.0",
     "prettier": "^3.8.1",
     "typescript": "~6.0.2"
-  }
+  },
+  "description": "Front-end em Angular para listas do mdblist, com elenco, notas, reviews e biografias.",
+  "license": "MIT"
 }

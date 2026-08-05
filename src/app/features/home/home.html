@@ -60,21 +60,21 @@
       </div>
     } @else if (visibleResults().length) {
       <div class="results shell">
-        @for (result of visibleResults(); track result.media_type + result.id) {
-          <a class="result" [routerLink]="['/title', result.media_type, result.id]">
+        @for (result of visibleResults(); track result.key) {
+          <a class="result" [routerLink]="['/title', result.tmdbType, result.id]">
             <div class="poster">
-              @if (result.poster_path) {
-                <img [src]="poster(result)" [alt]="titleOf(result)" loading="lazy" />
+              @if (result.poster) {
+                <img [src]="result.poster" [alt]="result.title" loading="lazy" />
               } @else {
-                <div class="poster-empty">{{ titleOf(result).charAt(0) }}</div>
+                <div class="poster-empty">{{ result.title.charAt(0) }}</div>
               }
-              <span class="kind">{{ result.media_type === 'tv' ? 'Série' : 'Filme' }}</span>
-              @if (result.vote_average) {
-                <span class="vote">{{ result.vote_average.toFixed(1) }}</span>
+              <span class="kind">{{ result.tmdbType === 'tv' ? 'Série' : 'Filme' }}</span>
+              @if (result.vote) {
+                <span class="vote">{{ result.vote.toFixed(1) }}</span>
               }
             </div>
-            <p class="result-title">{{ titleOf(result) }}</p>
-            <p class="result-year">{{ yearOf(result) || '—' }}</p>
+            <p class="result-title">{{ result.title }}</p>
+            <p class="result-year">{{ result.year || '—' }}</p>
           </a>
         }
       </div>

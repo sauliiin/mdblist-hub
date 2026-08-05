@@ -2,10 +2,12 @@ import { DecimalPipe } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
-import { Observable, debounceTime, distinctUntilChanged, of, switchMap, tap } from 'rxjs';
-import { tmdbImg } from '../../core/api.config';
+import { Observable, debounceTime, distinctUntilChanged, map, of, switchMap, tap } from 'rxjs';
+import { tmdbImg, upscalePoster } from '../../core/api.config';
 import { MdblistService } from '../../core/mdblist.service';
-import { GenreOption, MdbList, TmdbSearchResult } from '../../core/models';
+import {
+  GenreOption, GridItem, MdbItem, MdbList, TmdbSearchResult, toTmdbType,
+} from '../../core/models';
 import { TmdbService } from '../../core/tmdb.service';
 import { MediaRow } from '../../ui/media-row/media-row';
 import { BecauseYouWatched } from './because-you-watched/because-you-watched';
@@ -43,7 +45,7 @@ export class Home {
     initialValue: [] as GenreOption[],
   });
 
-  /** A query or a genre swaps the list rows for a grid of TMDB results. */
+  /** A query or a genre swaps the list rows for a grid of results. */
   protected readonly browseMode = computed(
     () => this.query().trim().length >= 2 || !!this.genre(),
   );
@@ -64,35 +66,23 @@ export class Home {
       switchMap((c) => this.fetch(c)),
       tap(() => this.searching.set(false)),
     ),
-    { initialValue: [] as TmdbSearchResult[] },
+    { initialValue: [] as GridItem[] },
   );
 
-  /** Results honour the Filmes/Séries toggle and the genre together. */
+  /** The grid also honours the Filmes/Séries toggle. */
   protected readonly visibleResults = computed(() => {
     const kind = this.filter();
     const wanted = kind === 'movie' ? 'movie' : kind === 'show' ? 'tv' : null;
-    const selected = this.selectedGenre();
-    // `discover` already filtered by genre; only text results need it applied.
-    const textSearch = this.query().trim().length >= 2;
-
-    return this.results().filter((result) => {
-      if (wanted && result.media_type !== wanted) return false;
-
-      if (textSearch && selected) {
-        const wantedId = result.media_type === 'tv' ? selected.tvId : selected.movieId;
-        if (!wantedId || !(result.genre_ids ?? []).includes(wantedId)) return false;
-      }
-
-      return true;
-    });
+    const results = this.results();
+    return wanted ? results.filter((r) => r.tmdbType === wanted) : results;
   });
 
   protected readonly resultsLabel = computed(() => {
     const query = this.query().trim();
     const genre = this.genre();
-    if (query && genre) return `“${query}” em ${genre}`;
-    if (query) return `“${query}”`;
-    return genre;
+    if (query && genre) return `“${query}” em ${genre}, nas suas listas`;
+    if (genre) return `${genre}, nas suas listas`;
+    return `“${query}” no catálogo do TMDB`;
   });
 
   protected readonly visible = computed(() => {
@@ -119,20 +109,29 @@ export class Home {
     });
   }
 
-  private selectedGenre(): GenreOption | null {
-    const name = this.genre();
-    return name ? this.genres().find((g) => g.name === name) ?? null : null;
-  }
-
-  /** Text search wins; the genre then narrows it. Genre alone browses it. */
-  private fetch(criteria: Criteria): Observable<TmdbSearchResult[]> {
-    if (criteria.query.length >= 2) return this.tmdb.search(criteria.query);
-
+  /**
+   * A genre always means "inside my lists" — it scans every curated list and
+   * matches mdblist's own genre tags, narrowed further by the text if any.
+   * Text on its own searches the whole TMDB catalogue instead.
+   */
+  private fetch(criteria: Criteria): Observable<GridItem[]> {
     if (criteria.genre) {
-      const option = this.genres().find((g) => g.name === criteria.genre);
-      const tmdbType = criteria.kind === 'show' ? 'tv' : 'movie';
-      const genreId = tmdbType === 'tv' ? option?.tvId : option?.movieId;
-      return genreId ? this.tmdb.discover(tmdbType, genreId) : of([]);
+      const slug = this.genres().find((g) => g.name === criteria.genre)?.slug;
+      if (!slug) return of([]);
+      const needle = criteria.query.toLowerCase();
+
+      return this.mdblist.allItems().pipe(
+        map((items) =>
+          items
+            .filter((item) => (item.genre ?? []).includes(slug))
+            .filter((item) => !needle || item.title.toLowerCase().includes(needle))
+            .map(fromMdbItem),
+        ),
+      );
+    }
+
+    if (criteria.query.length >= 2) {
+      return this.tmdb.search(criteria.query).pipe(map((results) => results.map(fromTmdb)));
     }
 
     return of([]);
@@ -150,16 +149,28 @@ export class Home {
     this.query.set('');
     this.genre.set('');
   }
+}
 
-  protected poster(result: TmdbSearchResult): string | null {
-    return tmdbImg(result.poster_path, 'w342');
-  }
+function fromMdbItem(item: MdbItem): GridItem {
+  return {
+    key: `${item.mediatype}:${item.id}`,
+    id: item.id,
+    tmdbType: toTmdbType(item.mediatype),
+    title: item.title,
+    poster: upscalePoster(item.poster, 'w342'),
+    year: item.release_year ? String(item.release_year) : '',
+    vote: null,
+  };
+}
 
-  protected titleOf(result: TmdbSearchResult): string {
-    return result.title || result.name || 'Sem título';
-  }
-
-  protected yearOf(result: TmdbSearchResult): string {
-    return (result.release_date || result.first_air_date || '').slice(0, 4);
-  }
+function fromTmdb(result: TmdbSearchResult): GridItem {
+  return {
+    key: `${result.media_type}:${result.id}`,
+    id: result.id,
+    tmdbType: result.media_type === 'tv' ? 'tv' : 'movie',
+    title: result.title || result.name || 'Sem título',
+    poster: tmdbImg(result.poster_path, 'w342'),
+    year: (result.release_date || result.first_air_date || '').slice(0, 4),
+    vote: result.vote_average || null,
+  };
 }
