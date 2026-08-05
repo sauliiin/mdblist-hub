@@ -18,6 +18,12 @@
       {{ item().mediatype === 'show' ? 'Série' : 'Filme' }}
     </span>
 
+    @if (imdbRating(); as rating) {
+      <div class="imdb-ring" [style.--pct]="(rating * 10) + '%'" title="Nota IMDb">
+        <span class="imdb-value">{{ rating.toFixed(1) }}</span>
+      </div>
+    }
+
     <div class="hover">
       <p class="hover-title">{{ item().title }}</p>
       <div class="hover-meta">

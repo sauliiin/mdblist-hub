@@ -41,6 +41,8 @@ export interface MdbItem {
   poster: string | null;
   genre: string[] | null;
   rank: number | null;
+  /** Only present with `append_to_response=ratings`. */
+  ratings?: MdbRating[];
 }
 
 export interface MdbRating {
