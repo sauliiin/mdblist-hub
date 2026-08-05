@@ -122,6 +122,46 @@ Se for servir o `dist/` em outro lugar, replique essa regra de proxy no servidor
 
 ---
 
+## Publicando
+
+O site é estático, então qualquer host de arquivos serve. A única diferença
+entre as opções é o proxy: **sem ele, tudo funciona menos os três botões de
+biblioteca** (watchlist, coleção e assistido), que passam a mostrar um aviso.
+
+### GitHub Pages — sem proxy
+
+Já existe um workflow em `.github/workflows/deploy.yml`. Depois de enviar o
+repositório, vá em **Settings → Pages → Source** e escolha **GitHub Actions**.
+Cada push na `main` publica em `https://<usuario>.github.io/<repo>/`.
+
+O workflow já cuida de dois detalhes: o `--base-href` apontando para a subpasta
+do repositório e a cópia do `index.html` para `404.html`, sem a qual abrir um
+link direto (`/title/movie/278`) devolveria erro.
+
+### Cloudflare Pages ou Netlify — com proxy, tudo funciona
+
+Ambos são gratuitos, publicam a partir do mesmo repositório do GitHub e
+respeitam o arquivo `public/_redirects`, que já contém a regra de proxy. É a
+opção recomendada se você quiser os botões de biblioteca funcionando.
+
+Configuração em qualquer um dos dois:
+
+| Campo | Valor |
+| --- | --- |
+| Build command | `npm run build` |
+| Output directory | `dist/mdblist-hub/browser` |
+
+Não é preciso `--base-href` aqui, porque o site fica na raiz do domínio.
+
+### Aviso sobre as chaves
+
+O site publicado é uma página que roda no navegador de quem acessa: as chaves de
+API vão junto no JavaScript e ficam legíveis por qualquer visitante — isso vale
+mesmo com o repositório privado. Como a chave do mdblist permite **escrever** na
+sua conta, considere manter a URL restrita a você ou usar uma chave dedicada.
+
+---
+
 ## Limitações conhecidas
 
 - **Trakt** — a API não é chamada diretamente. A chave usada pelos addons de

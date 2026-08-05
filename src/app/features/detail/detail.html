@@ -86,6 +86,10 @@
               </button>
             }
           </div>
+
+          @if (libraryError()) {
+            <p class="library-error">{{ libraryError() }}</p>
+          }
         </div>
       </div>
     </header>

@@ -49,6 +49,7 @@ export class Detail {
     watched: false,
     collection: false,
   });
+  protected readonly libraryError = signal<string | null>(null);
 
   protected readonly libraryActions: {
     bucket: Bucket; label: string; done: string; undo: string;
@@ -171,6 +172,7 @@ export class Detail {
     if (!detail || this.pending()[bucket]) return;
 
     const add = !this.library()[bucket];
+    this.libraryError.set(null);
     this.pending.update((state) => ({ ...state, [bucket]: true }));
 
     this.libraryService.toggle(bucket, this.target(detail), add).subscribe({
@@ -178,7 +180,14 @@ export class Detail {
         this.library.update((current) => ({ ...current, [bucket]: state }));
         this.pending.update((state) => ({ ...state, [bucket]: false }));
       },
-      error: () => this.pending.update((state) => ({ ...state, [bucket]: false })),
+      error: () => {
+        this.pending.update((state) => ({ ...state, [bucket]: false }));
+        // Almost always the missing proxy: the write endpoints cannot be
+        // reached from a plain static host (see README).
+        this.libraryError.set(
+          'Não foi possível gravar no mdblist. As ações de biblioteca precisam do proxy — veja o README.',
+        );
+      },
     });
   }
 

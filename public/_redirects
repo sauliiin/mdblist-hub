@@ -1,0 +1,9 @@
+# Netlify / Cloudflare Pages.
+#
+# A primeira regra faz o mesmo que o proxy.config.json do dev server: encaminha
+# as escritas do mdblist pelo servidor, contornando o CORS. Sem ela, os botões
+# de watchlist, coleção e assistido não gravam.
+/mdblist-api/*  https://api.mdblist.com/:splat  200
+
+# Rotas do Angular: qualquer caminho cai no index.html.
+/*  /index.html  200
