@@ -123,6 +123,51 @@ O botão **Assistir** na ficha abre `/watch/:type/:id`, que consulta o recurso
 TMDB. A escolha de episódio vai para a URL (`?season=2&episode=5`), então o link
 é compartilhável.
 
+### Sincronizar addons entre aparelhos
+
+A página de Addons guarda a lista no **Realtime Database**, pela interface REST
+e não pelo SDK do Firebase — duas chamadas num caminho só é tudo que isso
+precisa, `HttpClient` já fala HTTP e o endpoint libera CORS, então o recurso
+entrou sem nenhuma dependência nova.
+
+O caminho é `mdblist-hub/addons/{sha256("mdblist-hub:" + chave do mdblist)}`.
+Chavear pela chave da API e não pelo id da conta faz do próprio caminho um
+segredo: saber seu usuário do mdblist não permite montá-lo.
+
+Semântica: **último a escrever vence**. Toda alteração local sobe sozinha
+(agrupada por 1,5s), e **Baixar** substitui a lista local pela guardada — de
+propósito, porque merge só sabe somar, e uma remoção feita em outro aparelho
+nunca chegaria. Ligar o sync é a única operação que une as duas listas, para
+não descartar o que já existia neste navegador.
+
+#### Regras do banco — necessário
+
+Hoje o banco responde leitura **e** escrita sem autenticação, e os filhos são
+enumeráveis: um `GET /mdblist-hub/addons.json?shallow=true` lista todos os
+tokens, o que anula o segredo do caminho. Como a URL configurada de um addon de
+torrent **contém sua chave de debrid**, isso importa. Estas regras preservam os
+nós já existentes e fecham a enumeração do novo:
+
+```json
+{
+  "rules": {
+    "config":      { ".read": true, ".write": true },
+    "juntas":      { ".read": true, ".write": true },
+    "relatores":   { ".read": true, ".write": true },
+    "users":       { ".read": true, ".write": true },
+    "mdblist-hub": {
+      "addons": {
+        "$token": { ".read": true, ".write": true }
+      }
+    }
+  }
+}
+```
+
+Sem `.read` no nível de `addons`, só quem conhece o token exato lê aquele nó.
+Os quatro primeiros nós continuam abertos porque é como estão hoje — vale
+revisá-los à parte.
+
 O player é próprio (`ui/video-player`), não o `controls` nativo: barra de
 progresso com buffer e bolha de tempo ao arrastar, volume, velocidade, legenda,
 modo cinema, tela cheia e os atalhos de teclado que o YouTube consagrou —
@@ -287,6 +332,7 @@ src/app/
   core/       services, modelos, cache HTTP, normalização de notas, sessão
     stremio/  protocolo de addon: manifests, streams, legendas (SRT→VTT),
               e login da conta Stremio para importar a coleção
+    sync/     lista de addons no Realtime Database, via REST
   ui/         media-card, media-row (carrossel), rating-badges, person-modal
   features/
     login/    chave da API do mdblist

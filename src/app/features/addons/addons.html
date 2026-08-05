@@ -8,6 +8,50 @@
     </p>
   </header>
 
+  <!-- ------------------------------------------------ cloud sync -->
+  <section class="sync cloud">
+    <div class="sync-on">
+      <div>
+        <p class="sync-title">
+          Sincronizar entre aparelhos
+          <span class="pill" [class.live]="syncOn()">{{ syncOn() ? 'ligado' : 'desligado' }}</span>
+        </p>
+        <p class="sync-sub">
+          Guarda a lista de addons na nuvem, atrelada à sua chave do mdblist. Ligue nos dois
+          aparelhos e ela acompanha — sem depender de conta do Stremio. Toda alteração sobe
+          sozinha; não precisa apertar nada depois.
+        </p>
+      </div>
+      <div class="row-actions">
+        <button type="button" class="ghost" [disabled]="syncBusy()" (click)="toggleSync()">
+          {{ syncOn() ? 'Desligar' : 'Ligar' }}
+        </button>
+        @if (syncOn()) {
+          <button type="button" class="ghost" [disabled]="syncBusy()" (click)="pullNow()"
+                  title="Deixa este aparelho idêntico ao que está salvo, inclusive removendo o que foi apagado em outro">
+            Baixar
+          </button>
+          <button type="button" class="ghost" [disabled]="syncBusy()" (click)="pushNow()">
+            Enviar
+          </button>
+        }
+      </div>
+    </div>
+
+    @if (syncFailure(); as e) {
+      <p class="error" role="alert">{{ e }}</p>
+    }
+    @if (pulled() !== null) {
+      <p class="ok" role="status">
+        @if (pulled()) {
+          Lista atualizada — {{ pulled() }} addon(s) de diferença.
+        } @else {
+          Nada mudou — este aparelho já estava em dia.
+        }
+      </p>
+    }
+  </section>
+
   <!-- -------------------------------------------- stremio account -->
   <section class="sync">
     @if (account(); as session) {

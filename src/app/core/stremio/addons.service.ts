@@ -129,6 +129,33 @@ export class AddonsService {
     };
   }
 
+  /**
+   * Folds a list of already-built addons in, answering how many were new to
+   * this browser. Backs the Firebase pull, where the entries were written by
+   * this same app and need no re-validation.
+   */
+  merge(incoming: InstalledAddon[]): number {
+    const valid = incoming.filter((a) => a?.base && a?.manifest?.id);
+    const known = new Set(this.addons().map((a) => a.base));
+    const fresh = valid.filter((a) => !known.has(a.base)).length;
+
+    const bases = new Set(valid.map((a) => a.base));
+    this.addons.update((list) => [...list.filter((a) => !bases.has(a.base)), ...valid]);
+    this.persist();
+
+    return fresh;
+  }
+
+  /**
+   * Makes the list exactly `next`. Backs the "Baixar" button, which is what
+   * lets a removal made on another device actually land here — a merge can
+   * only ever add, so on its own it would resurrect whatever was deleted.
+   */
+  replaceAll(next: InstalledAddon[]): void {
+    this.addons.set(next.filter((a) => a?.base && a?.manifest?.id));
+    this.persist();
+  }
+
   remove(base: string): void {
     this.addons.update((list) => list.filter((a) => a.base !== base));
     this.persist();
