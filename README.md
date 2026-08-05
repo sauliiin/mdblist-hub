@@ -24,7 +24,9 @@ dependem do proxy declarado em `proxy.config.json`, que só existe no dev server
 (o porquê está em [Escrita no mdblist](#escrita-no-mdblist)).
 
 O `.npmrc` do projeto traz `bin-links=false`, necessário em sistemas de arquivos
-sem suporte a symlinks (exFAT, por exemplo). Em ext4/NTFS/APFS pode remover.
+sem suporte a symlinks (exFAT, por exemplo). Por isso os scripts do
+`package.json` chamam o Angular CLI pelo caminho (`node node_modules/@angular/cli/bin/ng.js`)
+em vez de depender do atalho `ng` — funciona com ou sem symlinks, inclusive no CI.
 
 ### Configuração
 
