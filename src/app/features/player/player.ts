@@ -11,6 +11,8 @@ import { AddonsService } from '../../core/stremio/addons.service';
 import {
   PlayableStream, StreamQuery, SubtitleOption, stremioId, toStremioType,
 } from '../../core/stremio/models';
+import { ScrobbleTarget } from '../../core/scrobble/models';
+import { ScrobbleService } from '../../core/scrobble/scrobble.service';
 import { StremioService } from '../../core/stremio/stremio.service';
 import { TmdbService } from '../../core/tmdb.service';
 import { VideoPlayer } from '../../ui/video-player/video-player';
@@ -36,6 +38,7 @@ export class Player {
   private readonly stremio = inject(StremioService);
   private readonly tmdb = inject(TmdbService);
   private readonly addons = inject(AddonsService);
+  private readonly scrobble = inject(ScrobbleService);
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly location = inject(Location);
@@ -130,6 +133,26 @@ export class Player {
     { equal: (a, b) => a?.type === b?.type && a?.id === b?.id },
   );
 
+  /** What scrobble calls point at — the title, plus the episode for a show. */
+  private readonly scrobbleTarget = computed<ScrobbleTarget | null>(
+    () => {
+      const detail = this.detail();
+      if (!detail) return null;
+
+      return {
+        type: detail.type,
+        imdbId: detail.imdbId,
+        tmdbId: detail.tmdbId,
+        season: detail.type === 'show' ? this.seasonNumber() : null,
+        episode: detail.type === 'show' ? this.episodeNumber() : null,
+      };
+    },
+    {
+      equal: (a, b) =>
+        a?.tmdbId === b?.tmdbId && a?.season === b?.season && a?.episode === b?.episode,
+    },
+  );
+
   protected readonly missingImdbId = computed(
     () => !this.loadingDetail() && !!this.detail() && !this.detail()!.imdbId,
   );
@@ -193,9 +216,52 @@ export class Player {
     return found ? `${number} · ${found.name}` : number;
   });
 
+  /** The point mdblist has stored for this title, 0–100. */
+  protected readonly resumeAt = toSignal(
+    toObservable(this.scrobbleTarget).pipe(
+      switchMap((target) => (target ? this.scrobble.resumeFor(target) : of(null))),
+    ),
+    { initialValue: null },
+  );
+
+  protected readonly scrobbleError = this.scrobble.error;
+
+  /** Progress of the last report, so leaving the page can stop at the right point. */
+  private lastProgress = 0;
+
   constructor() {
     // A subtitle is a Blob the page minted; nothing else will free it.
-    inject(DestroyRef).onDestroy(() => this.revoke());
+    inject(DestroyRef).onDestroy(() => {
+      this.revoke();
+      this.reportStop();
+    });
+
+    // Closing the tab is a "quit" that never reaches ngOnDestroy. `sendBeacon`
+    // is the only request the browser promises to deliver at that point — and
+    // it can only send simple requests, which is exactly what the form-encoded
+    // scrobble body already is.
+    addEventListener('pagehide', () => this.beaconStop());
+  }
+
+  /** Fires on pause, play and the periodic refresh coming out of the player. */
+  protected onPlaybackState(event: { action: 'start' | 'pause' | 'stop'; progress: number }): void {
+    const target = this.scrobbleTarget();
+    if (!target) return;
+
+    this.lastProgress = event.progress;
+    this.scrobble[event.action](target, event.progress).subscribe();
+  }
+
+  private reportStop(): void {
+    const target = this.scrobbleTarget();
+    if (target && this.lastProgress > 0) {
+      this.scrobble.stop(target, this.lastProgress).subscribe();
+    }
+  }
+
+  private beaconStop(): void {
+    const target = this.scrobbleTarget();
+    if (target && this.lastProgress > 0) this.scrobble.beaconStop(target, this.lastProgress);
   }
 
   protected back(): void {

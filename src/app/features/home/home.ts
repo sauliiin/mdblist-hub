@@ -14,6 +14,7 @@ import {
 import { TmdbService } from '../../core/tmdb.service';
 import { MediaRow } from '../../ui/media-row/media-row';
 import { BecauseYouWatched } from './because-you-watched/because-you-watched';
+import { ContinueWatching } from './continue-watching/continue-watching';
 import { Hero } from './hero/hero';
 
 type Filter = 'all' | 'movie' | 'show';
@@ -32,7 +33,7 @@ interface SearchOutcome {
 
 @Component({
   selector: 'app-home',
-  imports: [DecimalPipe, RouterLink, BecauseYouWatched, Hero, MediaRow],
+  imports: [DecimalPipe, RouterLink, BecauseYouWatched, ContinueWatching, Hero, MediaRow],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './home.html',
   styleUrl: './home.scss',

@@ -25,8 +25,17 @@
             [theater]="theater()"
             [mediaTitle]="d.title"
             [mediaSubtitle]="episodeLabel()"
+            [resumeAt]="resumeAt()"
             (theaterChange)="theater.set($event)"
+            (playbackState)="onPlaybackState($event)"
             (playbackError)="onPlaybackError()" />
+
+          @if (resumeAt(); as point) {
+            <p class="resumed">Retomado de {{ point }}% — o ponto veio do mdblist.</p>
+          }
+          @if (scrobbleError(); as err) {
+            <p class="warning">{{ err }}</p>
+          }
 
           @if (playbackError()) {
             <div class="overlay" role="alert">

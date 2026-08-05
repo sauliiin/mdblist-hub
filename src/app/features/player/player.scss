@@ -122,6 +122,14 @@
   margin-top: 6px;
 }
 
+.resumed {
+  padding: 9px 14px;
+  border-top: 1px solid rgba(18, 214, 196, 0.24);
+  background: rgba(18, 214, 196, 0.09);
+  color: var(--accent-2);
+  font-size: 12.5px;
+}
+
 .warning {
   padding: 10px 14px;
   border-top: 1px solid rgba(245, 197, 24, 0.28);

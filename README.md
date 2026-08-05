@@ -123,6 +123,32 @@ O botão **Assistir** na ficha abre `/watch/:type/:id`, que consulta o recurso
 TMDB. A escolha de episódio vai para a URL (`?season=2&episode=5`), então o link
 é compartilhável.
 
+### Scrobble e continuar assistindo
+
+O mdblist tem uma API de scrobble dedicada (documentada em
+`api.mdblist.com/schema/`), e o player fala com ela: `start` ao dar play e a
+cada 60s de reprodução, `pause` ao pausar, `stop` ao terminar, ao sair da página
+e ao fechar a aba. Acima de 80% o próprio mdblist marca o título como assistido.
+
+Como a sessão vive no mdblist e não aqui, um filme pausado no celular reaparece
+no desktop. `GET /sync/playback` alimenta a fileira **Continuar assistindo** na
+home, e o player retoma sozinho do ponto guardado.
+
+Duas coisas valem nota:
+
+- **O corpo vai form-encoded, nunca JSON**, e isso é estrutural: um POST JSON
+  exige preflight, e o mdblist responde `405` no OPTIONS — a mesma parede das
+  escritas de biblioteca. `application/x-www-form-urlencoded` é um tipo
+  CORS-safelisted, então a requisição é "simples" e sai direto. É por isso que
+  o scrobble funciona em host estático e adicionar à watchlist não.
+- **Fechar a aba** nunca chega ao `ngOnDestroy`, então o `stop` desse caso sai
+  por `navigator.sendBeacon` — que só emite requisições simples, exatamente o
+  que o corpo form-encoded já é.
+
+O `/sync/playback` devolve `progress_at_update`, `updated_at_ts` e `runtime`
+justamente para o cliente projetar o ponto atual de uma sessão ainda rodando;
+`toResumeItem` faz essa conta e congela o valor quando a sessão está pausada.
+
 ### Sincronizar addons entre aparelhos
 
 A página de Addons guarda a lista no **Realtime Database**, pela interface REST
@@ -333,6 +359,7 @@ src/app/
     stremio/  protocolo de addon: manifests, streams, legendas (SRT→VTT),
               e login da conta Stremio para importar a coleção
     sync/     lista de addons no Realtime Database, via REST
+    scrobble/ pontos de reprodução no mdblist (start/pause/stop/clear)
   ui/         media-card, media-row (carrossel), rating-badges, person-modal
   features/
     login/    chave da API do mdblist

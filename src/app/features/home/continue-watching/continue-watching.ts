@@ -1,0 +1,85 @@
+import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
+import { RouterLink } from '@angular/router';
+import { tmdbImg } from '../../../core/api.config';
+import { toTmdbType } from '../../../core/models';
+import { ResumeItem } from '../../../core/scrobble/models';
+import { ScrobbleService } from '../../../core/scrobble/scrobble.service';
+import { TmdbService } from '../../../core/tmdb.service';
+
+/** A resume entry with the poster TMDB has for it. */
+interface ResumeCard extends ResumeItem {
+  poster: string | null;
+}
+
+/**
+ * "Continuar assistindo", straight out of `GET /sync/playback`.
+ *
+ * The sessions are mdblist's, not this app's, so a film paused in the Stremio
+ * app — or on another device — shows up here too.
+ */
+@Component({
+  selector: 'app-continue-watching',
+  imports: [RouterLink],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  templateUrl: './continue-watching.html',
+  styleUrl: './continue-watching.scss',
+})
+export class ContinueWatching implements OnInit {
+  private readonly scrobble = inject(ScrobbleService);
+  private readonly tmdb = inject(TmdbService);
+
+  protected readonly rows = signal<ResumeCard[]>([]);
+  protected readonly loading = signal(true);
+
+  ngOnInit(): void {
+    this.load();
+  }
+
+  private load(): void {
+    this.scrobble.sessions().subscribe((items) => {
+      // Show the row immediately; posters fill in as TMDB answers.
+      this.rows.set(items.map((item) => ({ ...item, poster: null })));
+      this.loading.set(false);
+
+      for (const item of items) {
+        if (!item.tmdbId) continue;
+        this.tmdb.detail(item.type, item.tmdbId).subscribe((detail) => {
+          if (!detail?.poster_path) return;
+          this.rows.update((list) =>
+            list.map((row) =>
+              row.key === item.key ? { ...row, poster: tmdbImg(detail.poster_path, 'w342') } : row,
+            ),
+          );
+        });
+      }
+    });
+  }
+
+  /** Straight into the player, at the episode the session was left on. */
+  protected link(item: ResumeCard): unknown[] {
+    return ['/watch', toTmdbType(item.type), item.tmdbId];
+  }
+
+  protected query(item: ResumeCard): Record<string, number> {
+    return item.season && item.episode
+      ? { season: item.season, episode: item.episode }
+      : {};
+  }
+
+  /** Removes the entry from mdblist's continue-watching, and from the row. */
+  protected dismiss(item: ResumeCard, event: Event): void {
+    event.preventDefault();
+    event.stopPropagation();
+
+    this.rows.update((list) => list.filter((row) => row.key !== item.key));
+    this.scrobble
+      .clear({
+        type: item.type,
+        imdbId: item.imdbId,
+        tmdbId: item.tmdbId ?? 0,
+        season: item.season,
+        episode: item.episode,
+      })
+      .subscribe();
+  }
+}

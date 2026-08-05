@@ -1,0 +1,42 @@
+@if (rows().length) {
+  <section class="feed">
+    <header class="feed-head shell">
+      <div>
+        <h2>Continuar assistindo</h2>
+        <p>De onde você parou — o ponto vem do mdblist, então vale em qualquer aparelho.</p>
+      </div>
+    </header>
+
+    <div class="track">
+      @for (item of rows(); track item.key) {
+        <a class="card" [routerLink]="link(item)" [queryParams]="query(item)">
+          <div class="art">
+            @if (item.poster) {
+              <img [src]="item.poster" [alt]="item.title" loading="lazy" />
+            } @else {
+              <span class="art-empty" aria-hidden="true">{{ item.title.charAt(0) }}</span>
+            }
+
+            <span class="play" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
+            </span>
+
+            <button
+              type="button"
+              class="dismiss"
+              (click)="dismiss(item, $event)"
+              [attr.aria-label]="'Remover ' + item.title + ' de continuar assistindo'">✕</button>
+
+            <span class="bar"><span class="fill" [style.width.%]="item.progress"></span></span>
+          </div>
+
+          <p class="name">{{ item.title }}</p>
+          @if (item.subtitle) {
+            <p class="meta">{{ item.subtitle }}</p>
+          }
+          <p class="meta">{{ item.progress }}% assistido</p>
+        </a>
+      }
+    </div>
+  </section>
+}

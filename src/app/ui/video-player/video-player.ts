@@ -1,12 +1,14 @@
 import {
-  ChangeDetectionStrategy, Component, ElementRef, computed, effect, inject, input, output,
-  signal, viewChild,
+  ChangeDetectionStrategy, Component, DestroyRef, ElementRef, computed, effect, inject, input,
+  output, signal, viewChild,
 } from '@angular/core';
 
 /** What the settings menu offers, in YouTube's own steps. */
 const SPEEDS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
 /** Idle time before the controls fade out during playback. */
 const HIDE_AFTER = 2600;
+/** How often a playing session refreshes its stored point on mdblist. */
+const HEARTBEAT = 60_000;
 
 /**
  * A YouTube-shaped player around a plain `<video>`.
@@ -44,6 +46,12 @@ export class VideoPlayer {
   readonly theaterChange = output<boolean>();
   readonly playbackError = output<void>();
 
+  /** Where to pick up, 0–100. Applied once, on the first metadata load. */
+  readonly resumeAt = input<number | null>(null);
+
+  /** Drives scrobbling; `progress` is 0–100. */
+  readonly playbackState = output<{ action: 'start' | 'pause' | 'stop'; progress: number }>();
+
   private readonly media = viewChild<ElementRef<HTMLVideoElement>>('media');
   private readonly track = viewChild<ElementRef<HTMLDivElement>>('track');
 
@@ -72,6 +80,9 @@ export class VideoPlayer {
 
   private hideTimer?: ReturnType<typeof setTimeout>;
   private flashTimer?: ReturnType<typeof setTimeout>;
+  private beat?: ReturnType<typeof setInterval>;
+  /** The resume point is applied once per source, not on every metadata load. */
+  private resumed = false;
 
   protected readonly progress = computed(() => {
     const total = this.duration();
@@ -111,8 +122,11 @@ export class VideoPlayer {
       this.buffered.set(0);
       this.ended.set(false);
       this.settingsOpen.set(false);
+      this.resumed = false;
       this.show();
     });
+
+    inject(DestroyRef).onDestroy(() => this.stopHeartbeat());
 
     // The `<track>` element only exists once the template sees a URL, and it
     // renders disabled until something asks for it.
@@ -142,17 +156,24 @@ export class VideoPlayer {
     this.playing.set(true);
     this.ended.set(false);
     this.scheduleHide();
+    this.report('start');
+    this.startHeartbeat();
   }
 
   protected onPause(): void {
     this.playing.set(false);
     this.show();
+    this.stopHeartbeat();
+    // The `ended` event fires a pause too; that one is a stop, not a pause.
+    if (!this.ended()) this.report('pause');
   }
 
   protected onEnded(): void {
     this.playing.set(false);
     this.ended.set(true);
     this.show();
+    this.stopHeartbeat();
+    this.report('stop');
   }
 
   protected onTimeUpdate(): void {
@@ -170,6 +191,42 @@ export class VideoPlayer {
     this.duration.set(isFinite(element.duration) ? element.duration : 0);
     element.playbackRate = this.speed();
     this.applyCaptions();
+
+    // Resuming has to wait for the duration: the stored point is a percentage,
+    // and there is nothing to turn it into seconds before metadata arrives.
+    const resume = this.resumeAt();
+    if (!this.resumed && resume && resume > 0 && element.duration) {
+      this.resumed = true;
+      element.currentTime = (resume / 100) * element.duration;
+      this.currentTime.set(element.currentTime);
+    }
+  }
+
+  // ----------------------------------------------------------- scrobble
+
+  private startHeartbeat(): void {
+    this.stopHeartbeat();
+    // Keeps the stored point close to reality while a long film plays, so a
+    // browser that is closed without warning still resumes near the right spot.
+    this.beat = setInterval(() => this.report('start'), HEARTBEAT);
+  }
+
+  private stopHeartbeat(): void {
+    clearInterval(this.beat);
+    this.beat = undefined;
+  }
+
+  private report(action: 'start' | 'pause' | 'stop'): void {
+    const progress = this.progress() * 100;
+    if (!this.duration()) return;
+
+    this.playbackState.emit({ action, progress });
+  }
+
+  /** Lets the page report a stop when the player is torn down or left. */
+  reportStop(): void {
+    this.stopHeartbeat();
+    if (this.duration()) this.report('stop');
   }
 
   private readBuffered(element: HTMLVideoElement): void {
