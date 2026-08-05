@@ -1,0 +1,271 @@
+@let d = detail();
+
+@if (loading() && !d) {
+  <div class="loading shell">
+    <div class="skeleton block hero"></div>
+    <div class="skeleton block line"></div>
+    <div class="skeleton block line short"></div>
+  </div>
+} @else if (!d) {
+  <div class="missing shell">
+    <h1>Título não encontrado</h1>
+    <p>O TMDB não retornou dados para este id.</p>
+    <button type="button" class="btn ghost" (click)="back()">Voltar</button>
+  </div>
+} @else {
+  <article class="detail">
+    <!-- ------------------------------------------------ backdrop -->
+    <header class="masthead">
+      @if (d.backdrop) {
+        <img class="backdrop" [src]="d.backdrop" alt="" aria-hidden="true" />
+      }
+      <div class="veil"></div>
+
+      <button type="button" class="back" (click)="back()" aria-label="Voltar">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" /></svg>
+        Voltar
+      </button>
+
+      <div class="masthead-inner shell">
+        <div class="poster-wrap">
+          @if (d.poster) {
+            <img class="poster" [src]="d.poster" [alt]="d.title" />
+          } @else {
+            <div class="poster empty">{{ d.title.charAt(0) }}</div>
+          }
+        </div>
+
+        <div class="headline">
+          <h1>{{ d.title }}</h1>
+          @if (d.tagline) { <p class="tagline">“{{ d.tagline }}”</p> }
+
+          <div class="facts-line">
+            @if (d.year) { <span>{{ d.year }}</span> }
+            @if (runtimeLabel()) { <span class="dot"></span><span>{{ runtimeLabel() }}</span> }
+            @if (seasonsLabel()) { <span class="dot"></span><span>{{ seasonsLabel() }}</span> }
+            @if (d.omdb?.Rated && d.omdb!.Rated !== 'N/A') {
+              <span class="rated">{{ d.omdb!.Rated }}</span>
+            }
+            <span class="kind">{{ d.type === 'show' ? 'Série' : 'Filme' }}</span>
+          </div>
+
+          @if (d.genres.length) {
+            <div class="genres">
+              @for (g of d.genres; track g) { <span class="chip">{{ g }}</span> }
+            </div>
+          }
+
+          <div class="cta">
+            @if (d.trailerKey) {
+              <button type="button" class="btn primary" (click)="trailerOpen.set(true)">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg>
+                Trailer
+              </button>
+            }
+            @if (d.imdbId) {
+              <a class="btn ghost" [href]="'https://www.imdb.com/title/' + d.imdbId" target="_blank" rel="noopener">
+                IMDb
+              </a>
+            }
+            <a class="btn ghost"
+               [href]="'https://www.themoviedb.org/' + (d.type === 'show' ? 'tv' : 'movie') + '/' + d.tmdbId"
+               target="_blank" rel="noopener">TMDB</a>
+          </div>
+
+          <div class="library">
+            @for (action of libraryActions; track action.bucket) {
+              <button
+                type="button"
+                class="lib-btn"
+                [class.on]="library()[action.bucket]"
+                [disabled]="pending()[action.bucket]"
+                (click)="toggleBucket(action.bucket)"
+                [title]="library()[action.bucket] ? action.undo : action.label">
+                <span class="lib-icon" [innerHTML]="library()[action.bucket] ? '✓' : '+'"></span>
+                {{ library()[action.bucket] ? action.done : action.label }}
+              </button>
+            }
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <div class="body shell">
+      <div class="main">
+        <!-- ---------------------------------------------- ratings -->
+        <section class="block">
+          <h2 class="block-title">Notas</h2>
+          <app-rating-badges [badges]="d.ratings" />
+        </section>
+
+        <!-- --------------------------------------------- overview -->
+        @if (d.overview) {
+          <section class="block">
+            <h2 class="block-title">Sinopse</h2>
+            <p class="overview">{{ d.overview }}</p>
+          </section>
+        }
+
+        <!-- ------------------------------------------------- cast -->
+        <section class="block">
+          <h2 class="block-title">Elenco</h2>
+          @if (d.cast.length) {
+            <div class="cast">
+              @for (member of d.cast; track member.id) {
+                <button type="button" class="person" (click)="openPerson(member)"
+                        [attr.aria-label]="'Ver biografia de ' + member.name">
+                  @if (profile(member)) {
+                    <img [src]="profile(member)" [alt]="member.name" loading="lazy" />
+                  } @else {
+                    <div class="avatar-fallback">{{ member.name.charAt(0) }}</div>
+                  }
+                  <span class="caption">
+                    <span class="name">{{ member.name }}</span>
+                    <span class="character">{{ character(member) }}</span>
+                  </span>
+                </button>
+              }
+            </div>
+          } @else {
+            <p class="muted">O TMDB não tem elenco cadastrado para este título.</p>
+          }
+        </section>
+
+        <!-- ---------------------------------------------- reviews -->
+        <section class="block">
+          <div class="block-head">
+            <h2 class="block-title">Reviews</h2>
+            @if (d.reviews.length) {
+              <span class="count-tag">{{ d.reviews.length }}</span>
+            }
+          </div>
+
+          @if (reviews().length) {
+            <div class="reviews">
+              @for (review of reviews(); track review.id) {
+                <article class="review" [class.expanded]="isExpanded(review)">
+                  <header>
+                    @if (review.avatar) {
+                      <img class="avatar" [src]="review.avatar" [alt]="review.author" loading="lazy" />
+                    } @else {
+                      <div class="avatar avatar-fallback">{{ review.author.charAt(0) }}</div>
+                    }
+                    <div class="who">
+                      <span class="author">{{ review.author }}</span>
+                      <span class="when">{{ review.createdAt | date: 'dd MMM yyyy' }}</span>
+                    </div>
+                    <span class="source-tag" [class.tmdb]="review.source === 'tmdb'"
+                          [title]="review.via ? 'Espelhada pelo mdblist' : ''">
+                      {{ review.source === 'trakt' ? 'Trakt' : 'TMDB' }}
+                      @if (review.via) { <small>· mdblist</small> }
+                    </span>
+                    @if (review.rating) {
+                      <span class="score">{{ review.rating }}<small>/10</small></span>
+                    }
+                  </header>
+
+                  @if (isHidden(review)) {
+                    <button type="button" class="spoiler" (click)="reveal(review)">
+                      Contém spoiler — clique para revelar
+                    </button>
+                  } @else {
+                    <p class="text">{{ review.content }}</p>
+                    @if (isLong(review) || review.likes) {
+                      <div class="review-foot">
+                        @if (isLong(review)) {
+                          <button type="button" class="more" (click)="toggle(review)">
+                            {{ isExpanded(review) ? 'Mostrar menos' : 'Ler tudo' }}
+                          </button>
+                        }
+                        @if (review.likes) {
+                          <span class="likes">♥ {{ review.likes | number }}</span>
+                        }
+                      </div>
+                    }
+                  }
+                </article>
+              }
+            </div>
+
+            @if (d.reviews.length > reviews().length) {
+              <button type="button" class="btn ghost wide" (click)="showAllReviews.set(true)">
+                Ver todas as {{ d.reviews.length }} reviews
+              </button>
+            }
+          } @else {
+            <p class="muted">Nenhuma review encontrada para este título.</p>
+          }
+        </section>
+
+        <!-- -------------------------------------- recommendations -->
+        @if (d.recommendations.length) {
+          <section class="block">
+            <h2 class="block-title">Você também pode gostar</h2>
+            <div class="recs">
+              @for (rec of d.recommendations; track rec.id) {
+                <a class="rec" [routerLink]="recLink(rec)">
+                  @if (recPoster(rec)) {
+                    <img [src]="recPoster(rec)" [alt]="recTitle(rec)" loading="lazy" />
+                  } @else {
+                    <div class="rec-empty">{{ recTitle(rec).charAt(0) }}</div>
+                  }
+                  <span class="rec-title">{{ recTitle(rec) }}</span>
+                  <span class="rec-year">{{ recYear(rec) }}</span>
+                </a>
+              }
+            </div>
+          </section>
+        }
+      </div>
+
+      <!-- ------------------------------------------------ sidebar -->
+      <aside class="side">
+        <div class="card">
+          <h3>Ficha técnica</h3>
+          <dl>
+            @for (fact of facts(); track fact.label) {
+              <div class="fact">
+                <dt>{{ fact.label }}</dt>
+                <dd>{{ fact.value }}</dd>
+              </div>
+            }
+            @if (d.releaseDate) {
+              <div class="fact">
+                <dt>Lançamento</dt>
+                <dd>{{ d.releaseDate | date: 'dd/MM/yyyy' }}</dd>
+              </div>
+            }
+          </dl>
+        </div>
+
+        <div class="card ids">
+          <h3>Identificadores</h3>
+          <p><span>TMDB</span><code>{{ d.tmdbId }}</code></p>
+          @if (d.imdbId) { <p><span>IMDb</span><code>{{ d.imdbId }}</code></p> }
+        </div>
+      </aside>
+    </div>
+  </article>
+
+  <!-- ------------------------------------------------ person bio -->
+  @if (selectedPerson(); as person) {
+    <app-person-modal
+      [personId]="person.id"
+      [fallbackName]="person.name"
+      (closed)="selectedPerson.set(null)" />
+  }
+
+  <!-- --------------------------------------------------- trailer -->
+  @if (trailerOpen() && d.trailerKey) {
+    <div class="lightbox" (click)="trailerOpen.set(false)">
+      <button type="button" class="close" aria-label="Fechar">✕</button>
+      <div class="frame" (click)="$event.stopPropagation()">
+        <iframe
+          [src]="trailerUrl()"
+          title="Trailer"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowfullscreen></iframe>
+      </div>
+    </div>
+  }
+}

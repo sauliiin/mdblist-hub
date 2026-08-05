@@ -1,0 +1,126 @@
+@if (!browseMode()) {
+  <app-hero />
+}
+
+<div class="toolbar shell" [class.compact]="browseMode()">
+  <div class="summary">
+    @if (browseMode()) {
+      <strong>{{ visibleResults().length }}</strong> resultado{{ visibleResults().length === 1 ? '' : 's' }}
+      <span class="dot"></span>
+      <span class="for">{{ resultsLabel() }}</span>
+    } @else {
+      <strong>{{ lists().length }}</strong> listas
+      <span class="dot"></span>
+      <strong>{{ totalItems() | number }}</strong> títulos
+    }
+  </div>
+
+  <div class="controls">
+    <label class="search">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" />
+      </svg>
+      <input
+        type="text"
+        placeholder="Buscar filmes ou séries…"
+        [value]="query()"
+        (input)="onQuery($event)"
+        aria-label="Buscar filmes ou séries" />
+    </label>
+
+    <label class="genre">
+      <select [value]="genre()" (change)="onGenre($event)" aria-label="Filtrar por gênero">
+        <option value="">Filtrar por gênero</option>
+        @for (option of genres(); track option.name) {
+          <option [value]="option.name">{{ option.name }}</option>
+        }
+      </select>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
+    </label>
+
+    @if (browseMode()) {
+      <button type="button" class="clear-all" (click)="clearAll()">Limpar</button>
+    }
+
+    <div class="segmented" role="group" aria-label="Tipo de mídia">
+      <button type="button" [class.on]="filter() === 'all'" (click)="filter.set('all')">Tudo</button>
+      <button type="button" [class.on]="filter() === 'movie'" (click)="filter.set('movie')">Filmes</button>
+      <button type="button" [class.on]="filter() === 'show'" (click)="filter.set('show')">Séries</button>
+    </div>
+  </div>
+</div>
+
+<main class="rows">
+  @if (browseMode()) {
+    @if (searching()) {
+      <div class="results shell">
+        @for (s of [1,2,3,4,5,6,7,8,9,10]; track $index) {
+          <div class="skeleton result-skeleton"></div>
+        }
+      </div>
+    } @else if (visibleResults().length) {
+      <div class="results shell">
+        @for (result of visibleResults(); track result.key) {
+          <a class="result" [routerLink]="['/title', result.tmdbType, result.id]">
+            <div class="poster">
+              @if (result.poster) {
+                <img [src]="result.poster" [alt]="result.title" loading="lazy" />
+              } @else {
+                <div class="poster-empty">{{ result.title.charAt(0) }}</div>
+              }
+              <span class="kind">{{ result.tmdbType === 'tv' ? 'Série' : 'Filme' }}</span>
+              @if (result.vote) {
+                <span class="vote">{{ result.vote.toFixed(1) }}</span>
+              }
+            </div>
+            <p class="result-title">{{ result.title }}</p>
+            <p class="result-year">{{ result.year || '—' }}</p>
+          </a>
+        }
+      </div>
+    } @else {
+      <div class="state shell">
+        <h2>Nada encontrado para {{ resultsLabel() }}</h2>
+        <p>Tente outro termo, outro gênero, ou volte o filtro para “Tudo”.</p>
+      </div>
+    }
+  } @else if (loading()) {
+    @for (s of [1, 2, 3]; track $index) {
+      <div class="row-placeholder">
+        <div class="skeleton head"></div>
+        <div class="posters">
+          @for (p of [1,2,3,4,5,6,7,8]; track $index) { <div class="skeleton poster"></div> }
+        </div>
+      </div>
+    }
+  } @else if (failed()) {
+    <div class="state shell">
+      <h2>Não foi possível carregar suas listas</h2>
+      <p>Verifique a chave da API do mdblist e sua conexão, depois recarregue a página.</p>
+    </div>
+  } @else {
+    @for (list of visible(); track list.id) {
+      @defer (on viewport; prefetch on idle) {
+        <app-media-row [list]="list" />
+      } @placeholder (minimum 100ms) {
+        <div class="row-placeholder">
+          <div class="skeleton head"></div>
+          <div class="posters">
+            @for (p of [1,2,3,4,5,6,7,8]; track $index) { <div class="skeleton poster"></div> }
+          </div>
+        </div>
+      }
+    } @empty {
+      <div class="state shell">
+        <h2>Nenhuma lista corresponde ao filtro</h2>
+        <p>Volte para “Tudo” para ver todas as suas listas.</p>
+      </div>
+    }
+
+    @defer (on viewport; prefetch on idle) {
+      <app-because-you-watched />
+    } @placeholder {
+      <div class="feed-anchor"></div>
+    }
+  }
+</main>

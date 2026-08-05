@@ -1,0 +1,8 @@
+{
+  "/mdblist-api": {
+    "target": "https://api.mdblist.com",
+    "secure": true,
+    "changeOrigin": true,
+    "pathRewrite": { "^/mdblist-api": "" }
+  }
+}

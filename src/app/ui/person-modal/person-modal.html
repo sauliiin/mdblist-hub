@@ -1,0 +1,95 @@
+<div class="overlay" (click)="close()">
+  <div class="panel" (click)="$event.stopPropagation()" role="dialog" aria-modal="true">
+    <button type="button" class="close" (click)="close()" aria-label="Fechar">✕</button>
+
+    <div class="head">
+      @if (photo()) {
+        <img class="photo" [src]="photo()" [alt]="person()?.name || fallbackName()" />
+      } @else {
+        <div class="photo empty">{{ (person()?.name || fallbackName() || '?').charAt(0) }}</div>
+      }
+
+      <div class="ident">
+        <h2>{{ person()?.name || fallbackName() }}</h2>
+
+        @if (person()?.known_for_department) {
+          <span class="role">{{ person()!.known_for_department }}</span>
+        }
+
+        <dl class="facts">
+          @if (birthday()) {
+            <div>
+              <dt>Nascimento</dt>
+              <dd>
+                {{ birthday()!.length === 10 ? (birthday() | date: 'dd/MM/yyyy') : birthday() }}
+                @if (age() && !deathday()) { <span class="age">({{ age() }} anos)</span> }
+              </dd>
+            </div>
+          }
+          @if (deathday()) {
+            <div>
+              <dt>Falecimento</dt>
+              <dd>
+                {{ deathday()!.length === 10 ? (deathday() | date: 'dd/MM/yyyy') : deathday() }}
+                @if (age()) { <span class="age">({{ age() }} anos)</span> }
+              </dd>
+            </div>
+          }
+          @if (birthplace()) {
+            <div>
+              <dt>Local</dt>
+              <dd>{{ birthplace() }}</dd>
+            </div>
+          }
+        </dl>
+      </div>
+    </div>
+
+    <div class="body">
+      @if (loading()) {
+        <div class="skeleton line"></div>
+        <div class="skeleton line"></div>
+        <div class="skeleton line short"></div>
+      } @else if (bio(); as biography) {
+        <section class="bio">
+          <div class="bio-head">
+            <h3>Biografia</h3>
+            <span class="src" [class.tmdb]="biography.source === 'tmdb'">
+              @if (biography.source === 'wikipedia') {
+                Wikipedia <small>{{ wiki()?.lang }}</small>
+              } @else {
+                TMDB
+              }
+            </span>
+          </div>
+          <p class="bio-text">{{ biography.text }}</p>
+          @if (wiki()?.articleUrl) {
+            <a class="wiki-link" [href]="wiki()!.articleUrl" target="_blank" rel="noopener">
+              Ler o artigo completo na Wikipedia ↗
+            </a>
+          }
+        </section>
+      } @else {
+        <p class="none">Nenhuma biografia encontrada na Wikipedia nem no TMDB.</p>
+      }
+
+      @if (knownFor().length) {
+        <section class="known">
+          <h3>Mais conhecido por</h3>
+          <div class="credits">
+            @for (credit of knownFor(); track credit.media_type + credit.id) {
+              <a class="credit" [routerLink]="creditLink(credit)" (click)="close()">
+                <img [src]="creditPoster(credit)" [alt]="creditTitle(credit)" loading="lazy" />
+                <span class="credit-title">{{ creditTitle(credit) }}</span>
+                @if (credit.character) {
+                  <span class="credit-role">{{ credit.character }}</span>
+                }
+                <span class="credit-year">{{ creditYear(credit) }}</span>
+              </a>
+            }
+          </div>
+        </section>
+      }
+    </div>
+  </div>
+</div>

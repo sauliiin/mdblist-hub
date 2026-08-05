@@ -1,0 +1,40 @@
+@if (loading() || rows().length) {
+  <section class="feed">
+    <header class="feed-head shell">
+      <div>
+        <h2>Porque você assistiu</h2>
+        <p>Recomendações a partir dos seus últimos 45 títulos vistos.</p>
+      </div>
+      <button type="button" class="reroll" (click)="load()" [disabled]="loading()">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M17 3l4 4-4 4V8h-5a5 5 0 00-5 5H4a8 8 0 018-8h5V3zM7 21l-4-4 4-4v3h5a5 5 0 005-5h3a8 8 0 01-8 8H7v2z" />
+        </svg>
+        Outras sugestões
+      </button>
+    </header>
+
+    @if (loading()) {
+      @for (s of [1, 2]; track $index) {
+        <div class="row-placeholder">
+          <div class="skeleton head"></div>
+          <div class="posters">
+            @for (p of [1,2,3,4,5,6,7,8]; track $index) { <div class="skeleton poster"></div> }
+          </div>
+        </div>
+      }
+    } @else {
+      @for (row of rows(); track row.seed.mediatype + row.seed.id) {
+        <section class="row">
+          <h3 class="shell">
+            Porque você assistiu <strong>{{ row.seed.title }}</strong>
+          </h3>
+          <div class="track">
+            @for (item of row.items; track item.mediatype + item.id) {
+              <app-media-card [item]="item" />
+            }
+          </div>
+        </section>
+      }
+    }
+  </section>
+}
