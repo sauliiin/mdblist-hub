@@ -8,7 +8,9 @@
     "watch": "node node_modules/@angular/cli/bin/ng.js build --watch --configuration development",
     "test": "node node_modules/@angular/cli/bin/ng.js test",
     "android:sync": "npm run build && node node_modules/@capacitor/cli/bin/capacitor sync android",
-    "android:apk": "npm run android:sync && cd android && ./gradlew assembleDebug"
+    "android:apk": "npm run android:sync && cd android && ./gradlew assembleMobileDebug assembleTvDebug",
+    "android:apk:mobile": "npm run android:sync && cd android && ./gradlew assembleMobileDebug",
+    "android:apk:tv": "npm run android:sync && cd android && ./gradlew assembleTvDebug"
   },
   "private": true,
   "packageManager": "npm@12.0.2",

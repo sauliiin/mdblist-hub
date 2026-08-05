@@ -99,6 +99,21 @@ export class SpatialNavigation {
   private onKey(event: KeyboardEvent): void {
     if (!this.tv.isTv() || event.altKey || event.ctrlKey || event.metaKey) return;
 
+    const active = document.activeElement as HTMLElement | null;
+
+    // Text fields and selects need their own arrow behaviour.
+    if (active && isTextEntry(active)) return;
+
+    /*
+     * A region that handles its own keys owns *all* of them, OK included —
+     * not just the arrows. This check used to sit below the OK handling, so
+     * pressing OK inside the video player was intercepted here and turned
+     * into a click on the player's own wrapper `<div>`, which has no click
+     * handler: the press did nothing at all, and the player never got the
+     * chance to reveal its controls.
+     */
+    if (active?.closest('[data-spatial="off"]')) return;
+
     if (SELECT_KEYS.has(event.key)) {
       this.select(event);
       return;
@@ -106,12 +121,6 @@ export class SpatialNavigation {
 
     const direction = KEYS[event.key];
     if (!direction) return;
-
-    const active = document.activeElement as HTMLElement | null;
-
-    // Text fields and selects need their own arrow behaviour.
-    if (active && isTextEntry(active)) return;
-    if (active?.closest('[data-spatial="off"]')) return;
 
     const next = this.override(active, direction) ?? this.find(active, direction);
     if (!next) return;
@@ -176,7 +185,10 @@ export class SpatialNavigation {
     if (row && row !== this.activeRow) {
       this.activeRow = row;
       this.pinRow(row);
-      return;
+      // Deliberately no `return`: pinning only handles the *vertical* placement
+      // of the row. The card still has to be brought to the fixed horizontal
+      // slot below, or entering a row left its strip wherever it happened to
+      // be scrolled and the focus appeared to jump sideways.
     }
 
     // Same row as before (or no row at all, e.g. a still-loading placeholder
@@ -338,9 +350,16 @@ function isTextEntry(element: HTMLElement): boolean {
   return !['checkbox', 'radio', 'button', 'submit', 'range'].includes(type);
 }
 
-function visible(element: HTMLElement): boolean {
+/**
+ * The element's box if it is a usable D-pad target, `null` otherwise.
+ *
+ * Returns the rect rather than a boolean so the caller can reuse the
+ * measurement it already paid for — see `find()`. The cheap attribute and
+ * selector checks come first so most rejects never reach a layout flush.
+ */
+function measureVisible(element: HTMLElement): DOMRect | null {
   if (element.hasAttribute('hidden') || element.getAttribute('aria-hidden') === 'true') {
-    return false;
+    return null;
   }
 
   /*
@@ -351,11 +370,19 @@ function visible(element: HTMLElement): boolean {
    * only gave "right" at the row's edge somewhere odd to land: a button whose
    * own geometry does not sit among the cards it controls.
    */
-  if (element.matches('.nav.prev, .nav.next')) return false;
+  if (element.matches('.nav.prev, .nav.next')) return null;
 
   const rect = element.getBoundingClientRect();
-  if (!rect.width || !rect.height) return false;
+  if (!rect.width || !rect.height) return null;
 
   const style = getComputedStyle(element);
-  return style.visibility !== 'hidden' && style.display !== 'none' && style.opacity !== '0';
+  const shown =
+    style.visibility !== 'hidden' && style.display !== 'none' && style.opacity !== '0';
+
+  return shown ? rect : null;
+}
+
+/** Boolean form, for the callers that only need the verdict. */
+function visible(element: HTMLElement): boolean {
+  return measureVisible(element) !== null;
 }

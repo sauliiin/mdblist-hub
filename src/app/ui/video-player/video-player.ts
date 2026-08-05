@@ -498,6 +498,19 @@ export class VideoPlayer {
     const handled = true;
 
     switch (key) {
+      /*
+       * OK on a remote. The controls hide themselves after a couple of idle
+       * seconds, and `wake()` was only ever wired to `pointermove` — an event
+       * a remote never produces. So once they faded there was no way at all
+       * to bring them back on a television.
+       *
+       * First press reveals them (the `wake()` at the end of this method does
+       * that for every handled key); a second press, while they are already
+       * up, plays or pauses. That is the behaviour every TV player uses.
+       */
+      case 'enter':
+        if (this.controls()) this.togglePlay();
+        break;
       case ' ':
       case 'k': this.togglePlay(); break;
       case 'arrowright': this.seekBy(5); break;

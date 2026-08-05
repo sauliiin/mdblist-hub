@@ -29,7 +29,7 @@
   justify-content: space-between;
   gap: 16px;
   padding-inline: clamp(16px, 3.6vw, 56px);
-  margin-bottom: 14px;
+  margin-bottom: 4px;
 }
 
 .heading {
@@ -117,8 +117,37 @@ h2 {
  * the CSS spec's rule for mismatched overflow axes. 10px was never enough
  * headroom for that growth; this is the room the zoomed card actually needs.
  */
+/*
+ * Down from 40px as part of tightening the title-to-poster gap. It cannot go
+ * much lower: the focused card grows about 24px upward (scale 1.06 on a
+ * ~267px-tall poster, plus the 8px lift), and `overflow-x: auto` forces the
+ * vertical axis to clip, so anything under that starts cutting the zoom off.
+ */
 :host-context(html.tv) .track {
-  padding-top: 40px;
+  padding-top: 28px;
+
+  /*
+   * The TV `.shell` widens its inline padding to clear overscan
+   * (`max(var(--overscan), …)` in styles.scss). Without matching that here,
+   * the fixed slot a focused card snaps to sat left of the row's own heading
+   * and of every other column on the page.
+   */
+  scroll-padding-inline: max(var(--overscan), clamp(16px, 3.6vw, 56px));
+  padding-inline: max(var(--overscan), clamp(16px, 3.6vw, 56px));
+
+  /*
+   * `mandatory`, not the `proximity` used elsewhere. With `proximity` the
+   * browser is free to re-settle on whichever snap point is *nearest* after a
+   * programmatic scroll, so `scrollIntoView({ inline: 'start' })` landed the
+   * focused card close to the fixed slot but rarely exactly on it — the focus
+   * appeared to drift as you moved along the row.
+   *
+   * Mandatory is safe here in a way it was not for the page's vertical axis:
+   * every card carries `scroll-snap-align: start`, so a valid snap point
+   * always exists. (The hero had none, which is why root-level mandatory
+   * snapping made it unreachable — see `styles.scss`.)
+   */
+  scroll-snap-type: x mandatory;
 }
 
 .nav {

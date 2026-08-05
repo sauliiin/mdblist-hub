@@ -74,7 +74,13 @@ está logada, e "Sair" limpa a chave e o cache HTTP.
 
 - **Destaque** sorteado entre as suas listas, com botão para re-sortear.
 - **Fileiras** — uma por lista, carregadas só quando entram na tela (`@defer`),
-  paginando de 30 em 30 conforme você rola para o lado.
+  com **30 títulos** cada. Ao chegar ao fim da fileira há um card
+  **"+ Carregar mais"** que busca os próximos 30. É deliberadamente um pedido
+  explícito e não carregamento automático ao rolar: cada card a mais é um
+  pôster a baixar e decodificar, mais nós no DOM, e mais um candidato que a
+  navegação por controle remoto precisa avaliar a cada tecla.
+- **Continuar assistindo** — logo abaixo do destaque, alimentada por
+  `GET /sync/playback` do mdblist (veja [Scrobble](#scrobble-e-continuar-assistindo)).
 - **Busca por texto e por tema** — procura no catálogo completo do TMDB, por
   título e, ao mesmo tempo, pela tag de palavra-chave do TMDB (`zombie`,
   `time travel`, `female assassin`...). Isso traz títulos que nunca mencionam a
@@ -198,7 +204,16 @@ O player é próprio (`ui/video-player`), não o `controls` nativo: barra de
 progresso com buffer e bolha de tempo ao arrastar, volume, velocidade, legenda,
 modo cinema, tela cheia e os atalhos de teclado que o YouTube consagrou —
 `espaço`/`k`, `j`/`l` (±10s), setas (±5s), `m`, `f`, `t`, `c`, `0`–`9`. Os
-controles somem sozinhos durante a reprodução.
+controles somem sozinhos durante a reprodução; **OK/Enter** os traz de volta e,
+com eles já visíveis, dá play/pause — um controle remoto não gera `pointermove`,
+então sem isso não haveria como reexibi-los numa TV.
+
+A escolha de legenda e o **ajuste de sincronia** (−0,5s / +0,5s, com o desvio
+atual e "repor") ficam **dentro** do player, não só na barra lateral da página:
+em tela cheia — que é como se assiste na TV e no celular — a barra lateral não
+existe, e sem isso não haveria como trocar de legenda. A sincronia edita
+`startTime`/`endTime` das cues carregadas, que são objetos vivos; o desvio zera
+ao trocar de legenda ou de vídeo, para não herdar o ajuste anterior.
 
 As sugestões na página de Addons (Torrentio, MediaFusion, Comet, AIOStreams,
 OpenSubtitles) foram verificadas contra os endpoints reais. As quatro de fontes
@@ -230,25 +245,85 @@ pilha HTTP nativa: isso contorna CORS e permite que as ações de
 watchlist/coleção/assistido falem diretamente com o mdblist, sem o proxy do
 servidor de desenvolvimento.
 
-Pré-requisitos para recompilar: Node 22+, JDK 21, Android SDK 36 e Android Build
-Tools 35.0.0. Com `ANDROID_HOME` apontando para o SDK:
+São **dois produtos a partir do mesmo build web**, separados por um *product
+flavor* do Gradle:
+
+| flavor | applicationId | para |
+| --- | --- | --- |
+| `mobile` | `com.mdblisthub.app` | celular e tablet |
+| `tv` | `com.mdblisthub.app.tv` | Android TV (Leanback) |
+
+O sufixo no `applicationId` do flavor de TV é deliberado: os dois convivem no
+mesmo aparelho, o que importa porque um TV box roda qualquer um dos dois e é
+assim que dá para comparar.
+
+Pré-requisitos para recompilar: Node 22+, JDK 21, Android SDK 36 e Build Tools
+35.0.0+. Com `ANDROID_HOME` apontando para o SDK:
 
 ```bash
 npm install
-npm run android:apk
+npm run android:apk          # os dois
+npm run android:apk:mobile   # só celular
+npm run android:apk:tv       # só Android TV
 ```
 
-O APK de teste, assinado automaticamente com a chave de debug do Android, sai
-em `android/app/build/outputs/apk/debug/app-debug.apk`. Para instalar num
-aparelho conectado com depuração USB:
+Se o `gradlew` reclamar de `JAVA_HOME`, aponte-o para o JDK (o Android Studio
+traz um embutido em `<studio>/jbr`):
 
 ```bash
-adb install -r android/app/build/outputs/apk/debug/app-debug.apk
+JAVA_HOME=/usr/lib/jvm/java-21-openjdk npm run android:apk
+```
+
+Os APKs de teste, assinados com a chave de debug do Android, saem em:
+
+```
+android/app/build/outputs/apk/mobile/debug/app-mobile-debug.apk
+android/app/build/outputs/apk/tv/debug/app-tv-debug.apk
+```
+
+Para instalar num aparelho conectado (ou num box na mesma rede, via
+`adb connect IP:5555`):
+
+```bash
+adb install -r android/app/build/outputs/apk/tv/debug/app-tv-debug.apk
 ```
 
 O manifesto permite tráfego HTTP e conteúdo misto porque alguns addons
 pessoais devolvem links de vídeo `http://`. Instale apenas addons em que você
 confia: essa exceção é intencional para o player e não é necessária no site.
+
+### Android TV
+
+O flavor `tv` declara `android.software.leanback` como obrigatório e
+`android.hardware.touchscreen` como **não** obrigatório — a segunda metade é a
+que costuma ser esquecida, e sem ela launchers e a Play Store tratam o app como
+incompatível com aparelho sem toque. Ele também carrega banner próprio e a
+categoria `LEANBACK_LAUNCHER`, sem a qual não aparece no launcher de TV.
+
+O front-end reconhece que está numa TV por três sinais, nesta ordem: o arquivo
+`tv-build.json`, presente apenas no flavor `tv`; `(pointer: none)`, que um
+set-top box reporta e um celular não; e marcadores de user agent. Um override em
+`localStorage` vence todos, que é o que permite testar o layout de TV no
+navegador:
+
+```js
+localStorage.setItem('mdblist-hub.tv', 'on')   // 'off' desliga, remover volta ao automático
+```
+
+**Navegação pelo controle** (`core/tv/spatial-navigation.ts`) é resolvida por
+geometria, não pela ordem do DOM — apertar → dentro de uma fileira tem que ir
+para o pôster seguinte, não para o que vem depois no HTML. Esquerda e direita
+ficam travadas na própria fileira; cima e baixo são o movimento que troca de
+lista. Regiões que tratam as próprias teclas se excluem com
+`data-spatial="off"` (o player, onde as setas são busca e volume), e regiões que
+o D-pad deve pular usam `data-nav-skip` (a barra de filtros, o rodapé de
+créditos). `data-nav-down` e irmãos permitem um destino explícito quando a
+geometria não sabe a intenção.
+
+O foco é fixo: a fileira ativa encosta o título num ponto fixo do topo
+(`scroll-margin-top` nos `[data-row]`) e o pôster em foco ocupa sempre a mesma
+posição horizontal, com os demais deslizando por baixo (`scroll-snap-type: x
+mandatory` + `scroll-snap-align: start` nos cards).
 
 ---
 
@@ -372,10 +447,21 @@ histórico), é por isso que ela não é embutida no bundle.
   nem Firefox, e HLS (`.m3u8`) só toca nativamente no Safari. O player avisa
   antes e oferece o link para um player externo em vez de falhar em silêncio.
   Suportar esses casos exigiria embarcar um demuxer (hls.js e afins), o que o
-  projeto evita para manter a lista de dependências como está.
+  projeto evita para manter a lista de dependências como está. **No APK Android
+  isso é menos restritivo**: o stack de mídia do sistema demuxa Matroska e HLS
+  nativamente, então boa parte desses avisos não se aplica no aparelho.
 - **Legendas com CORS fechado** — o addon lista o arquivo, mas quem o hospeda
   nem sempre libera leitura cross-origin. Nesses casos a legenda falha com aviso;
   as outras da lista continuam disponíveis.
+- **Sincronização de addons exige https ou localhost** — o token é derivado com
+  `crypto.subtle`, que o navegador só expõe em contexto seguro. Netlify e o
+  Capacitor (que serve de `https://localhost`) atendem; testar o dev server pelo
+  celular em `http://192.168.x.x:4200` não. A tela diz isso explicitamente em vez
+  de reportar erro de rede.
+- **Formato do corpo do scrobble não confirmado contra a API real** — o mdblist
+  valida a chave *antes* do corpo, então não foi possível confirmar a grafia do
+  alvo aninhado (`movie[ids][imdb]`) sem uma chave válida. Se estiver errado, o
+  player mostra o status e o corpo cru da resposta em vez de falhar calado.
 
 ---
 
@@ -388,10 +474,12 @@ src/app/
               e login da conta Stremio para importar a coleção
     sync/     lista de addons no Realtime Database, via REST
     scrobble/ pontos de reprodução no mdblist (start/pause/stop/clear)
-  ui/         media-card, media-row (carrossel), rating-badges, person-modal
+    tv/       detecção de Android TV e navegação espacial por D-pad
+  ui/         media-card, media-row (carrossel), rating-badges, person-modal,
+              video-player (player próprio), bottom-nav (tabs no celular)
   features/
     login/    chave da API do mdblist
-    home/     destaque + fileiras + busca/gênero + "porque você assistiu"
+    home/     destaque + continuar assistindo + fileiras + busca/gênero
     detail/   backdrop, notas, sinopse, elenco, reviews, recomendações
     addons/   instalar e remover addons do Stremio
     player/   fontes, seletor de episódio, legendas, <video>
@@ -405,9 +493,20 @@ Detalhes de implementação que valem nota:
   passam por fora dele (`noCache()`): link de debrid é gerado por requisição e
   expira, então um cacheado entregaria uma URL morta ao player.
 - Os pôsteres do mdblist vêm em `w200`; a URL é reescrita para `w342`
-  (`upscalePoster`) para não ficarem borrados em telas retina.
+  (`upscalePoster`) para não ficarem borrados em telas retina — **exceto na TV**,
+  onde o card mede 113–178px e `w185` já é mais pixels do que chegam a ser
+  pintados. Pedir `w342` ali era rede e decodificação gastas em detalhe que
+  ninguém vê, o que pesa numa CPU fraca de set-top box.
 - Cada fileira só busca seus itens quando entra na viewport, com teto de 120
   itens por fileira para não construir milhares de nós no DOM.
+- **Não há cache de imagem próprio, de propósito.** Uma camada
+  `Map<url, Blob>` chegou a existir e foi removida: o CDN do TMDB responde
+  `cache-control: public, max-age=31919000` com etag, então o navegador já
+  cacheia em disco entre sessões. A camada extra só duplicava esse trabalho e
+  ainda perdia a decodificação progressiva, porque esperava o arquivo inteiro
+  baixar antes de começar.
+- O app roda **zoneless** (`provideZonelessChangeDetection()`, sem `zone.js`
+  nas dependências), com `strict` e `strictTemplates` ligados.
 
 ---
 
