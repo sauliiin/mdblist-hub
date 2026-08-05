@@ -45,7 +45,7 @@ export class MdblistService {
         params: {
           apikey: API.mdblist.key,
           unified: 'true',
-          append_to_response: 'poster,genre',
+          append_to_response: 'poster,genre,ratings',
           limit,
           offset,
         },

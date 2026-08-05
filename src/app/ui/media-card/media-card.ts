@@ -18,6 +18,11 @@ export class MediaCard {
   protected readonly poster = computed(() => upscalePoster(this.item().poster, 'w342'));
   protected readonly link = computed(() => ['/title', toTmdbType(this.item().mediatype), this.item().id]);
   protected readonly genres = computed(() => (this.item().genre ?? []).slice(0, 2));
+
+  protected readonly imdbRating = computed(() => {
+    const value = this.item().ratings?.find((r) => r.source === 'imdb')?.value;
+    return typeof value === 'number' ? value : null;
+  });
   protected readonly runtime = computed(() => {
     const minutes = this.item().runtime;
     if (!minutes) return null;
