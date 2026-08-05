@@ -19,6 +19,9 @@ const KEYS: Record<string, Direction> = {
   ArrowRight: 'right',
 };
 
+/** Every value a remote's OK/select button has been seen reporting as. */
+const SELECT_KEYS = new Set(['Enter', ' ', 'Spacebar']);
+
 /**
  * D-pad navigation for the TV build.
  *
@@ -37,6 +40,9 @@ export class SpatialNavigation {
   private readonly tv = inject(TvService);
   private started = false;
 
+  /** Where focus last landed, so it can be recovered if that element vanishes. */
+  private lastRect: DOMRect | null = null;
+
   start(): void {
     if (this.started) return;
     this.started = true;
@@ -44,10 +50,59 @@ export class SpatialNavigation {
     // Capture phase, so this runs before component-level handlers and can
     // decide whether to let the key through.
     document.addEventListener('keydown', (event) => this.onKey(event), true);
+
+    /*
+     * A row that starts loading because focus landed on its placeholder (see
+     * `home.html`) replaces that placeholder with real content once the fetch
+     * resolves — and the DOM node that had focus is gone. Losing focus on a TV
+     * is not a cosmetic problem: without a mouse there is no other way to move
+     * it again, so the remote would simply stop doing anything.
+     *
+     * `childList`/`subtree` catches exactly this swap. The callback is cheap
+     * in the overwhelmingly common case (focus is still somewhere valid, one
+     * property read and return) and only searches the page when it is not.
+     */
+    new MutationObserver(() => this.recoverFocus()).observe(document.body, {
+      childList: true,
+      subtree: true,
+    });
+  }
+
+  private recoverFocus(): void {
+    if (!this.tv.isTv() || !this.lastRect) return;
+
+    const active = document.activeElement;
+    if (active && active !== document.body && active !== document.documentElement) return;
+
+    const candidates = [...document.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(visible);
+    if (!candidates.length) return;
+
+    let best: HTMLElement | null = null;
+    let bestDistance = Infinity;
+
+    for (const candidate of candidates) {
+      const rect = candidate.getBoundingClientRect();
+      const dx = rect.left - this.lastRect.left;
+      const dy = rect.top - this.lastRect.top;
+      const distance = dx * dx + dy * dy;
+
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        best = candidate;
+      }
+    }
+
+    best?.focus({ preventScroll: true });
+    if (best) this.lastRect = best.getBoundingClientRect();
   }
 
   private onKey(event: KeyboardEvent): void {
     if (!this.tv.isTv() || event.altKey || event.ctrlKey || event.metaKey) return;
+
+    if (SELECT_KEYS.has(event.key)) {
+      this.select(event);
+      return;
+    }
 
     const direction = KEYS[event.key];
     if (!direction) return;
@@ -65,8 +120,33 @@ export class SpatialNavigation {
     event.stopPropagation();
 
     next.focus({ preventScroll: true });
+    this.lastRect = next.getBoundingClientRect();
     this.reveal(next);
   }
+
+  /**
+   * Activates whatever is focused, instead of trusting the browser to
+   * synthesize a click from Enter/Space on its own.
+   *
+   * That synthesis is old, standard behaviour for a focused button or link —
+   * but this app's real audience is whatever budget Android TV box someone
+   * happens to own, and how faithfully a given one's WebView implements that
+   * step is not something to bet the entire "press OK" gesture on. Taking
+   * over here only requires the box to deliver the key event at all, which
+   * the arrow-key navigation already proves it does. `preventDefault` on the
+   * keydown suppresses the browser's own synthesis before it can fire, so
+   * this replaces it rather than doubling it.
+   */
+  private select(event: KeyboardEvent): void {
+    const active = document.activeElement as HTMLElement | null;
+    if (!active || active === document.body || isTextEntry(active)) return;
+
+    event.preventDefault();
+    active.click();
+  }
+
+  /** The `[data-row]` currently pinned to `ROW_TOP`, so a re-entry into the same row is a no-op. */
+  private activeRow: Element | null = null;
 
   /**
    * Brings the newly focused element into view.
@@ -75,14 +155,56 @@ export class SpatialNavigation {
    * hero *is* the top of the page, and stopping at whichever button was focused
    * would leave the featured title half cut off above it. So focus landing
    * anywhere in the hero scrolls the page home instead.
+   *
+   * Moving into a *different* `[data-row]` is the other special case: rather
+   * than scrolling just enough to reveal whichever card was picked (which
+   * would leave every row sitting wherever it naturally falls in the page),
+   * the row's own heading is pinned to the same fixed point every time. Since
+   * the poster strip sits a fixed distance below its heading in every row's
+   * own CSS, pinning the heading is all it takes to pin the posters too — a
+   * list swaps in at the same spot the previous one just occupied, rather
+   * than the page scrolling further down with each row.
    */
   private reveal(element: HTMLElement): void {
     if (element.closest('app-hero')) {
       scrollTo({ top: 0, behavior: 'smooth' });
+      this.activeRow = null;
       return;
     }
 
-    element.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
+    const row = element.closest('[data-row]');
+    if (row && row !== this.activeRow) {
+      this.activeRow = row;
+      this.pinRow(row);
+      return;
+    }
+
+    // Same row as before (or no row at all, e.g. a still-loading placeholder
+    // with nothing to pin to yet): keep the focused card in place horizontally.
+    element.scrollIntoView({ block: 'nearest', inline: 'start', behavior: 'smooth' });
+  }
+
+  /**
+   * Scrolls so `row` lands at a fixed distance from the top.
+   *
+   * This used to compute an absolute target by hand (`rect.top + scrollY -
+   * offset`) and call `scrollTo`. That math reads `window.scrollY` at the
+   * instant of the keypress — fine for one press, but a remote's D-pad
+   * auto-repeats while held, and each repeat landed mid-flight of the
+   * previous smooth scroll, recomputing a target from a baseline that was
+   * itself still animating. The visible result was exactly the continuous
+   * "dragging a scrollbar" feel this was supposed to replace, instead of
+   * discrete rows snapping into place.
+   *
+   * `scrollIntoView` has no such problem: retriggering it mid-animation just
+   * redirects the same smooth scroll to the new target, which is what makes
+   * holding the button down feel like stepping through rows rather than
+   * sliding. `scroll-margin-top: 28px` on `[data-row]` (styles.scss) is what
+   * supplies the fixed offset now, so `block: 'start'` lands exactly at
+   * `ROW_TOP` without this method needing to know the number itself.
+   */
+  private pinRow(row: Element): void {
+    (row as HTMLElement).scrollIntoView({ block: 'start', behavior: 'smooth' });
   }
 
   /**
@@ -102,27 +224,44 @@ export class SpatialNavigation {
     return [...document.querySelectorAll<HTMLElement>(selector)].find(visible) ?? null;
   }
 
+  /**
+   * Picks the nearest focusable element in `direction`.
+   *
+   * Every candidate is measured exactly once, in a single pass. The earlier
+   * shape — `.filter(visible)` and then `getBoundingClientRect()` again inside
+   * the scoring loop — measured each one twice, and `getBoundingClientRect`
+   * and `getComputedStyle` both force the browser to flush pending layout.
+   * With a dozen loaded rows that is a few hundred forced reflows per keypress,
+   * which is precisely the budget a weak set-top box does not have. The
+   * candidate's rect now travels with it from the visibility check into the
+   * score.
+   */
   private find(from: HTMLElement | null, direction: Direction): HTMLElement | null {
-    const candidates = [...document.querySelectorAll<HTMLElement>(FOCUSABLE)]
-      .filter(visible)
-      .filter((element) => !skipped(element, from));
+    const candidates: { element: HTMLElement; rect: DOMRect }[] = [];
+
+    for (const element of document.querySelectorAll<HTMLElement>(FOCUSABLE)) {
+      if (skipped(element, from)) continue;
+
+      const rect = measureVisible(element);
+      if (rect) candidates.push({ element, rect });
+    }
+
     if (!candidates.length) return null;
 
     // Nothing focused yet — the first press should land somewhere sensible.
-    if (!from || from === document.body) return candidates[0] ?? null;
+    if (!from || from === document.body) return candidates[0]?.element ?? null;
 
     const origin = from.getBoundingClientRect();
     let best: HTMLElement | null = null;
     let bestScore = Infinity;
 
-    for (const candidate of candidates) {
-      if (candidate === from) continue;
+    for (const { element, rect } of candidates) {
+      if (element === from) continue;
 
-      const rect = candidate.getBoundingClientRect();
       const score = this.score(origin, rect, direction);
       if (score < bestScore) {
         bestScore = score;
-        best = candidate;
+        best = element;
       }
     }
 
@@ -159,6 +298,19 @@ export class SpatialNavigation {
       ? target.bottom > origin.top && target.top < origin.bottom
       : target.right > origin.left && target.left < origin.right;
 
+    /*
+     * Left/right is a filmstrip gesture: it moves along one row and nothing
+     * else. Without this, running out of cards to the right — nothing left
+     * to satisfy `advance` — let the search fall through to the *nearest*
+     * candidate anywhere on the page that was merely further right, drift
+     * penalty or not: another row, the topbar, the search field. That is
+     * what read as "wraps to the first item" — it did not wrap, it jumped to
+     * an unrelated row that happened to start near the same x position. Up
+     * and down are exactly the move meant to leave the row, so only the
+     * horizontal case is locked to the strip.
+     */
+    if (horizontal && !overlaps) return Infinity;
+
     return Math.max(advance, 0) + drift * (overlaps ? 0.3 : 3);
   }
 }
@@ -190,6 +342,16 @@ function visible(element: HTMLElement): boolean {
   if (element.hasAttribute('hidden') || element.getAttribute('aria-hidden') === 'true') {
     return false;
   }
+
+  /*
+   * The row scroll chevrons (`ui/media-row`'s `.nav.prev`/`.nav.next`) are a
+   * mouse affordance that happens to be real `<button>` elements, always
+   * present in the DOM. Card-to-card D-pad movement already does what they do
+   * — nudge the row along — one card at a time, so leaving them reachable
+   * only gave "right" at the row's edge somewhere odd to land: a button whose
+   * own geometry does not sit among the cards it controls.
+   */
+  if (element.matches('.nav.prev, .nav.next')) return false;
 
   const rect = element.getBoundingClientRect();
   if (!rect.width || !rect.height) return false;

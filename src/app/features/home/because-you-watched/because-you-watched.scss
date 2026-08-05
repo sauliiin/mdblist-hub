@@ -3,6 +3,12 @@
   --card-w: 172px;
 }
 
+/* Matches `media-row`'s TV sizing — the two sit in the same feed and read as
+   one grid, so the card size has to agree. */
+:host-context(html.tv) {
+  --card-w: clamp(113px, 9.22vw, 178px);
+}
+
 .feed {
   padding-top: 22px;
   margin-top: 18px;
@@ -69,6 +75,11 @@
   }
 }
 
+/* Less distance for a D-pad press to travel between one list and the next. */
+:host-context(html.tv) .row {
+  padding-bottom: 12px;
+}
+
 .track {
   display: flex;
   gap: 16px;
@@ -79,6 +90,11 @@
   scrollbar-width: none;
 
   &::-webkit-scrollbar { display: none; }
+}
+
+/* See the identical rule in `media-row.scss` — same clipping, same fix. */
+:host-context(html.tv) .track {
+  padding-top: 40px;
 }
 
 .row-placeholder {
@@ -103,4 +119,9 @@
     aspect-ratio: 2 / 3;
     border-radius: var(--radius);
   }
+}
+
+/* Matches the tighter rhythm real rows use on TV once loaded. */
+:host-context(html.tv) .row-placeholder {
+  padding-bottom: 12px;
 }

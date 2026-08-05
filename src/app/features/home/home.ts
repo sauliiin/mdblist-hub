@@ -12,6 +12,7 @@ import {
   GenreOption, GridItem, MdbItem, MdbList, TmdbKeyword, TmdbSearchResult, toTmdbType,
 } from '../../core/models';
 import { TmdbService } from '../../core/tmdb.service';
+import { TvService } from '../../core/tv/tv.service';
 import { MediaRow } from '../../ui/media-row/media-row';
 import { BecauseYouWatched } from './because-you-watched/because-you-watched';
 import { ContinueWatching } from './continue-watching/continue-watching';
@@ -40,6 +41,7 @@ interface SearchOutcome {
 })
 export class Home {
   private readonly mdblist = inject(MdblistService);
+  protected readonly tv = inject(TvService);
   private readonly tmdb = inject(TmdbService);
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);

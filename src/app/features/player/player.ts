@@ -260,17 +260,28 @@ export class Player {
       });
     });
 
+    const destroyRef = inject(DestroyRef);
+
     // A subtitle is a Blob the page minted; nothing else will free it.
-    inject(DestroyRef).onDestroy(() => {
+    destroyRef.onDestroy(() => {
       this.revoke();
       this.reportStop();
     });
 
-    // Closing the tab is a "quit" that never reaches ngOnDestroy. `sendBeacon`
-    // is the only request the browser promises to deliver at that point — and
-    // it can only send simple requests, which is exactly what the form-encoded
-    // scrobble body already is.
-    addEventListener('pagehide', () => this.beaconStop());
+    /*
+     * Closing the tab is a "quit" that never reaches ngOnDestroy. `sendBeacon`
+     * is the only request the browser promises to deliver at that point — and
+     * it can only send simple requests, which is exactly what the form-encoded
+     * scrobble body already is.
+     *
+     * The removal matters: `Player` is a routed component, so every visit to a
+     * title built another listener over the previous ones, each holding this
+     * whole component alive. Browsing twenty titles left twenty of them, all
+     * firing on the way out and scrobbling from dead instances.
+     */
+    const onPageHide = () => this.beaconStop();
+    addEventListener('pagehide', onPageHide);
+    destroyRef.onDestroy(() => removeEventListener('pagehide', onPageHide));
   }
 
   /** Fires on pause, play and the periodic refresh coming out of the player. */
@@ -342,10 +353,18 @@ export class Player {
     });
   }
 
+  /** The sidebar's own `<select>`, kept for the windowed desktop player. */
   protected chooseSubtitle(event: Event): void {
     const key = (event.target as HTMLSelectElement).value;
-    const option = this.subtitleOptions().find((s) => s.key === key) ?? null;
+    this.selectSubtitle(this.subtitleOptions().find((s) => s.key === key) ?? null);
+  }
 
+  /** The in-player chooser — the only way to pick a subtitle once fullscreen. */
+  protected onSubtitleSelect(option: SubtitleOption | null): void {
+    this.selectSubtitle(option);
+  }
+
+  private selectSubtitle(option: SubtitleOption | null): void {
     this.clearSubtitle();
     if (!option) return;
 

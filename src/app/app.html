@@ -1,5 +1,8 @@
 <header class="topbar" [class.solid]="scrolled()">
   <div class="topbar-inner shell">
+    <button class="cyberpunk-btn" (click)="toggleCyberpunk()" aria-label="Toggle Cyberpunk Mode">
+      {{ isCyberpunk() ? 'Normal' : 'Cyberpunk' }}
+    </button>
     <a class="brand" routerLink="/">
       <img class="mark" src="mdblist.png" alt="" width="32" height="32" />
       <span class="name">mdblist<strong>hub</strong></span>
@@ -39,12 +42,13 @@
 
 <app-bottom-nav />
 
-<footer class="foot shell">
-  <p>
-    Dados de <a href="https://mdblist.com" target="_blank" rel="noopener">mdblist</a>,
-    <a href="https://www.themoviedb.org" target="_blank" rel="noopener">TMDB</a>,
-    <a href="https://trakt.tv" target="_blank" rel="noopener">Trakt</a> e
-    <a href="https://www.omdbapi.com" target="_blank" rel="noopener">OMDb</a>.
-  </p>
+<!--
+  Plain text, not links: this is a credit line, not navigation, and following
+  one used to strand a TV remote in a browser tab the device has no way back
+  from. `data-nav-skip` and the `.foot` styles below keep it that way on every
+  platform, not just TV.
+-->
+<footer class="foot shell" data-nav-skip>
+  <p class="credits">Dados de mdblist, TMDB, Trakt e OMDb.</p>
   <p class="fine">Este produto usa a API do TMDB, mas não é endossado nem certificado pelo TMDB.</p>
 </footer>

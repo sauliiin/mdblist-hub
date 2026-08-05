@@ -2,6 +2,11 @@
   margin-top: 46px;
 }
 
+/* Less distance for a D-pad press to travel between one list and the next. */
+:host-context(html.tv) .feed {
+  margin-top: 20px;
+}
+
 .feed-head {
   display: flex;
   align-items: flex-end;
@@ -30,6 +35,11 @@
   scrollbar-width: none;
 
   &::-webkit-scrollbar { display: none; }
+}
+
+/* See the identical rule in `media-row.scss` — same clipping, same fix. */
+:host-context(html.tv) .track {
+  padding-top: 40px;
 }
 
 .card {

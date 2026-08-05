@@ -142,9 +142,10 @@
 
   p { margin: 0 0 6px; }
 
-  a {
-    color: var(--text-dim);
-    &:hover { color: var(--text); text-decoration: underline; }
+  /* A credit line, not navigation — plain text everywhere, not just on TV. */
+  .credits {
+    user-select: none;
+    cursor: default;
   }
 
   .fine { font-size: 11.5px; opacity: 0.75; }

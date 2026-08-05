@@ -118,7 +118,14 @@
       @defer (on viewport; prefetch on idle) {
         <app-media-row [list]="list" />
       } @placeholder (minimum 100ms) {
-        <div class="row-placeholder">
+        <!--
+          On TV, a loading row has to be a stop the D-pad can actually land on
+          — otherwise spatial navigation finds nothing focusable here and jumps
+          straight past it to whatever loads next. Landing here also scrolls
+          the placeholder into view, which is what `@defer (on viewport)`
+          itself is waiting on to start the fetch.
+        -->
+        <div class="row-placeholder" data-row [attr.tabindex]="tv.isTv() ? 0 : null">
           <div class="skeleton head"></div>
           <div class="posters">
             @for (p of [1,2,3,4,5,6,7,8]; track $index) { <div class="skeleton poster"></div> }

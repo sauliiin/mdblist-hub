@@ -75,8 +75,5 @@ export class MediaRow implements OnInit {
     if (!el) return;
     this.atStart.set(el.scrollLeft < 12);
     this.atEnd.set(el.scrollLeft + el.clientWidth >= el.scrollWidth - 12);
-
-    // Pull the next page as the user approaches the end of the loaded run.
-    if (el.scrollLeft + el.clientWidth >= el.scrollWidth - 600) this.loadMore();
   }
 }

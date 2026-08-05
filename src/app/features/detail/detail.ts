@@ -1,6 +1,7 @@
 import { DatePipe, DecimalPipe, Location } from '@angular/common';
 import {
-  ChangeDetectionStrategy, Component, ElementRef, computed, inject, input, signal, viewChild,
+  ChangeDetectionStrategy, Component, ElementRef, computed, effect, inject, input, signal,
+  viewChild,
 } from '@angular/core';
 import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
@@ -29,9 +30,10 @@ export class Detail {
   private readonly location = inject(Location);
   private readonly sanitizer = inject(DomSanitizer);
   private readonly libraryService = inject(LibraryService);
-  private readonly tv = inject(TvService);
+  protected readonly tv = inject(TvService);
 
   private readonly lightbox = viewChild<ElementRef<HTMLElement>>('lightbox');
+  private readonly watchBtn = viewChild<ElementRef<HTMLElement>>('watchBtn');
 
   /** Route params, bound by `withComponentInputBinding()`. */
   readonly type = input.required<string>();
@@ -101,6 +103,19 @@ export class Detail {
     ),
     { initialValue: null },
   );
+
+  constructor() {
+    /*
+     * On TV, arriving at a title's page is overwhelmingly "I came here to
+     * watch this" — landing the remote's focus anywhere else (the trailer
+     * button, IMDb, the library actions) means an extra press just to reach
+     * the one thing most people are here for.
+     */
+    effect(() => {
+      if (!this.detail() || !this.tv.isTv()) return;
+      setTimeout(() => this.watchBtn()?.nativeElement.focus({ preventScroll: true }));
+    });
+  }
 
   /** YouTube embeds need an explicitly trusted resource URL. */
   protected readonly trailerUrl = computed<SafeResourceUrl | null>(() => {
@@ -265,6 +280,21 @@ export class Detail {
 
   protected reveal(review: Review): void {
     this.revealed.update((set) => new Set(set).add(review.id));
+  }
+
+  /**
+   * OK/Enter on a focused review card, for the TV build.
+   *
+   * Without a card-level tabindex, spatial navigation's closest-candidate
+   * search only finds the "Ler tudo"/spoiler *button* inside each review — the
+   * card itself was never a stop — so pressing down skipped straight to
+   * whichever review happened to have one, past every short review in between.
+   * Making the whole card focusable fixes the skipping; this is what makes OK
+   * do something useful once it lands there instead of on the nested button.
+   */
+  protected activateReview(review: Review): void {
+    if (this.isHidden(review)) this.reveal(review);
+    else if (this.isLong(review)) this.toggle(review);
   }
 
   protected isHidden(review: Review): boolean {

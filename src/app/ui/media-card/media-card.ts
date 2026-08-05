@@ -1,7 +1,8 @@
-import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { upscalePoster } from '../../core/api.config';
 import { MdbItem, toTmdbType } from '../../core/models';
+import { TvService } from '../../core/tv/tv.service';
 
 @Component({
   selector: 'app-media-card',
@@ -11,11 +12,22 @@ import { MdbItem, toTmdbType } from '../../core/models';
   styleUrl: './media-card.scss',
 })
 export class MediaCard {
+  private readonly tv = inject(TvService);
+
   readonly item = input.required<MdbItem>();
   /** Position in the row, rendered as a rank chip. */
   readonly index = input<number | null>(null);
 
-  protected readonly poster = computed(() => upscalePoster(this.item().poster, 'w342'));
+  /*
+   * `w342` (342px wide) is sized for the ~230px cards on desktop. On TV the
+   * card is now ~113–179px (see `media-row.scss`), so that file is 2–3× more
+   * pixels than ever get painted — real bytes over the wire and real decode
+   * work for a weak set-top CPU, for detail nobody sees. `w185` matches what
+   * the TV card actually needs.
+   */
+  protected readonly poster = computed(() =>
+    upscalePoster(this.item().poster, this.tv.isTv() ? 'w185' : 'w342'),
+  );
   protected readonly link = computed(() => ['/title', toTmdbType(this.item().mediatype), this.item().id]);
   protected readonly genres = computed(() => (this.item().genre ?? []).slice(0, 2));
 

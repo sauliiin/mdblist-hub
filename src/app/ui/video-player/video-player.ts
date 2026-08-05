@@ -2,6 +2,7 @@ import {
   ChangeDetectionStrategy, Component, DestroyRef, ElementRef, computed, effect, inject, input,
   output, signal, viewChild,
 } from '@angular/core';
+import { SubtitleOption } from '../../core/stremio/models';
 
 /** What the settings menu offers, in YouTube's own steps. */
 const SPEEDS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
@@ -39,6 +40,19 @@ export class VideoPlayer {
   readonly subtitleLabel = input<string>('Legenda');
   readonly subtitleLang = input<string>('pt');
   readonly theater = input(false);
+
+  /**
+   * The subtitle chooser lives here, not just in the page around the player,
+   * because fullscreen — the normal way to watch on a TV or a phone — hides
+   * everything outside this component. Without it, picking a language would
+   * only be possible windowed.
+   */
+  readonly subtitleOptions = input<SubtitleOption[]>([]);
+  readonly subtitleActiveKey = input<string | null>(null);
+  readonly subtitleLoading = input(false);
+  readonly subtitleError = input<string | null>(null);
+  /** `null` means "turn subtitles off", same as the sidebar's own dropdown. */
+  readonly subtitleSelect = output<SubtitleOption | null>();
   /** Shown over the top edge in fullscreen, where the page header is gone. */
   readonly mediaTitle = input<string>('');
   readonly mediaSubtitle = input<string | null>(null);
@@ -57,6 +71,7 @@ export class VideoPlayer {
 
   private readonly media = viewChild<ElementRef<HTMLVideoElement>>('media');
   private readonly track = viewChild<ElementRef<HTMLDivElement>>('track');
+  private readonly trackEl = viewChild<ElementRef<HTMLTrackElement>>('trackEl');
 
   protected readonly playing = signal(false);
   protected readonly waiting = signal(false);
@@ -70,7 +85,11 @@ export class VideoPlayer {
   protected readonly captionsOn = signal(true);
   protected readonly fullscreen = signal(false);
   protected readonly settingsOpen = signal(false);
+  protected readonly captionsMenuOpen = signal(false);
   protected readonly controls = signal(true);
+
+  /** Seconds shifted from the addon's original timing — negative moves cues earlier. */
+  protected readonly subtitleOffset = signal(0);
 
   /** Where the pointer sits over the scrub bar, for the time bubble. */
   protected readonly hoverRatio = signal<number | null>(null);
@@ -132,6 +151,14 @@ export class VideoPlayer {
       // source granted it moments ago and it lasts a few seconds, so asking
       // once this component has rendered still lands inside the window.
       if (this.autoFullscreen()) setTimeout(() => this.enterFullscreen());
+
+      // The `autoplay` attribute only fires on an element freshly inserted
+      // into the DOM — the case when this component is created for the first
+      // pick. Choosing a *different* source while this same instance stays
+      // mounted only changes the `src` property, which the spec does not
+      // treat as a reason to restart playback on its own. Calling `play()`
+      // explicitly covers both paths.
+      setTimeout(() => void this.media()?.nativeElement.play().catch(() => undefined));
     });
 
     inject(DestroyRef).onDestroy(() => this.stopHeartbeat());
@@ -141,6 +168,7 @@ export class VideoPlayer {
     effect(() => {
       this.subtitleUrl();
       this.captionsOn.set(true);
+      this.subtitleOffset.set(0);
       setTimeout(() => this.applyCaptions());
     });
 
@@ -352,6 +380,42 @@ export class VideoPlayer {
     }
   }
 
+  /** Picking from the in-player menu; fetching and converting stays with the page. */
+  protected pickSubtitle(option: SubtitleOption | null): void {
+    this.subtitleSelect.emit(option);
+    this.captionsMenuOpen.set(false);
+  }
+
+  protected toggleCaptionsMenu(): void {
+    this.captionsMenuOpen.set(!this.captionsMenuOpen());
+  }
+
+  /**
+   * Shifts every cue of the loaded track by `deltaSeconds`, for a subtitle that
+   * drifts against a release the addon did not time it for.
+   *
+   * `TextTrackCue.startTime`/`endTime` are live and mutable — editing them
+   * in place is the whole mechanism; there is no separate "apply" step. This
+   * only touches whatever is loaded *right now*, so switching to a different
+   * subtitle starts fresh rather than inheriting the old drift.
+   */
+  protected adjustSync(deltaSeconds: number): void {
+    const cues = this.trackEl()?.nativeElement.track?.cues;
+    if (!cues?.length) return;
+
+    for (let i = 0; i < cues.length; i++) {
+      cues[i].startTime += deltaSeconds;
+      cues[i].endTime += deltaSeconds;
+    }
+
+    this.subtitleOffset.update((v) => Math.round((v + deltaSeconds) * 10) / 10);
+  }
+
+  protected resetSync(): void {
+    const current = this.subtitleOffset();
+    if (current) this.adjustSync(-current);
+  }
+
   // --------------------------------------------------------------- chrome
 
   protected setSpeed(value: number): void {
@@ -395,7 +459,9 @@ export class VideoPlayer {
   }
 
   protected onLeave(): void {
-    if (this.playing() && !this.settingsOpen()) this.controls.set(false);
+    if (this.playing() && !this.settingsOpen() && !this.captionsMenuOpen()) {
+      this.controls.set(false);
+    }
   }
 
   private show(): void {
@@ -408,7 +474,9 @@ export class VideoPlayer {
     if (!this.playing()) return;
 
     this.hideTimer = setTimeout(() => {
-      if (!this.settingsOpen() && !this.scrubbing()) this.controls.set(false);
+      if (!this.settingsOpen() && !this.captionsMenuOpen() && !this.scrubbing()) {
+        this.controls.set(false);
+      }
     }, HIDE_AFTER);
   }
 

@@ -22,6 +22,10 @@
             [subtitleUrl]="subtitleUrl()"
             [subtitleLabel]="subtitle()?.label ?? 'Legenda'"
             [subtitleLang]="subtitle()?.srclang ?? 'pt'"
+            [subtitleOptions]="subtitleOptions()"
+            [subtitleActiveKey]="subtitle()?.key ?? null"
+            [subtitleLoading]="subtitleBusy()"
+            [subtitleError]="subtitleError()"
             [theater]="theater()"
             [mediaTitle]="d.title"
             [mediaSubtitle]="episodeLabel()"
@@ -29,6 +33,7 @@
             [autoFullscreen]="autoFullscreen()"
             (theaterChange)="theater.set($event)"
             (playbackState)="onPlaybackState($event)"
+            (subtitleSelect)="onSubtitleSelect($event)"
             (playbackError)="onPlaybackError()" />
 
           @if (resumeAt(); as point) {

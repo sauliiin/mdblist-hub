@@ -1,4 +1,9 @@
-<section class="row">
+<!--
+  `data-row` is what lets the TV build recognise "this is one navigable list"
+  and pin its heading to a fixed spot on screen as focus moves in — see
+  `SpatialNavigation.pinRow()`.
+-->
+<section class="row" data-row>
   <header class="row-head">
     <div class="heading">
       <h2>{{ list().name }}</h2>
@@ -43,6 +48,17 @@
               <div class="skeleton line"></div>
             </div>
           }
+        } @else if (canLoadMore()) {
+          <!--
+            Loading stops at 30 by design now — see `PAGE` in media-row.ts.
+            This is the explicit next step, reachable the same way as any
+            poster (pressing right past the last one, on TV), rather than the
+            row quietly fetching more on its own as you scrolled near the end.
+          -->
+          <button type="button" class="load-more" (click)="loadMore()">
+            <span class="plus">+</span>
+            <span>Carregar mais</span>
+          </button>
         }
       }
     </div>

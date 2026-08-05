@@ -11,11 +11,16 @@
  * 720p set and a 4K one both land near five tiles across.
  */
 :host-context(html.tv) {
-  --card-w: clamp(190px, 15.5vw, 300px);
+  --card-w: clamp(113px, 9.22vw, 178px);
 }
 
 .row {
   padding-block: 6px 30px;
+}
+
+/* Less distance for a D-pad press to travel between one list and the next. */
+:host-context(html.tv) .row {
+  padding-block: 4px 12px;
 }
 
 .row-head {
@@ -105,6 +110,17 @@ h2 {
   &::-webkit-scrollbar { display: none; }
 }
 
+/*
+ * The focused-card scale on TV (see the global `html.tv .card:focus-within`
+ * rule) grows the poster upward past this container's own top edge — and
+ * `overflow-x: auto` forces `overflow-y` to clip rather than stay open, per
+ * the CSS spec's rule for mismatched overflow axes. 10px was never enough
+ * headroom for that growth; this is the room the zoomed card actually needs.
+ */
+:host-context(html.tv) .track {
+  padding-top: 40px;
+}
+
 .nav {
   position: absolute;
   top: 0;
@@ -191,4 +207,36 @@ h2 {
   color: var(--text-faint);
   font-size: 13.5px;
   padding: 30px 4px;
+}
+
+.load-more {
+  flex-shrink: 0;
+  width: var(--card-w);
+  aspect-ratio: 2 / 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: var(--radius);
+  border: 1px dashed var(--border-strong);
+  background: var(--surface);
+  color: var(--text-dim);
+  font-size: 12.5px;
+  font-weight: 600;
+  text-align: center;
+  transition: border-color 0.2s var(--ease), background 0.2s var(--ease), color 0.2s var(--ease);
+
+  &:hover,
+  &:focus-visible {
+    border-color: var(--accent);
+    background: var(--surface-strong);
+    color: var(--text);
+  }
+}
+
+.plus {
+  font-size: 26px;
+  font-weight: 400;
+  line-height: 1;
 }

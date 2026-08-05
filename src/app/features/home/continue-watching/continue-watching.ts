@@ -5,6 +5,7 @@ import { toTmdbType } from '../../../core/models';
 import { ResumeItem } from '../../../core/scrobble/models';
 import { ScrobbleService } from '../../../core/scrobble/scrobble.service';
 import { TmdbService } from '../../../core/tmdb.service';
+import { TvService } from '../../../core/tv/tv.service';
 
 /** A resume entry with the poster TMDB has for it. */
 interface ResumeCard extends ResumeItem {
@@ -27,6 +28,7 @@ interface ResumeCard extends ResumeItem {
 export class ContinueWatching implements OnInit {
   private readonly scrobble = inject(ScrobbleService);
   private readonly tmdb = inject(TmdbService);
+  private readonly tv = inject(TvService);
 
   protected readonly rows = signal<ResumeCard[]>([]);
   protected readonly loading = signal(true);
@@ -45,9 +47,10 @@ export class ContinueWatching implements OnInit {
         if (!item.tmdbId) continue;
         this.tmdb.detail(item.type, item.tmdbId).subscribe((detail) => {
           if (!detail?.poster_path) return;
+          const size = this.tv.isTv() ? 'w185' : 'w342';
           this.rows.update((list) =>
             list.map((row) =>
-              row.key === item.key ? { ...row, poster: tmdbImg(detail.poster_path, 'w342') } : row,
+              row.key === item.key ? { ...row, poster: tmdbImg(detail.poster_path, size) } : row,
             ),
           );
         });

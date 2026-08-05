@@ -23,6 +23,11 @@ export class App {
     // Harmless off a television: the handler returns immediately unless the
     // TV flag is set, so the one listener costs nothing on a phone.
     inject(SpatialNavigation).start();
+
+    // Keeps the body class in step with the signal's initial value, whatever
+    // it is — `toggleCyberpunk()` only runs on a click, so without this a
+    // default of `true` would never actually paint.
+    document.body.classList.toggle('cyberpunk-theme', this.isCyberpunk());
   }
 
   /** Drives the frosted background that fades in once the page scrolls. */
@@ -34,6 +39,8 @@ export class App {
   /** Set when the avatar 404s, so the initial takes over. */
   protected readonly avatarBroken = signal(false);
 
+  protected readonly isCyberpunk = signal(false);
+
   @HostListener('window:scroll')
   protected onScroll(): void {
     this.scrolled.set(window.scrollY > 24);
@@ -42,5 +49,14 @@ export class App {
   protected signOut(): void {
     this.auth.signOut();
     this.router.navigate(['/login']);
+  }
+
+  protected toggleCyberpunk(): void {
+    this.isCyberpunk.update(v => !v);
+    if (this.isCyberpunk()) {
+      document.body.classList.add('cyberpunk-theme');
+    } else {
+      document.body.classList.remove('cyberpunk-theme');
+    }
   }
 }

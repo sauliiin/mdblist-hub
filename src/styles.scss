@@ -253,7 +253,7 @@ html.tv {
   /* Broadcast overscan still clips the edges on plenty of sets. */
   --overscan: 3vmin;
   /* Fallback only — rows set their own, closer in the inheritance chain. */
-  --card-w: clamp(190px, 15.5vw, 300px);
+  --card-w: clamp(113px, 9.22vw, 178px);
   --header-content-h: 88px;
   /* The bottom bar is a touch idiom; on TV the D-pad reaches everything. */
   --tabs-h: 0px;
@@ -263,6 +263,22 @@ html.tv {
   .shell { padding-inline: max(var(--overscan), clamp(16px, 3.6vw, 56px)); }
 
   app-bottom-nav { display: none; }
+
+  /*
+   * `scroll-margin-top` is the fixed offset a row lands at when
+   * `SpatialNavigation.pinRow()` calls `scrollIntoView({ block: 'start' })`.
+   * Change the number here, not in the service, which no longer hardcodes it.
+   *
+   * Deliberately *not* `scroll-snap-type: y mandatory` on the root: mandatory
+   * snapping forces the viewport onto a snap point at all times, and the hero
+   * is not a `[data-row]` — it has no snap point of its own, so the browser
+   * pulled the page down onto the first list and made the featured title
+   * impossible to reach. `scrollIntoView` alone already lands rows exactly
+   * where they need to be.
+   */
+  [data-row] {
+    scroll-margin-top: 28px;
+  }
 
   /* The logo and wordmark are branding for a website; on a TV they only eat
      the top of a screen already short on vertical room. */
@@ -280,6 +296,29 @@ html.tv {
   .account { max-width: none; }
 
   .avatar { width: 30px; height: 30px; }
+
+  /*
+   * `--text-dim`/`--text-faint` read as secondary text at arm's length; from
+   * a couch they read as barely-there. Addons, the account name and Sair are
+   * the only things left in the header once the brand is gone, so they get
+   * full contrast rather than the muted treatment a website's nav would use.
+   *
+   * The extra `.topbar` qualifier is not just for scope: `app.scss`'s own
+   * `.links a { color: var(--text-dim) }` compiles with two Angular content
+   * attributes on it, which already out-specifies a bare `html.tv .links a`.
+   * Repeating the ancestor class is what tips this override ahead of it.
+   */
+  .topbar .links a,
+  .topbar .account,
+  .topbar .who,
+  .topbar .signout {
+    color: var(--text);
+  }
+
+  .topbar .signout {
+    border-color: var(--border-strong);
+    background: var(--surface-strong);
+  }
 
   /*
    * The header retreats as soon as the focus leaves the top of the page.
@@ -317,9 +356,14 @@ html.tv {
   h1 { font-size: clamp(40px, 4.4vw, 68px); }
   h2 { font-size: clamp(22px, 2vw, 30px); }
 
-  /* Hover is meaningless without a pointer; focus carries the same weight. */
+  /*
+   * Hover is meaningless without a pointer; focus carries the same weight.
+   * Anchored at the bottom so growth is upward-only — the row tracks below
+   * only need top headroom, not top and bottom both, to keep this on-screen.
+   */
   .card:focus-within {
     transform: translateY(-8px) scale(1.06);
+    transform-origin: 50% 100%;
     z-index: 3;
   }
 
@@ -334,3 +378,111 @@ html.tv {
 @media (orientation: landscape) and (max-height: 600px) {
   html.tv .hero { min-height: 88svh; }
 }
+
+/* ============================================================
+   Cyberpunk Theme
+   ============================================================ */
+body.cyberpunk-theme {
+  --bg: #050510;
+  --bg-elev: #0a0b16;
+  --text: #e0f8ff;
+  --text-dim: #00f3ff;
+  --text-faint: #6b7183;
+  --accent: #ff003c;
+  --accent-2: #12d6c4;
+  --accent-glow: rgba(255, 0, 60, 0.45);
+  --surface: rgba(0, 243, 255, 0.05);
+  --surface-strong: rgba(0, 243, 255, 0.1);
+  --border: rgba(0, 243, 255, 0.3);
+  --border-strong: rgba(255, 0, 60, 0.5);
+
+  background-image: 
+    linear-gradient(rgba(0, 243, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 243, 255, 0.05) 1px, transparent 1px);
+  background-size: 20px 20px;
+  font-family: 'Courier New', Courier, monospace;
+}
+
+body.cyberpunk-theme :not(.topbar, .topbar *) {
+  text-shadow: 0 0 2px rgba(0, 243, 255, 0.5);
+}
+
+body.cyberpunk-theme .topbar {
+  background: rgba(5, 5, 16, 0.85);
+  border-bottom: 1px solid var(--border);
+  box-shadow: 0 0 15px rgba(0, 243, 255, 0.1);
+}
+
+body.cyberpunk-theme .topbar *:focus,
+body.cyberpunk-theme .topbar *:hover,
+body.cyberpunk-theme .topbar *:focus-within {
+  text-shadow: 0 0 2px rgba(0, 243, 255, 0.5);
+}
+
+.cyberpunk-btn {
+  margin-right: 15px;
+  background: rgba(255, 0, 60, 0.1);
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  box-shadow: none;
+  padding: 6px 12px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  font-weight: 700;
+  border-radius: 0;
+  clip-path: polygon(10% 0, 100% 0, 100% 70%, 90% 100%, 0 100%, 0 30%);
+  transition: all 0.3s ease;
+}
+
+body.cyberpunk-theme .cyberpunk-btn {
+  border-color: #00f3ff;
+  color: #00f3ff;
+  background: rgba(0, 243, 255, 0.1);
+  box-shadow: none;
+}
+
+.cyberpunk-btn:hover {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 0 20px var(--accent);
+}
+
+body.cyberpunk-theme .cyberpunk-btn:hover {
+  background: #00f3ff;
+  color: #000;
+  box-shadow: 0 0 20px #00f3ff;
+}
+
+body.cyberpunk-theme h1, 
+body.cyberpunk-theme h2, 
+body.cyberpunk-theme h3 {
+  color: var(--accent);
+  text-shadow: 0 0 10px rgba(255, 0, 60, 0.5);
+  text-transform: uppercase;
+}
+
+body.cyberpunk-theme .card .poster,
+body.cyberpunk-theme .result .poster {
+  border: 1px solid var(--border);
+  border-radius: 0;
+  box-shadow: 0 0 10px rgba(0, 243, 255, 0.1);
+}
+
+body.cyberpunk-theme .card:focus .poster,
+body.cyberpunk-theme .card:focus-within .poster,
+body.cyberpunk-theme .card:hover .poster,
+body.cyberpunk-theme .result:hover .poster {
+  border-color: var(--accent);
+  box-shadow: 0 0 20px rgba(255, 0, 60, 0.4);
+}
+
+body.cyberpunk-theme .brand .name {
+  color: #00f3ff;
+  text-shadow: 0 0 8px rgba(0, 243, 255, 0.6);
+}
+
+body.cyberpunk-theme .brand strong {
+  color: #ff003c;
+  text-shadow: 0 0 8px rgba(255, 0, 60, 0.6);
+}
+

@@ -180,7 +180,14 @@
 
 .row-placeholder {
   padding: 6px clamp(16px, 3.6vw, 56px) 30px;
+}
 
+/* Matches the tighter rhythm real rows use on TV once loaded. */
+:host-context(html.tv) .row-placeholder {
+  padding-bottom: 12px;
+}
+
+.row-placeholder {
   .head {
     height: 20px;
     width: 220px;
