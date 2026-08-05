@@ -21,5 +21,19 @@ export const routes: Routes = [
     canActivate: [authGuard],
     loadComponent: () => import('./features/detail/detail').then((m) => m.Detail),
   },
+  {
+    // Same `:type`/`:id` pair as the detail page; `?season=&episode=` picks the
+    // episode for a show, so a given episode is a shareable URL.
+    path: 'watch/:type/:id',
+    title: 'Assistir — mdblist hub',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/player/player').then((m) => m.Player),
+  },
+  {
+    path: 'addons',
+    title: 'Addons — mdblist hub',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/addons/addons').then((m) => m.Addons),
+  },
   { path: '**', redirectTo: '' },
 ];

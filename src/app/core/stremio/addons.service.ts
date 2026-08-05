@@ -1,0 +1,132 @@
+import { HttpClient } from '@angular/common/http';
+import { Injectable, computed, inject, signal } from '@angular/core';
+import { Observable, catchError, map, throwError } from 'rxjs';
+import {
+  InstalledAddon, StremioManifest, StremioType, normaliseAddonUrl, serves,
+} from './models';
+
+const STORAGE_KEY = 'mdblist-hub.addons';
+
+/**
+ * The addons the visitor has installed.
+ *
+ * Nothing ships in the bundle: the app is a client for the protocol, and every
+ * addon URL is pasted by whoever is using it — the same model as Stremio, and
+ * the same one `AuthService` already uses for the mdblist key.
+ */
+@Injectable({ providedIn: 'root' })
+export class AddonsService {
+  private readonly http = inject(HttpClient);
+
+  private readonly addons = signal<InstalledAddon[]>(stored());
+
+  readonly installed = this.addons.asReadonly();
+  readonly count = computed(() => this.addons().length);
+
+  /** Addons that advertise `stream` for this type and id shape. */
+  streamProviders(type: StremioType, id: string): InstalledAddon[] {
+    return this.addons().filter((a) => serves(a.manifest, 'stream', type, id));
+  }
+
+  /** Addons that advertise `subtitles` for this type and id shape. */
+  subtitleProviders(type: StremioType, id: string): InstalledAddon[] {
+    return this.addons().filter((a) => serves(a.manifest, 'subtitles', type, id));
+  }
+
+  /**
+   * Fetches the manifest at `url` and keeps it. Re-installing an addon that is
+   * already there refreshes its manifest instead of duplicating it, which is
+   * how a re-configured addon (a new debrid key, say) gets updated.
+   */
+  install(url: string): Observable<InstalledAddon> {
+    let base: string;
+    try {
+      base = normaliseAddonUrl(url);
+    } catch {
+      return throwError(() => new Error('URL inválida. Cole o endereço do manifest.json do addon.'));
+    }
+
+    return this.http.get<StremioManifest>(`${base}/manifest.json`).pipe(
+      catchError(() =>
+        throwError(
+          () =>
+            new Error(
+              'Não foi possível ler o manifest. Confira a URL — e note que o addon precisa ' +
+                'liberar CORS para ser usado a partir do navegador.',
+            ),
+        ),
+      ),
+      map((manifest) => {
+        // A host's own PWA manifest has `name` but no `id`, and AIOStreams
+        // serves exactly that at its root — so this is the error people hit
+        // when they paste the site instead of the URL it generated for them.
+        if (!manifest?.id || !manifest?.name) {
+          throw new Error(
+            'O endereço respondeu, mas não é um manifest de addon do Stremio. Vários addons ' +
+              'geram uma URL própria para cada usuário na página de configuração — é essa ' +
+              'que precisa ser colada aqui, não o endereço do site.',
+          );
+        }
+
+        const addon: InstalledAddon = { base, manifest, addedAt: new Date().toISOString() };
+        this.addons.update((list) => [...list.filter((a) => a.base !== base), addon]);
+        this.persist();
+        return addon;
+      }),
+    );
+  }
+
+  /**
+   * Merges a Stremio account's addon collection in, and answers how many
+   * entries landed.
+   *
+   * The collection already carries each manifest, so nothing is re-fetched —
+   * which also means an addon whose host is momentarily down still imports.
+   * Merging rather than replacing keeps addons added by hand on this browser.
+   */
+  importCollection(entries: { transportUrl: string; manifest: StremioManifest }[]): number {
+    const imported: InstalledAddon[] = [];
+
+    for (const entry of entries) {
+      if (!entry?.transportUrl || !entry?.manifest?.id) continue;
+      try {
+        imported.push({
+          base: normaliseAddonUrl(entry.transportUrl),
+          manifest: entry.manifest,
+          addedAt: new Date().toISOString(),
+        });
+      } catch {
+        // A transport URL we cannot parse — skip it rather than lose the rest.
+      }
+    }
+
+    const bases = new Set(imported.map((a) => a.base));
+    this.addons.update((list) => [...list.filter((a) => !bases.has(a.base)), ...imported]);
+    this.persist();
+
+    return imported.length;
+  }
+
+  remove(base: string): void {
+    this.addons.update((list) => list.filter((a) => a.base !== base));
+    this.persist();
+  }
+
+  /** Where an addon's own configuration page lives, when it has one. */
+  configureUrl(addon: InstalledAddon): string | null {
+    return addon.manifest.behaviorHints?.configurable ? `${addon.base}/configure` : null;
+  }
+
+  private persist(): void {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(this.addons()));
+  }
+}
+
+function stored(): InstalledAddon[] {
+  try {
+    const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]');
+    return Array.isArray(raw) ? raw.filter((a) => a?.base && a?.manifest) : [];
+  } catch {
+    return [];
+  }
+}

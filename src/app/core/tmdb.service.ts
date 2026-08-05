@@ -4,7 +4,7 @@ import { Observable, catchError, forkJoin, map, of } from 'rxjs';
 import { API } from './api.config';
 import {
   GenreOption, MediaType, TmdbDetail, TmdbGenre, TmdbKeyword, TmdbPerson, TmdbReview,
-  TmdbSearchResult, toTmdbType,
+  TmdbSearchResult, TmdbSeason, toTmdbType,
 } from './models';
 
 @Injectable({ providedIn: 'root' })
@@ -22,6 +22,18 @@ export class TmdbService {
     return this.http
       .get<TmdbDetail>(`${API.tmdb.base}/${tmdbType}/${tmdbId}`, {
         params: { api_key: API.tmdb.key, append_to_response: append },
+      })
+      .pipe(catchError(() => of(null)));
+  }
+
+  /**
+   * A show's episode list for one season, which the player needs to build the
+   * `imdb:season:episode` id that stream addons are keyed by.
+   */
+  season(tmdbId: number, season: number): Observable<TmdbSeason | null> {
+    return this.http
+      .get<TmdbSeason>(`${API.tmdb.base}/tv/${tmdbId}/season/${season}`, {
+        params: { api_key: API.tmdb.key, language: 'pt-BR' },
       })
       .pipe(catchError(() => of(null)));
   }

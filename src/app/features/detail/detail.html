@@ -56,8 +56,14 @@
           }
 
           <div class="cta">
+            @if (d.imdbId) {
+              <a class="btn primary" [routerLink]="['/watch', type(), id()]">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg>
+                Assistir
+              </a>
+            }
             @if (d.trailerKey) {
-              <button type="button" class="btn primary" (click)="trailerOpen.set(true)">
+              <button type="button" class="btn ghost" (click)="trailerOpen.set(true)">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg>
                 Trailer
               </button>

@@ -1,0 +1,210 @@
+@if (detail(); as d) {
+  <main class="player-page">
+    <header class="bar shell">
+      <button type="button" class="back" (click)="back()" aria-label="Voltar">←</button>
+      <div class="what">
+        <h1>{{ d.title }}</h1>
+        @if (episodeLabel(); as label) {
+          <p class="sub">{{ label }}</p>
+        } @else if (d.year) {
+          <p class="sub">{{ d.year }}</p>
+        }
+      </div>
+      <a class="ghost" [routerLink]="detailLink()">Ficha</a>
+    </header>
+
+    <div class="stage shell" [class.theater]="theater()">
+      <!-- ------------------------------------------------ video -->
+      <section class="screen">
+        @if (selected(); as stream) {
+          <app-video-player
+            [src]="stream.url!"
+            [subtitleUrl]="subtitleUrl()"
+            [subtitleLabel]="subtitle()?.label ?? 'Legenda'"
+            [subtitleLang]="subtitle()?.srclang ?? 'pt'"
+            [theater]="theater()"
+            (theaterChange)="theater.set($event)"
+            (playbackError)="onPlaybackError()" />
+
+          @if (playbackError()) {
+            <div class="overlay" role="alert">
+              <p class="headline">O navegador não conseguiu reproduzir esta fonte.</p>
+              <p>
+                Normalmente é o container (MKV não toca em Chrome nem Firefox) ou o link já
+                expirou. Escolha outra fonte, ou abra esta em um player externo.
+              </p>
+              <div class="overlay-actions">
+                <a class="ghost" [href]="stream.externalUrl" target="_blank" rel="noopener">
+                  Abrir o link
+                </a>
+                <button type="button" class="ghost" (click)="copy(stream)">
+                  {{ copied() === stream.key ? 'Copiado' : 'Copiar link' }}
+                </button>
+              </div>
+            </div>
+          }
+
+          @if (stream.warning; as warning) {
+            <p class="warning">{{ warning }}</p>
+          }
+        } @else {
+          <div class="idle">
+            @if (loadingStreams()) {
+              <p>Perguntando aos addons…</p>
+            } @else if (missingImdbId()) {
+              <p class="headline">Este título não tem IMDb ID.</p>
+              <p>Os addons são indexados por IMDb, então não há como consultá-los aqui.</p>
+            } @else if (!streams().length) {
+              @switch (emptyCase()) {
+                @case ('no-addons') {
+                  <p class="headline">Nenhum addon instalado.</p>
+                  <p>É de um addon que saem as fontes e as legendas.</p>
+                  <a class="cta" routerLink="/addons">Instalar addons</a>
+                }
+                @case ('none-serve') {
+                  <p class="headline">Nenhum addon instalado serve fontes.</p>
+                  <p>
+                    Instalado hoje: <strong>{{ installedNames() }}</strong> — nenhum deles
+                    declara o recurso <code>stream</code> para
+                    {{ isShow() ? 'séries' : 'filmes' }}. Um addon de legendas, por exemplo,
+                    só responde legenda.
+                  </p>
+                  <a class="cta" routerLink="/addons">Adicionar um addon de fontes</a>
+                }
+                @case ('all-failed') {
+                  <p class="headline">
+                    {{ queried() === 1 ? 'O addon consultado falhou' : 'Todos os addons falharam' }}.
+                  </p>
+                  <p>
+                    Consultei {{ queried() }}, e {{ queried() === 1 ? 'ele não respondeu' : 'nenhum respondeu' }}.
+                    Pode ser o addon fora do ar, ou uma URL configurada que expirou — reinstale
+                    a partir da página de configuração dele.
+                  </p>
+                  <a class="cta" routerLink="/addons">Ver addons</a>
+                }
+                @default {
+                  <p class="headline">Nada para este título.</p>
+                  <p>
+                    {{ queried() }} addon(s) consultado(s)
+                    @if (failed()) { ({{ failed() }} falhou/falharam) }
+                    e nenhum tem
+                    {{ isShow() ? 'este episódio' : 'este filme' }}.
+                  </p>
+                }
+              }
+            } @else {
+              <p>Escolha uma fonte ao lado.</p>
+            }
+          </div>
+        }
+      </section>
+
+      <!-- ----------------------------------------------- sidebar -->
+      <aside class="panel">
+        @if (isShow()) {
+          <div class="pickers">
+            <label class="picker">
+              <span>Temporada</span>
+              <select [value]="seasonNumber()" (change)="chooseSeason($event)">
+                @for (s of seasons(); track s.season_number) {
+                  <option [value]="s.season_number">{{ s.name }}</option>
+                }
+              </select>
+            </label>
+
+            <label class="picker">
+              <span>Episódio</span>
+              <select [value]="episodeNumber()" (change)="chooseEpisode($event)">
+                @for (e of episodes(); track e.id) {
+                  <option [value]="e.episode_number">{{ e.episode_number }}. {{ e.name }}</option>
+                }
+              </select>
+            </label>
+          </div>
+        }
+
+        @if (subtitleOptions().length) {
+          <label class="picker">
+            <span>
+              Legenda
+              @if (subtitleBusy()) { <em>baixando…</em> }
+            </span>
+            <select (change)="chooseSubtitle($event)">
+              <option value="">Sem legenda</option>
+              @for (s of subtitleOptions(); track s.key) {
+                <option [value]="s.key">{{ s.label }} — {{ s.addon }}</option>
+              }
+            </select>
+          </label>
+
+          @if (subtitleError()) {
+            <p class="panel-error" role="alert">{{ subtitleError() }}</p>
+          }
+        }
+
+        <div class="sources">
+          <h2>
+            Fontes
+            @if (streams().length) {
+              <span class="count">{{ playableCount() }} de {{ streams().length }}</span>
+            }
+          </h2>
+
+          @if (loadingStreams()) {
+            <p class="hint">Consultando addons…</p>
+          } @else if (queried()) {
+            <p class="hint">
+              {{ queried() }} de {{ addonCount() }} addon(s) servem fontes aqui@if (failed()) {,
+              {{ failed() }} falhou/falharam}.
+            </p>
+          }
+
+          <ul>
+            @for (stream of streams(); track stream.key) {
+              <li>
+                <button
+                  type="button"
+                  class="source"
+                  [class.on]="selected()?.key === stream.key"
+                  [class.blocked]="!stream.playable"
+                  [disabled]="!stream.playable"
+                  (click)="pick(stream)">
+                  <span class="source-head">
+                    @if (stream.quality) { <span class="tag">{{ stream.quality }}</span> }
+                    @if (stream.size) { <span class="meta">{{ stream.size }}</span> }
+                    <span class="meta addon">{{ stream.addon }}</span>
+                  </span>
+                  <span class="source-title">{{ stream.title }}</span>
+                  @if (stream.detail) {
+                    <span class="source-detail">{{ stream.detail }}</span>
+                  }
+                  @if (reason(stream); as why) {
+                    <span class="source-reason">{{ why }}</span>
+                  }
+                </button>
+
+                @if (!stream.playable && stream.externalUrl) {
+                  <button type="button" class="copy" (click)="copy(stream)">
+                    @if (copied() === stream.key) {
+                      Copiado
+                    } @else {
+                      {{ stream.reason === 'torrent' ? 'Copiar magnet' : 'Copiar link' }}
+                    }
+                  </button>
+                }
+              </li>
+            }
+          </ul>
+
+          @if (!loadingStreams() && addonCount()) {
+            <a class="hint-link" routerLink="/addons">Gerenciar addons</a>
+          }
+        </div>
+      </aside>
+    </div>
+  </main>
+} @else if (!loadingDetail()) {
+  <main class="player-page">
+    <p class="missing shell">Título não encontrado.</p>
+  </main>
+}

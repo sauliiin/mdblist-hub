@@ -103,6 +103,47 @@ As tiras horizontais (elenco, e "mais conhecido por" no perfil do ator) têm
 setas de navegação com uma leve animação de "pulinho" para indicar que dá pra
 rolar — mesmo componente (`ui/scroll-track`) usado nas fileiras da home.
 
+### Addons e player
+
+O hub fala o **protocolo de addon do Stremio**, que é só HTTP + JSON e responde
+com `Access-Control-Allow-Origin: *` — então roda direto do navegador, como as
+outras quatro APIs. Nenhum addon vem embutido: a lista é colada pelo visitante em
+`/addons` e fica em `localStorage`, junto da chave do mdblist.
+
+Como `localStorage` é por navegador **e por origem**, a mesma pessoa no celular —
+ou no site publicado em vez do dev server — começaria com a lista vazia. Para
+isso a página de Addons tem **login da conta Stremio**: `api.strem.io` também
+libera CORS, então o app lê a coleção da conta (`addonCollectionGet`) e importa
+tudo já configurado, chave de debrid inclusa. A senha vai direto para a API do
+Stremio e não é guardada; o que fica salvo é o `authKey` devolvido por ela.
+
+O botão **Assistir** na ficha abre `/watch/:type/:id`, que consulta o recurso
+`stream` de cada addon instalado — pelo IMDb ID no caso de filme, e por
+`imdb:temporada:episódio` no de série, com seletor de temporada/episódio vindo do
+TMDB. A escolha de episódio vai para a URL (`?season=2&episode=5`), então o link
+é compartilhável.
+
+O player é próprio (`ui/video-player`), não o `controls` nativo: barra de
+progresso com buffer e bolha de tempo ao arrastar, volume, velocidade, legenda,
+modo cinema, tela cheia e os atalhos de teclado que o YouTube consagrou —
+`espaço`/`k`, `j`/`l` (±10s), setas (±5s), `m`, `f`, `t`, `c`, `0`–`9`. Os
+controles somem sozinhos durante a reprodução.
+
+As sugestões na página de Addons (Torrentio, MediaFusion, Comet, AIOStreams,
+OpenSubtitles) foram verificadas contra os endpoints reais. As quatro de fontes
+**exigem configuração**: sem ela o Torrentio devolve torrent, o MediaFusion
+responde lista vazia, o Comet responde `403` e o AIOStreams sequer serve um
+manifest de addon no endereço base — serve o manifest PWA do próprio site. Por
+isso só o addon de legendas tem botão de instalação direta; os outros levam à
+página de configuração, de onde sai a URL por usuário.
+
+**Legendas** vêm do recurso `subtitles` dos addons. Como `<track>` só lê WebVTT e
+os addons servem SubRip, o arquivo é baixado, convertido para VTT e entregue como
+`blob:` — o que também resolve o CORS que o `<track src>` exigiria. Arquivos em
+windows-1252 (comum em legendas pt-BR) são detectados e decodificados certo.
+
+O que o player toca e o que não toca está em [Limitações](#limitações-conhecidas).
+
 ## Mobile
 
 O layout é fluido (unidades `clamp()`/`min()`/`vw`, grades que se reorganizam
@@ -222,6 +263,20 @@ histórico), é por isso que ela não é embutida no bundle.
   cota, a página apenas omite os campos que vêm dele (classificação indicativa,
   prêmios, bilheteria), sem exibir erro. As notas não dependem do OMDb.
 - **Escrita sem proxy** — ver acima.
+- **Torrent não toca no navegador** — o player é o `<video>` nativo, então só
+  reproduz o que chegar como link HTTPS direto. Addons de torrent devolvem
+  `infoHash`, e nenhum navegador fala BitTorrent: esses streams aparecem na lista
+  marcados, com o magnet à mão para abrir em outro player. Para reproduzir aqui,
+  configure o addon com um **debrid** (Real-Debrid, AllDebrid, Premiumize) — aí
+  ele passa a devolver HTTPS direto.
+- **Containers e HLS** — mesmo com link direto, MKV não é demuxado por Chrome
+  nem Firefox, e HLS (`.m3u8`) só toca nativamente no Safari. O player avisa
+  antes e oferece o link para um player externo em vez de falhar em silêncio.
+  Suportar esses casos exigiria embarcar um demuxer (hls.js e afins), o que o
+  projeto evita para manter a lista de dependências como está.
+- **Legendas com CORS fechado** — o addon lista o arquivo, mas quem o hospeda
+  nem sempre libera leitura cross-origin. Nesses casos a legenda falha com aviso;
+  as outras da lista continuam disponíveis.
 
 ---
 
@@ -230,18 +285,24 @@ histórico), é por isso que ela não é embutida no bundle.
 ```
 src/app/
   core/       services, modelos, cache HTTP, normalização de notas, sessão
+    stremio/  protocolo de addon: manifests, streams, legendas (SRT→VTT),
+              e login da conta Stremio para importar a coleção
   ui/         media-card, media-row (carrossel), rating-badges, person-modal
   features/
     login/    chave da API do mdblist
     home/     destaque + fileiras + busca/gênero + "porque você assistiu"
     detail/   backdrop, notas, sinopse, elenco, reviews, recomendações
+    addons/   instalar e remover addons do Stremio
+    player/   fontes, seletor de episódio, legendas, <video>
 ```
 
 Detalhes de implementação que valem nota:
 
 - `core/http-cache.interceptor.ts` guarda respostas GET por 10 minutos e
   deduplica requisições simultâneas idênticas — por isso o filtro de gênero, que
-  varre todas as listas, só paga a rede na primeira vez.
+  varre todas as listas, só paga a rede na primeira vez. As consultas a addons
+  passam por fora dele (`noCache()`): link de debrid é gerado por requisição e
+  expira, então um cacheado entregaria uma URL morta ao player.
 - Os pôsteres do mdblist vêm em `w200`; a URL é reescrita para `w342`
   (`upscalePoster`) para não ficarem borrados em telas retina.
 - Cada fileira só busca seus itens quando entra na viewport, com teto de 120

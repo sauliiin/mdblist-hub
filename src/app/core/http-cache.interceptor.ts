@@ -1,9 +1,23 @@
-import { HttpEvent, HttpInterceptorFn, HttpResponse } from '@angular/common/http';
+import {
+  HttpContext, HttpContextToken, HttpEvent, HttpInterceptorFn, HttpResponse,
+} from '@angular/common/http';
 import { Observable, of, shareReplay, tap } from 'rxjs';
 
 interface CacheEntry {
   expires: number;
   response: HttpResponse<unknown>;
+}
+
+/**
+ * Opts a request out of the cache below. Stream lists from Stremio addons go
+ * through this: a debrid link is minted per request and expires, so serving a
+ * ten-minute-old one would hand the player a dead URL.
+ */
+export const NO_CACHE = new HttpContextToken<boolean>(() => false);
+
+/** Convenience for `{ context: noCache() }` on a request. */
+export function noCache(): HttpContext {
+  return new HttpContext().set(NO_CACHE, true);
 }
 
 const TTL_MS = 10 * 60 * 1000;
@@ -23,7 +37,7 @@ export function clearHttpCache(): void {
  * of re-fetching 25 lists.
  */
 export const httpCacheInterceptor: HttpInterceptorFn = (req, next) => {
-  if (req.method !== 'GET') return next(req);
+  if (req.method !== 'GET' || req.context.get(NO_CACHE)) return next(req);
 
   const key = req.urlWithParams;
   const hit = cache.get(key);

@@ -25,18 +25,22 @@ export class RecommendationsService {
   private readonly mdblist = inject(MdblistService);
 
   /**
-   * Builds rows of TMDB recommendations seeded by titles picked at random from
-   * the last 45 watched, skipping anything already in the history. The picks
-   * are re-rolled on every load, which is what keeps the feed dynamic.
+   * Builds rows of TMDB recommendations seeded from the watch history, skipping
+   * anything already in it.
+   *
+   * By default the seeds are the five titles watched most recently, so the feed
+   * follows what the account is actually watching now. `shuffle` re-rolls them
+   * across the whole 45-title window instead, which is what the "outras
+   * sugestões" button asks for.
    */
-  becauseYouWatched(): Observable<RecommendationRow[]> {
+  becauseYouWatched(shuffle = false): Observable<RecommendationRow[]> {
     return this.watched().pipe(
       switchMap((watched) => {
         const usable = watched.filter((item) => item.poster);
         if (!usable.length) return of([]);
 
         const seen = new Set(usable.map((item) => key(item)));
-        const seeds = sample(usable, ROWS);
+        const seeds = shuffle ? sample(usable, ROWS) : usable.slice(0, ROWS);
 
         return forkJoin(seeds.map((seed) => this.rowFor(seed, seen)));
       }),
@@ -44,10 +48,18 @@ export class RecommendationsService {
     );
   }
 
-  /** The most recently watched titles, newest first. */
+  /**
+   * The watch history, newest first.
+   *
+   * "Last Watched" is the list mdblist keeps in sync with the account's own
+   * history, and it already comes back in watch order — the explicit sort on
+   * `rank` only makes that guarantee ours rather than the API's, since the
+   * "five most recent" above now depends on it.
+   */
   watched(limit = WATCHED_WINDOW): Observable<MdbItem[]> {
     return this.mdblist.listByName(HISTORY_LIST).pipe(
       switchMap((list) => (list ? this.mdblist.listItems(list.id, limit) : of([]))),
+      map((items) => [...items].sort((a, b) => rank(a) - rank(b))),
     );
   }
 
@@ -103,6 +115,11 @@ function toItem(rec: TmdbRecommendation, fallbackType: MediaType): MdbItem {
 
 function key(item: MdbItem): string {
   return `${item.mediatype}:${item.id}`;
+}
+
+/** Position in the list — 1 is the most recent. Unranked items sink. */
+function rank(item: MdbItem): number {
+  return item.rank ?? Number.MAX_SAFE_INTEGER;
 }
 
 /** Picks `count` distinct entries at random. */

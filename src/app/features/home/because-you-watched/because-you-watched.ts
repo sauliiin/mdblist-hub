@@ -14,15 +14,23 @@ export class BecauseYouWatched implements OnInit {
 
   protected readonly rows = signal<RecommendationRow[]>([]);
   protected readonly loading = signal(true);
+  /** False while the rows follow the history; true once the seeds are re-rolled. */
+  protected readonly shuffled = signal(false);
 
   ngOnInit(): void {
-    this.load();
+    this.load(false);
   }
 
-  /** Re-rolls the seeds, giving a different feed on demand. */
-  protected load(): void {
+  /**
+   * Loads the feed. Seeded by the five most recently watched titles, or — once
+   * the visitor asks for other suggestions — by a random draw from the wider
+   * history window.
+   */
+  protected load(shuffle: boolean): void {
     this.loading.set(true);
-    this.recommendations.becauseYouWatched().subscribe((rows) => {
+    this.shuffled.set(shuffle);
+
+    this.recommendations.becauseYouWatched(shuffle).subscribe((rows) => {
       this.rows.set(rows);
       this.loading.set(false);
     });

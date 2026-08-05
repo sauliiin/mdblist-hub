@@ -1,0 +1,326 @@
+:host {
+  display: block;
+  position: relative;
+  background: #000;
+  border-radius: var(--radius);
+  overflow: hidden;
+
+  /* Fullscreen owns the whole screen, so the rounding has to go. */
+  &:fullscreen { border-radius: 0; }
+}
+
+.shell {
+  position: relative;
+  display: block;
+  outline: none;
+
+  &:focus-visible { box-shadow: inset 0 0 0 2px var(--accent); }
+}
+
+:host(.idle) .shell { cursor: none; }
+
+.media {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background: #000;
+
+  &::cue {
+    background: rgba(8, 8, 8, 0.78);
+    color: #fff;
+    font-size: 0.92em;
+    line-height: 1.35;
+  }
+}
+
+:host(:fullscreen) .media {
+  height: 100vh;
+  aspect-ratio: auto;
+  object-fit: contain;
+}
+
+/* The video element swallows pointer events the controls need to see. */
+.curtain {
+  position: absolute;
+  inset: 0 0 62px;
+}
+
+/* ------------------------------------------------------------ feedback */
+
+.big-play {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: grid;
+  place-items: center;
+  width: 74px;
+  height: 74px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(8, 9, 14, 0.72);
+  backdrop-filter: blur(6px);
+  cursor: pointer;
+  animation: pop 0.25s var(--ease) both;
+
+  svg { width: 34px; height: 34px; margin-left: 4px; fill: #fff; }
+  &:hover { background: var(--accent); }
+}
+
+@keyframes pop {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(0.86); }
+  to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
+.spinner {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 46px;
+  height: 46px;
+  margin: -23px 0 0 -23px;
+  border: 3px solid rgba(255, 255, 255, 0.22);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.flash {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 10px 18px;
+  border-radius: 999px;
+  background: rgba(8, 9, 14, 0.82);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  animation: pop 0.18s var(--ease) both;
+}
+
+/* ------------------------------------------------------------ controls */
+
+.bar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 0 12px 6px;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.78) 62%);
+  transition: opacity 0.25s var(--ease), transform 0.25s var(--ease);
+
+  &.hidden {
+    opacity: 0;
+    transform: translateY(12px);
+    pointer-events: none;
+  }
+}
+
+/* ---------------------------------------------------------- scrub bar */
+
+.scrub {
+  position: relative;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  touch-action: none;
+}
+
+.rail {
+  position: relative;
+  width: 100%;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.28);
+  transition: height 0.12s var(--ease);
+  overflow: hidden;
+}
+
+.loaded,
+.played {
+  position: absolute;
+  inset: 0;
+  transform-origin: left center;
+  will-change: transform;
+}
+
+.loaded { background: rgba(255, 255, 255, 0.42); }
+.played { background: var(--accent); }
+
+.knob {
+  position: absolute;
+  top: 50%;
+  width: 13px;
+  height: 13px;
+  margin-left: -6.5px;
+  border-radius: 50%;
+  background: var(--accent);
+  transform: translateY(-50%) scale(0);
+  transition: transform 0.12s var(--ease);
+  pointer-events: none;
+}
+
+.scrub:hover,
+.scrub:active {
+  .rail { height: 5px; }
+  .knob { transform: translateY(-50%) scale(1); }
+}
+
+.bubble {
+  position: absolute;
+  bottom: 22px;
+  transform: translateX(-50%);
+  padding: 3px 8px;
+  border-radius: 5px;
+  background: rgba(8, 9, 14, 0.92);
+  color: #fff;
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* ------------------------------------------------------------ buttons */
+
+.buttons {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 44px;
+}
+
+.icon {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+  transition: background 0.18s var(--ease), opacity 0.18s var(--ease);
+
+  svg { width: 22px; height: 22px; fill: #fff; }
+
+  &:hover:not(:disabled) { background: rgba(255, 255, 255, 0.14); }
+  &:disabled { opacity: 0.35; cursor: default; }
+  /* Captions off reads as a dimmed CC, the way every player marks it. */
+  &.off svg { opacity: 0.45; }
+}
+
+.volume {
+  display: flex;
+  align-items: center;
+
+  /* The slider unrolls on hover, exactly like YouTube's. */
+  &:hover .volume-slider,
+  .volume-slider:focus-visible {
+    width: 76px;
+    opacity: 1;
+    margin-right: 8px;
+  }
+}
+
+.volume-slider {
+  width: 0;
+  opacity: 0;
+  height: 3px;
+  margin: 0;
+  border-radius: 2px;
+  appearance: none;
+  background: rgba(255, 255, 255, 0.32);
+  background-image: linear-gradient(#fff, #fff);
+  background-repeat: no-repeat;
+  background-size: var(--fill, 100%) 100%;
+  cursor: pointer;
+  transition: width 0.2s var(--ease), opacity 0.2s var(--ease), margin 0.2s var(--ease);
+
+  &::-webkit-slider-thumb {
+    appearance: none;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: #fff;
+  }
+
+  &::-moz-range-thumb {
+    width: 12px;
+    height: 12px;
+    border: none;
+    border-radius: 50%;
+    background: #fff;
+  }
+}
+
+.time {
+  margin: 0 10px;
+  color: #fff;
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+
+  i { font-style: normal; opacity: 0.55; margin: 0 2px; }
+}
+
+.spacer { flex: 1; }
+
+/* ----------------------------------------------------------- settings */
+
+.settings { position: relative; }
+
+.menu {
+  position: absolute;
+  right: 0;
+  bottom: 46px;
+  min-width: 148px;
+  padding: 6px;
+  border-radius: var(--radius-sm);
+  background: rgba(14, 15, 22, 0.96);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  animation: pop-up 0.15s var(--ease) both;
+}
+
+@keyframes pop-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.menu-head {
+  padding: 6px 10px 8px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.menu-item {
+  display: block;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: var(--text-dim);
+  font-family: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover { background: var(--surface-strong); color: var(--text); }
+  &.on { color: var(--accent); font-weight: 600; }
+}
+
+@media (max-width: 620px) {
+  .curtain { bottom: 56px; }
+  .buttons { height: 40px; gap: 0; }
+  .icon { width: 34px; height: 34px; svg { width: 20px; height: 20px; } }
+  .time { margin: 0 6px; font-size: 11.5px; }
+  /* Space is too tight for a slider; the mute button carries volume alone. */
+  .volume:hover .volume-slider { width: 0; opacity: 0; margin-right: 0; }
+}

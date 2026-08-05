@@ -145,6 +145,7 @@ export interface TmdbDetail {
   episode_run_time?: number[];
   number_of_seasons?: number;
   number_of_episodes?: number;
+  seasons?: TmdbSeasonSummary[];
   status: string;
   vote_average: number;
   vote_count: number;
@@ -159,6 +160,36 @@ export interface TmdbDetail {
   external_ids?: { imdb_id: string | null; tvdb_id: number | null };
   videos?: { results: TmdbVideo[] };
   recommendations?: { results: TmdbRecommendation[] };
+}
+
+/** A season as listed on the show record. */
+export interface TmdbSeasonSummary {
+  id: number;
+  season_number: number;
+  name: string;
+  episode_count: number;
+  air_date: string | null;
+  poster_path: string | null;
+}
+
+/** A season with its episodes, from `/tv/{id}/season/{n}`. */
+export interface TmdbSeason {
+  id: number;
+  season_number: number;
+  name: string;
+  episodes: TmdbEpisode[];
+}
+
+export interface TmdbEpisode {
+  id: number;
+  episode_number: number;
+  season_number: number;
+  name: string;
+  overview: string | null;
+  still_path: string | null;
+  air_date: string | null;
+  runtime: number | null;
+  vote_average: number;
 }
 
 export interface TmdbRecommendation {

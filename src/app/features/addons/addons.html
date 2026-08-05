@@ -1,0 +1,193 @@
+<main class="addons shell">
+  <header class="intro">
+    <h1>Addons</h1>
+    <p class="lead">
+      O hub fala o protocolo de addon do Stremio. Cole a URL de um addon e ele passa a
+      responder pelas fontes e legendas na página de cada título. Nada vem instalado — a
+      lista fica salva só neste navegador, como a sua chave do mdblist.
+    </p>
+  </header>
+
+  <!-- -------------------------------------------- stremio account -->
+  <section class="sync">
+    @if (account(); as session) {
+      <div class="sync-on">
+        <div>
+          <p class="sync-title">Conta Stremio conectada</p>
+          <p class="sync-sub">{{ session.email }}</p>
+        </div>
+        <div class="row-actions">
+          <button type="button" class="ghost" [disabled]="syncing()" (click)="sync()">
+            {{ syncing() ? 'Sincronizando…' : 'Sincronizar agora' }}
+          </button>
+          <button type="button" class="ghost danger" (click)="signOut()">Desconectar</button>
+        </div>
+      </div>
+    } @else {
+      <p class="sync-title">Trazer os addons da sua conta Stremio</p>
+      <p class="sync-sub">
+        A lista abaixo mora só neste navegador. Entrando com sua conta do Stremio, a coleção
+        inteira vem pronta — já com as URLs configuradas, chave de debrid incluída. A senha vai
+        direto para <code>api.strem.io</code> e não fica salva: o que guardamos é a chave de
+        sessão que ela devolve.
+      </p>
+
+      <form class="sync-form" (submit)="signIn($event)">
+        <input
+          type="email"
+          [value]="email()"
+          (input)="onEmail($event)"
+          name="stremio-email"
+          autocomplete="username"
+          placeholder="e-mail do Stremio" />
+        <input
+          type="password"
+          [value]="password()"
+          (input)="onPassword($event)"
+          name="stremio-password"
+          autocomplete="current-password"
+          placeholder="senha" />
+        <button
+          type="submit"
+          class="submit"
+          [disabled]="!email().trim() || !password() || syncing()">
+          {{ syncing() ? 'Entrando…' : 'Entrar' }}
+        </button>
+      </form>
+    }
+
+    @if (syncError()) {
+      <p class="error" role="alert">{{ syncError() }}</p>
+    }
+    @if (synced() !== null) {
+      <p class="ok" role="status">
+        {{ synced() }} addon(s) importado(s) da sua conta Stremio.
+      </p>
+    }
+  </section>
+
+  <form class="install" (submit)="submit($event)">
+    <label class="field">
+      <span class="label">Ou cole a URL de um addon</span>
+      <input
+        type="text"
+        [value]="url()"
+        (input)="onUrl($event)"
+        name="addon-url"
+        autocomplete="off"
+        autocapitalize="off"
+        spellcheck="false"
+        placeholder="https://exemplo.strem.fun/manifest.json" />
+    </label>
+    <button type="submit" class="submit" [disabled]="!url().trim() || busy()">
+      {{ busy() ? 'Lendo…' : 'Instalar' }}
+    </button>
+  </form>
+
+  @if (error()) {
+    <p class="error" role="alert">{{ error() }}</p>
+  }
+  @if (added(); as name) {
+    <p class="ok" role="status">{{ name }} instalado.</p>
+  }
+  @if (addedWarning(); as warning) {
+    <p class="warn" role="alert">{{ warning }}</p>
+  }
+
+  <!-- ------------------------------------------------- installed -->
+  <section class="block">
+    <h2>Instalados <span class="count">{{ installed().length }}</span></h2>
+
+    @if (!installed().length) {
+      <p class="empty">Nenhum addon ainda. Comece pelas sugestões abaixo.</p>
+    } @else {
+      <ul class="list">
+        @for (addon of installed(); track addon.base) {
+          <li class="addon">
+            @if (addon.manifest.logo) {
+              <img class="logo" [src]="addon.manifest.logo" alt="" loading="lazy" />
+            } @else {
+              <span class="logo logo-empty" aria-hidden="true">
+                {{ addon.manifest.name.charAt(0) }}
+              </span>
+            }
+
+            <div class="about">
+              <p class="name">
+                {{ addon.manifest.name }}
+                <span class="version">v{{ addon.manifest.version }}</span>
+              </p>
+              @if (addon.manifest.description) {
+                <p class="desc">{{ addon.manifest.description }}</p>
+              }
+              <p class="host">{{ host(addon) }}</p>
+
+              <div class="chips">
+                @for (resource of resources(addon); track resource) {
+                  <span class="chip" [class.on]="supported(resource)">{{ resource }}</span>
+                }
+              </div>
+            </div>
+
+            <div class="row-actions">
+              @if (configureUrl(addon); as link) {
+                <a class="ghost" [href]="link" target="_blank" rel="noopener">Configurar</a>
+              }
+              <button type="button" class="ghost danger" (click)="remove(addon)">Remover</button>
+            </div>
+          </li>
+        }
+      </ul>
+    }
+  </section>
+
+  <!-- ------------------------------------------------ suggestions -->
+  <section class="block">
+    <h2>Para começar</h2>
+    <ul class="list">
+      @for (s of suggestions; track s.name) {
+        <li class="addon suggestion">
+          <div class="about">
+            <p class="name">
+              {{ s.name }}
+              @if (s.unconfigured) {
+                <span class="needs">precisa configurar</span>
+              }
+            </p>
+            <p class="desc">{{ s.what }}</p>
+            @if (s.unconfigured; as note) {
+              <p class="host">Verificado: {{ note }}.</p>
+            }
+          </div>
+          <div class="row-actions">
+            @if (s.url) {
+              <button type="button" class="ghost" [disabled]="busy()" (click)="install(s.url!)">
+                Instalar
+              </button>
+            }
+            @if (s.configure) {
+              <a class="ghost" [href]="s.configure" target="_blank" rel="noopener">
+                Abrir configuração
+              </a>
+            }
+          </div>
+        </li>
+      }
+    </ul>
+  </section>
+
+  <section class="block note">
+    <h2>Como a reprodução funciona aqui</h2>
+    <p>
+      O player desta página é o <code>&lt;video&gt;</code> do navegador, então ele só toca o que
+      chegar como link HTTPS direto. É exatamente o que um addon de torrent devolve
+      <strong>quando configurado com debrid</strong>: o serviço já baixou o arquivo e serve por
+      HTTP.
+    </p>
+    <p>
+      Streams que chegam como <code>infoHash</code> aparecem na lista, mas marcados — nenhum
+      navegador fala BitTorrent. Para esses, o botão copia o magnet para você abrir onde
+      preferir.
+    </p>
+  </section>
+</main>
