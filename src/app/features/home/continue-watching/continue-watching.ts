@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { tmdbImg } from '../../../core/api.config';
-import { toTmdbType } from '../../../core/models';
+import { formatYear, toTmdbType } from '../../../core/models';
 import { ResumeItem } from '../../../core/scrobble/models';
 import { ScrobbleService } from '../../../core/scrobble/scrobble.service';
 import { TmdbService } from '../../../core/tmdb.service';
@@ -32,6 +32,7 @@ export class ContinueWatching implements OnInit {
 
   protected readonly rows = signal<ResumeCard[]>([]);
   protected readonly loading = signal(true);
+  protected readonly formatYear = formatYear;
 
   ngOnInit(): void {
     this.load();
@@ -46,11 +47,19 @@ export class ContinueWatching implements OnInit {
       for (const item of items) {
         if (!item.tmdbId) continue;
         this.tmdb.detail(item.type, item.tmdbId).subscribe((detail) => {
-          if (!detail?.poster_path) return;
+          if (!detail) return;
           const size = this.tv.isTv() ? 'w185' : 'w342';
+          const date = detail.release_date || detail.first_air_date || '';
+          const year = Number(date.slice(0, 4)) || null;
           this.rows.update((list) =>
             list.map((row) =>
-              row.key === item.key ? { ...row, poster: tmdbImg(detail.poster_path, size) } : row,
+              row.key === item.key
+                ? {
+                    ...row,
+                    poster: tmdbImg(detail.poster_path, size),
+                    year: row.year ?? year,
+                  }
+                : row,
             ),
           );
         });

@@ -1,9 +1,15 @@
 :host {
   display: block;
+  --card-w: 172px;
 
   /* Mesma poupança de paint das linhas — ver comentário em media-row.scss. */
   content-visibility: auto;
-  contain-intrinsic-size: auto 320px;
+  contain-intrinsic-size: auto 420px;
+}
+
+/* Keep this row on the exact same responsive card scale as the media rows. */
+:host-context(html.tv) {
+  --card-w: clamp(113px, 9.22vw, 178px);
 }
 
 .feed {
@@ -36,7 +42,7 @@
 
 .track {
   display: flex;
-  gap: 14px;
+  gap: 16px;
   padding: 4px max(16px, calc((100vw - 1360px) / 2)) 8px;
   overflow-x: auto;
   scroll-snap-type: x proximity;
@@ -52,23 +58,21 @@
   --track-inset: max(var(--overscan), clamp(16px, 3.6vw, 56px));
   padding-top: 28px;
   margin-top: -18px;
-  /* This row's card is a fixed 210px, not `--card-w` — see `.card` above. */
   padding-inline-start: var(--track-inset);
-  padding-inline-end: calc(100% - 210px - var(--track-inset));
+  padding-inline-end: calc(100% - var(--card-w) - var(--track-inset));
   scroll-padding-inline: var(--track-inset);
   scroll-snap-type: x mandatory;
 }
 
 .card {
   flex: none;
-  width: 210px;
+  width: var(--card-w);
   scroll-snap-align: start;
 }
 
-/* Landscape tiles, not posters — this row is about where you stopped. */
 .art {
   position: relative;
-  aspect-ratio: 16 / 10;
+  aspect-ratio: 2 / 3;
   border-radius: var(--radius);
   overflow: hidden;
   background: var(--bg-elev);
@@ -79,8 +83,6 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
-    /* The poster is portrait; crop to the upper half where the art usually is. */
-    object-position: center 28%;
   }
 }
 
@@ -154,12 +156,25 @@
 }
 
 .name {
+  display: flex;
+  align-items: baseline;
+  gap: 0.3em;
   margin-top: 9px;
   font-size: 13.5px;
   font-weight: 600;
   white-space: nowrap;
+}
+
+.caption-name {
+  flex: 1 1 auto;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.caption-year {
+  flex: none;
+  font-variant-numeric: tabular-nums;
 }
 
 .meta {
@@ -169,8 +184,4 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-@media (max-width: 620px) {
-  .card { width: 168px; }
 }

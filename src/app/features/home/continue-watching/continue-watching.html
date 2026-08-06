@@ -10,7 +10,7 @@
     <div class="track">
       @for (item of rows(); track item.key) {
         <a class="card" [routerLink]="link(item)" [queryParams]="query(item)">
-          <div class="art">
+          <div class="art poster">
             @if (item.poster) {
               <img [src]="item.poster" [alt]="item.title" loading="lazy" />
             } @else {
@@ -30,7 +30,12 @@
             <span class="bar"><span class="fill" [style.width.%]="item.progress"></span></span>
           </div>
 
-          <p class="name">{{ item.title }}</p>
+          <p class="name">
+            <span class="caption-name">{{ item.title }}</span>
+            @if (formatYear(item.year); as year) {
+              <span class="caption-year">({{ year }})</span>
+            }
+          </p>
           @if (item.subtitle) {
             <p class="meta">{{ item.subtitle }}</p>
           }

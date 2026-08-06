@@ -18,6 +18,7 @@
     }
 
     img { transform: scale(1.07); }
+    .title { color: #fff; }
   }
 }
 
@@ -112,10 +113,8 @@
 .card:hover .imdb-ring { transform: scale(1.08); }
 
 /*
- * Always on, not hover-revealed — the card used to show title/year/duration
- * only on hover or in a caption below the poster; both are gone now, so
- * genre is the one thing left to show and has to be visible at rest,
- * including on touch where nothing ever hovers.
+ * Always on, not hover-revealed, so genres remain available on touch where
+ * nothing ever hovers.
  *
  * Bottom-right, opposite the rating ring at bottom-left: `justify-content:
  * flex-end` plus the width cap keeps a long tag from ever sliding under it.
@@ -140,6 +139,30 @@
   background: rgba(124, 92, 255, 0.24);
   border: 1px solid rgba(124, 92, 255, 0.4);
   color: #d9d1ff;
+}
+
+.title {
+  display: flex;
+  align-items: baseline;
+  gap: 0.3em;
+  margin: 9px 2px 0;
+  color: #d7dae4;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: color 0.25s var(--ease);
+}
+
+.caption-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.caption-year {
+  flex: none;
+  font-variant-numeric: tabular-nums;
 }
 
 /*
@@ -173,6 +196,8 @@
 
 @media (max-width: 860px) {
   .card { width: var(--card-w, 132px); }
+
+  .title { font-size: 12px; }
 
   /* Badges shrink with the tile, or they eat the poster. */
   .type { font-size: 9.5px; padding: 3px 7px; }

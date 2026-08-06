@@ -9,6 +9,21 @@ export function toMediaType(tmdbType: string): MediaType {
   return tmdbType === 'tv' ? 'show' : 'movie';
 }
 
+/** Returns a safe four-digit year for a card caption. */
+export function formatYear(year: string | number | null | undefined): string | null {
+  const value = String(year ?? '').trim();
+  return /^\d{4}$/.test(value) ? value : null;
+}
+
+/** Formats the accessible label shared by poster cards. */
+export function titleWithYear(
+  title: string,
+  year: string | number | null | undefined,
+): string {
+  const value = formatYear(year);
+  return value ? `${title} (${value})` : title;
+}
+
 // ---------------------------------------------------------------- mdblist
 
 /** What `GET /user` answers — the account behind the API key. */

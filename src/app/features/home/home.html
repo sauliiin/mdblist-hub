@@ -83,8 +83,12 @@
                 <span class="vote">{{ result.vote.toFixed(1) }}</span>
               }
             </div>
-            <p class="result-title">{{ result.title }}</p>
-            <p class="result-year">{{ result.year || '—' }}</p>
+            <p class="result-title">
+              <span class="caption-name">{{ result.title }}</span>
+              @if (formatYear(result.year); as year) {
+                <span class="caption-year">({{ year }})</span>
+              }
+            </p>
           </a>
         }
       </div>

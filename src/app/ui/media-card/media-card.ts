@@ -3,7 +3,7 @@ import {
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { upscalePoster } from '../../core/api.config';
-import { MdbItem, toTmdbType } from '../../core/models';
+import { MdbItem, formatYear, titleWithYear, toTmdbType } from '../../core/models';
 import { PrefetchService } from '../../core/prefetch.service';
 import { TvService } from '../../core/tv/tv.service';
 
@@ -35,6 +35,10 @@ export class MediaCard implements OnDestroy {
     upscalePoster(this.item().poster, this.tv.isTv() ? 'w185' : 'w342'),
   );
   protected readonly link = computed(() => ['/title', toTmdbType(this.item().mediatype), this.item().id]);
+  protected readonly label = computed(() =>
+    titleWithYear(this.item().title, this.item().release_year),
+  );
+  protected readonly year = computed(() => formatYear(this.item().release_year));
   protected readonly genres = computed(() => (this.item().genre ?? []).slice(0, 2));
 
   protected readonly imdbRating = computed(() => {

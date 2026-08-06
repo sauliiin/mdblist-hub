@@ -11,7 +11,7 @@ import { tmdbImg } from '../../core/api.config';
 import { Bucket, LibraryService, LibraryStatus, LibraryTarget } from '../../core/library.service';
 import { castCharacter, MediaDetailService } from '../../core/media-detail.service';
 import {
-  MediaDetail, Review, TmdbCastMember, TmdbRecommendation, toMediaType,
+  MediaDetail, Review, TmdbCastMember, TmdbRecommendation, formatYear, toMediaType,
 } from '../../core/models';
 import { TvService } from '../../core/tv/tv.service';
 import { PersonModal } from '../../ui/person-modal/person-modal';
@@ -31,6 +31,7 @@ export class Detail {
   private readonly sanitizer = inject(DomSanitizer);
   private readonly libraryService = inject(LibraryService);
   protected readonly tv = inject(TvService);
+  protected readonly formatYear = formatYear;
 
   private readonly lightbox = viewChild<ElementRef<HTMLElement>>('lightbox');
   private readonly watchBtn = viewChild<ElementRef<HTMLElement>>('watchBtn');

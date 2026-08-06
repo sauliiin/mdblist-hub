@@ -224,8 +224,12 @@
                   } @else {
                     <div class="rec-empty">{{ recTitle(rec).charAt(0) }}</div>
                   }
-                  <span class="rec-title">{{ recTitle(rec) }}</span>
-                  <span class="rec-year">{{ recYear(rec) }}</span>
+                  <span class="rec-title">
+                    <span class="caption-name">{{ recTitle(rec) }}</span>
+                    @if (formatYear(recYear(rec)); as year) {
+                      <span class="caption-year">({{ year }})</span>
+                    }
+                  </span>
                 </a>
               }
             </div>

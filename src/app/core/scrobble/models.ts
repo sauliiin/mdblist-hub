@@ -56,6 +56,7 @@ export interface EpisodeRef {
 export interface ResumeItem {
   key: string;
   title: string;
+  year: number | null;
   subtitle: string | null;
   progress: number;
   tmdbId: number | null;
@@ -84,11 +85,10 @@ export function toResumeItem(session: PlaybackSession): ResumeItem | null {
   return {
     key: `${session.id}`,
     title: parent?.title ?? 'Sem título',
+    year: parent?.year ?? null,
     subtitle: isEpisode && season && episode
       ? `T${season}E${episode}${session.episode?.title ? ` · ${session.episode.title}` : ''}`
-      : parent?.year
-        ? String(parent.year)
-        : null,
+      : null,
     progress: clampProgress(liveProgress(session)),
     tmdbId,
     imdbId,

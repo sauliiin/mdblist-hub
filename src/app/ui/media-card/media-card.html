@@ -1,7 +1,7 @@
 <a
   class="card"
   [routerLink]="link()"
-  [attr.aria-label]="item().title"
+  [attr.aria-label]="label()"
   (focus)="armPrefetch()"
   (blur)="cancelPrefetch()"
   (mouseenter)="armPrefetch()"
@@ -38,4 +38,11 @@
       </div>
     }
   </div>
+
+  <p class="title">
+    <span class="caption-name">{{ item().title }}</span>
+    @if (year(); as year) {
+      <span class="caption-year">({{ year }})</span>
+    }
+  </p>
 </a>
