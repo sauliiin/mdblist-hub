@@ -1,7 +1,10 @@
-import { ChangeDetectionStrategy, Component, computed, inject, input } from '@angular/core';
+import {
+  ChangeDetectionStrategy, Component, OnDestroy, computed, inject, input,
+} from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { upscalePoster } from '../../core/api.config';
 import { MdbItem, toTmdbType } from '../../core/models';
+import { PrefetchService } from '../../core/prefetch.service';
 import { TvService } from '../../core/tv/tv.service';
 
 @Component({
@@ -11,8 +14,11 @@ import { TvService } from '../../core/tv/tv.service';
   templateUrl: './media-card.html',
   styleUrl: './media-card.scss',
 })
-export class MediaCard {
+export class MediaCard implements OnDestroy {
   private readonly tv = inject(TvService);
+  private readonly prefetch = inject(PrefetchService);
+
+  private prefetchTimer: ReturnType<typeof setTimeout> | null = null;
 
   readonly item = input.required<MdbItem>();
   /** Position in the row, rendered as a rank chip. */
@@ -35,11 +41,32 @@ export class MediaCard {
     const value = this.item().ratings?.find((r) => r.source === 'imdb')?.value;
     return typeof value === 'number' ? value : null;
   });
-  protected readonly runtime = computed(() => {
-    const minutes = this.item().runtime;
-    if (!minutes) return null;
-    const h = Math.floor(minutes / 60);
-    const m = minutes % 60;
-    return h ? `${h}h ${m}min` : `${m}min`;
-  });
+
+  /*
+   * Prefetch do detalhe: foco (D-pad na TV) e hover armam um timer curto —
+   * só quem *para* num card dispara, não a varredura a caminho de outro.
+   * Toque dispara na hora: encostar o dedo já é intenção de abrir.
+   */
+  protected armPrefetch(): void {
+    if (this.prefetchTimer !== null) return;
+    this.prefetchTimer = setTimeout(() => {
+      this.prefetchTimer = null;
+      this.prefetchNow();
+    }, 200);
+  }
+
+  protected cancelPrefetch(): void {
+    if (this.prefetchTimer === null) return;
+    clearTimeout(this.prefetchTimer);
+    this.prefetchTimer = null;
+  }
+
+  protected prefetchNow(): void {
+    this.cancelPrefetch();
+    this.prefetch.detailFor(this.item().mediatype, this.item().id);
+  }
+
+  ngOnDestroy(): void {
+    this.cancelPrefetch();
+  }
 }

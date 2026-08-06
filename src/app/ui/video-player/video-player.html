@@ -20,9 +20,9 @@
     (loadedmetadata)="onLoadedMetadata()"
     (volumechange)="onVolumeChange()"
     (waiting)="waiting.set(true)"
-    (playing)="waiting.set(false)"
+    (playing)="onPlaying()"
     (canplay)="waiting.set(false)"
-    (error)="playbackError.emit()">
+    (error)="onMediaError(src())">
     @if (subtitleUrl(); as vtt) {
       <track
         #trackEl
@@ -36,9 +36,44 @@
   <!-- Click target over the video, so the controls below stay clickable. -->
   <div class="curtain" (click)="togglePlay()" (dblclick)="toggleFullscreen()"></div>
 
+  <!--
+    A source can take several seconds to negotiate on Android TV. Keep that
+    interval branded and intentional instead of flashing the paused play icon
+    over a black rectangle. The element stays mounted so its exit can fade.
+  -->
+  <div
+    class="opening"
+    [class.loaded]="!opening()"
+    [attr.aria-hidden]="opening() ? null : true"
+    [attr.aria-label]="opening() ? 'Carregando ' + (mediaTitle() || 'vídeo') : null"
+    role="status"
+    aria-live="polite"
+    aria-atomic="true">
+    @if (mediaBackdrop(); as backdrop) {
+      @if (!backdropFailed()) {
+        <img
+          class="opening-art"
+          [src]="backdrop"
+          alt=""
+          aria-hidden="true"
+          loading="eager"
+          fetchpriority="high"
+          decoding="async"
+          (error)="backdropFailed.set(true)" />
+      }
+    }
+    <div class="opening-shade" aria-hidden="true"></div>
+    <div class="opening-copy">
+      <p class="opening-title">{{ mediaTitle() || 'Carregando' }}</p>
+      @if (mediaSubtitle(); as subtitle) {
+        <p class="opening-subtitle">{{ subtitle }}</p>
+      }
+    </div>
+  </div>
+
   <!-- Only rendered in fullscreen, where the page's own header is gone. -->
   @if (mediaTitle()) {
-    <div class="titlebar" [class.hidden]="playing() && !controls()">
+    <div class="titlebar" [class.hidden]="opening() || (playing() && !controls())">
       <p class="title">{{ mediaTitle() }}</p>
       @if (mediaSubtitle(); as sub) {
         <p class="subtitle">{{ sub }}</p>
@@ -46,11 +81,11 @@
     </div>
   }
 
-  @if (waiting()) {
+  @if (waiting() && !opening()) {
     <div class="spinner" aria-label="Carregando"></div>
   }
 
-  @if (!playing()) {
+  @if (!playing() && !opening()) {
     <button type="button" class="big-play" (click)="togglePlay()" aria-label="Reproduzir">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg>
     </button>
@@ -61,7 +96,7 @@
   }
 
   <!-- ------------------------------------------------------ controls -->
-  <div class="bar" [class.hidden]="playing() && !controls()">
+  <div class="bar" [class.hidden]="opening() || (playing() && !controls())">
     <div
       #track
       class="scrub"
@@ -88,7 +123,7 @@
     </div>
 
     <div class="buttons">
-      <button type="button" class="icon" (click)="togglePlay()"
+      <button type="button" class="icon" data-player-control (click)="togglePlay()"
               [attr.aria-label]="playing() ? 'Pausar' : 'Reproduzir'">
         @if (playing()) {
           <svg viewBox="0 0 24 24"><path d="M6 5h4v14H6zM14 5h4v14h-4z" /></svg>
@@ -98,7 +133,7 @@
       </button>
 
       <div class="volume">
-        <button type="button" class="icon" (click)="toggleMute()"
+        <button type="button" class="icon" data-player-control (click)="toggleMute()"
                 [attr.aria-label]="muted() ? 'Ativar som' : 'Silenciar'">
           @switch (volumeIcon()) {
             @case ('mute') {
@@ -130,8 +165,10 @@
 
       <div class="captions">
         <button
+          #captionsButton
           type="button"
           class="icon"
+          data-player-control
           [class.off]="!hasCaptions() || !captionsOn()"
           (click)="toggleCaptionsMenu()"
           aria-label="Legendas"
@@ -188,7 +225,8 @@
       </div>
 
       <div class="settings">
-        <button type="button" class="icon" (click)="settingsOpen.set(!settingsOpen())"
+        <button #settingsButton type="button" class="icon" data-player-control
+                (click)="toggleSettingsMenu()"
                 aria-label="Configurações">
           <svg viewBox="0 0 24 24"><path d="M19.4 13a7.8 7.8 0 000-2l2.1-1.6a.5.5 0 00.1-.6l-2-3.5a.5.5 0 00-.6-.2l-2.5 1a7.3 7.3 0 00-1.7-1l-.4-2.6a.5.5 0 00-.5-.4h-4a.5.5 0 00-.5.4l-.4 2.6a7.3 7.3 0 00-1.7 1l-2.5-1a.5.5 0 00-.6.2l-2 3.5a.5.5 0 00.1.6L4.6 11a7.8 7.8 0 000 2l-2.1 1.6a.5.5 0 00-.1.6l2 3.5a.5.5 0 00.6.2l2.5-1a7.3 7.3 0 001.7 1l.4 2.6a.5.5 0 00.5.4h4a.5.5 0 00.5-.4l.4-2.6a7.3 7.3 0 001.7-1l2.5 1a.5.5 0 00.6-.2l2-3.5a.5.5 0 00-.1-.6L19.4 13zM12 15.5A3.5 3.5 0 1115.5 12 3.5 3.5 0 0112 15.5z" /></svg>
         </button>
@@ -206,12 +244,12 @@
         }
       </div>
 
-      <button type="button" class="icon" (click)="toggleTheater()"
+      <button type="button" class="icon" data-player-control (click)="toggleTheater()"
               [attr.aria-label]="theater() ? 'Sair do modo cinema' : 'Modo cinema'">
         <svg viewBox="0 0 24 24"><path d="M3 7h18v10H3V7zm2 2v6h14V9H5z" /></svg>
       </button>
 
-      <button type="button" class="icon" (click)="toggleFullscreen()"
+      <button type="button" class="icon" data-player-control (click)="toggleFullscreen()"
               [attr.aria-label]="fullscreen() ? 'Sair da tela cheia' : 'Tela cheia'">
         @if (fullscreen()) {
           <svg viewBox="0 0 24 24"><path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z" /></svg>

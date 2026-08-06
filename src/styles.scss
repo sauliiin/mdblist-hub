@@ -353,6 +353,16 @@ html.tv {
   /* Scrolling a focused tile into view should not bring it flush to the edge. */
   * { scroll-margin: 12vh 14vw; }
 
+  /*
+   * Media rows already provide their safe left inset with padding and
+   * `scroll-padding`. Letting the generic 14vw margin participate in their
+   * horizontal snap points shifts the fixed focus slot several cards to the
+   * right — on Android it only settles around the next viewport. Row items
+   * therefore snap to the exact screen position occupied by the first item.
+   */
+  [data-row] .track,
+  [data-row] .track * { scroll-margin-inline: 0; }
+
   h1 { font-size: clamp(40px, 4.4vw, 68px); }
   h2 { font-size: clamp(22px, 2vw, 30px); }
 
@@ -425,9 +435,10 @@ body.cyberpunk-theme .topbar *:focus-within {
   color: var(--accent);
   border: 1px solid var(--accent);
   box-shadow: none;
-  padding: 6px 12px;
+  padding: 3px 8px;
+  font-size: 11px;
   text-transform: uppercase;
-  letter-spacing: 2px;
+  letter-spacing: 1px;
   font-weight: 700;
   border-radius: 0;
   clip-path: polygon(10% 0, 100% 0, 100% 70%, 90% 100%, 0 100%, 0 30%);
@@ -485,4 +496,3 @@ body.cyberpunk-theme .brand strong {
   color: #ff003c;
   text-shadow: 0 0 8px rgba(255, 0, 60, 0.6);
 }
-

@@ -1,6 +1,7 @@
 import { Location } from '@angular/common';
 import {
   ChangeDetectionStrategy, Component, DestroyRef, computed, effect, inject, input, signal,
+  viewChild,
 } from '@angular/core';
 import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
@@ -20,6 +21,8 @@ import { TmdbService } from '../../core/tmdb.service';
 import { VideoPlayer } from '../../ui/video-player/video-player';
 
 const EMPTY_QUERY: StreamQuery = { streams: [], queried: 0, failed: 0 };
+/** A dead CDN must not hold the TV on one source forever. */
+const STREAM_ATTEMPT_TIMEOUT = 6_000;
 
 /** Human text for the reasons a stream cannot reach `<video>`. */
 const REASONS: Record<string, string> = {
@@ -46,6 +49,7 @@ export class Player {
   private readonly router = inject(Router);
   private readonly route = inject(ActivatedRoute);
   private readonly location = inject(Location);
+  private readonly videoPlayer = viewChild(VideoPlayer);
 
   /** Route params and query params, bound by `withComponentInputBinding()`. */
   readonly type = input.required<string>();
@@ -69,7 +73,10 @@ export class Player {
   );
 
   protected readonly selected = signal<PlayableStream | null>(null);
+  /** Reload token lives in the fragment, which is never sent to the stream host. */
+  protected readonly playbackSrc = signal<string | null>(null);
   protected readonly playbackError = signal(false);
+  protected readonly triedEverySource = signal(false);
   /** Key of the stream whose link was just copied, for the button's feedback. */
   protected readonly copied = signal<string | null>(null);
 
@@ -175,8 +182,11 @@ export class Player {
     toObservable(this.streamKey).pipe(
       tap(() => {
         this.loadingStreams.set(true);
+        this.cancelAttempts();
         this.selected.set(null);
+        this.playbackSrc.set(null);
         this.playbackError.set(false);
+        this.triedEverySource.set(false);
       }),
       switchMap((key) =>
         key ? this.stremio.streams(key.type, key.id) : of(EMPTY_QUERY),
@@ -242,6 +252,10 @@ export class Player {
 
   /** Progress of the last report, so leaving the page can stop at the right point. */
   private lastProgress = 0;
+  private attemptQueue: PlayableStream[] = [];
+  private attemptIndex = -1;
+  private attemptSerial = 0;
+  private attemptTimer?: ReturnType<typeof setTimeout>;
 
   constructor() {
     /*
@@ -264,6 +278,7 @@ export class Player {
 
     // A subtitle is a Blob the page minted; nothing else will free it.
     destroyRef.onDestroy(() => {
+      this.cancelAttempts();
       this.revoke();
       this.reportStop();
     });
@@ -315,12 +330,93 @@ export class Player {
 
   protected pick(stream: PlayableStream): void {
     if (!stream.playable) return;
+
+    // Automatic failover is intentionally native-Android-only. Desktop keeps
+    // the explicit source picker behavior it already had.
+    if (this.platform.native) {
+      this.startAttempts(stream);
+      return;
+    }
+
+    this.cancelAttempts();
     this.playbackError.set(false);
+    this.triedEverySource.set(false);
     this.selected.set(stream);
+    this.playbackSrc.set(stream.url);
   }
 
-  protected onPlaybackError(): void {
+  protected onPlaybackError(failedSrc: string): void {
+    // Ignore a delayed error from the source that was just replaced.
+    if (failedSrc !== this.playbackSrc()) return;
+
+    clearTimeout(this.attemptTimer);
+    this.attemptTimer = undefined;
+
+    if (this.attemptQueue.length && this.advanceAttempt()) return;
+    this.finishPlaybackFailure(this.platform.native && this.attemptQueue.length > 0);
+  }
+
+  protected onPlaybackReady(playedSrc: string): void {
+    if (playedSrc !== this.playbackSrc()) return;
+
+    clearTimeout(this.attemptTimer);
+    this.attemptTimer = undefined;
+    this.attemptQueue = [];
+    this.attemptIndex = -1;
+    this.playbackError.set(false);
+    this.triedEverySource.set(false);
+  }
+
+  /** Selected source first, then every other playable link; repeat once. */
+  private startAttempts(first: PlayableStream): void {
+    this.cancelAttempts();
+    this.playbackError.set(false);
+    this.triedEverySource.set(false);
+
+    const seen = new Set<string>();
+    const candidates = [first, ...this.streams().filter((stream) => stream.key !== first.key)]
+      .filter((stream) => {
+        if (!stream.playable || !stream.url || seen.has(stream.url)) return false;
+        seen.add(stream.url);
+        return true;
+      });
+
+    this.attemptQueue = [...candidates, ...candidates];
+    this.attemptIndex = -1;
+    if (!this.advanceAttempt()) this.finishPlaybackFailure(true);
+  }
+
+  private advanceAttempt(): boolean {
+    this.attemptIndex += 1;
+    const stream = this.attemptQueue[this.attemptIndex];
+    if (!stream?.url) return false;
+
+    const separator = stream.url.includes('#') ? '&' : '#';
+    const attemptSrc = `${stream.url}${separator}mdblist_attempt=${++this.attemptSerial}`;
+    this.selected.set(stream);
+    this.playbackSrc.set(attemptSrc);
+
+    clearTimeout(this.attemptTimer);
+    this.attemptTimer = setTimeout(
+      () => this.onPlaybackError(attemptSrc),
+      STREAM_ATTEMPT_TIMEOUT,
+    );
+    return true;
+  }
+
+  private finishPlaybackFailure(triedAll: boolean): void {
+    clearTimeout(this.attemptTimer);
+    this.attemptTimer = undefined;
     this.playbackError.set(true);
+    this.triedEverySource.set(triedAll);
+    this.videoPlayer()?.showFailure();
+  }
+
+  private cancelAttempts(): void {
+    clearTimeout(this.attemptTimer);
+    this.attemptTimer = undefined;
+    this.attemptQueue = [];
+    this.attemptIndex = -1;
   }
 
   protected reason(stream: PlayableStream): string | null {

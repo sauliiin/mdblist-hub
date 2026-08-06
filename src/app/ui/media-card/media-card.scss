@@ -18,9 +18,6 @@
     }
 
     img { transform: scale(1.07); }
-    .hover { opacity: 1; transform: none; }
-    .scrim { opacity: 1; }
-    .caption .title { color: #fff; }
   }
 }
 
@@ -50,14 +47,6 @@
   color: var(--text-faint);
   font-size: 38px;
   font-weight: 800;
-}
-
-.scrim {
-  position: absolute;
-  inset: 0;
-  opacity: 0;
-  transition: opacity 0.35s var(--ease);
-  background: linear-gradient(to top, rgba(4, 5, 9, 0.96) 12%, rgba(4, 5, 9, 0.45) 48%, transparent 78%);
 }
 
 .rank,
@@ -122,39 +111,24 @@
 
 .card:hover .imdb-ring { transform: scale(1.08); }
 
-.hover {
+/*
+ * Always on, not hover-revealed — the card used to show title/year/duration
+ * only on hover or in a caption below the poster; both are gone now, so
+ * genre is the one thing left to show and has to be visible at rest,
+ * including on touch where nothing ever hovers.
+ *
+ * Bottom-right, opposite the rating ring at bottom-left: `justify-content:
+ * flex-end` plus the width cap keeps a long tag from ever sliding under it.
+ */
+.genres {
   position: absolute;
-  inset: auto 0 0 0;
+  right: 8px;
+  bottom: 8px;
   z-index: 2;
-  padding: 12px 12px 14px;
-  opacity: 0;
-  transform: translateY(10px);
-  transition: opacity 0.3s var(--ease), transform 0.35s var(--ease);
-}
-
-.hover-title {
-  margin: 0 0 5px;
-  font-size: 13.5px;
-  font-weight: 700;
-  line-height: 1.25;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-
-.hover-meta {
-  display: flex;
-  gap: 10px;
-  font-size: 11.5px;
-  color: var(--text-dim);
-  margin-bottom: 7px;
-}
-
-.hover-genres {
+  max-width: calc(100% - 50px);
   display: flex;
   flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 4px;
 }
 
@@ -168,36 +142,13 @@
   color: #d9d1ff;
 }
 
-.caption {
-  padding: 10px 2px 0;
-}
-
-.title {
-  margin: 0;
-  font-size: 13px;
-  font-weight: 600;
-  color: #d7dae4;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  transition: color 0.25s var(--ease);
-}
-
-.sub {
-  margin: 1px 0 0;
-  font-size: 11.5px;
-  color: var(--text-faint);
-  font-variant-numeric: tabular-nums;
-}
-
 /*
  * Touch devices.
  *
- * The hover panel is the problem here, not the size: on touch, `:hover` latches
- * after a tap and the overlay stays open over the artwork until something else
- * is touched. So the panel is dropped entirely and the tile answers a finger
- * with a press instead — the same trade the skin makes, where focus scales the
- * tile rather than revealing a layer.
+ * `:hover` latches after a tap on touch, so the zoom-on-hover effect would
+ * stick until something else is touched — dropped here, the tile answers a
+ * finger with a press instead, the same trade the skin makes elsewhere where
+ * focus scales the tile rather than revealing a layer.
  */
 @media (pointer: coarse) {
   .card {
@@ -206,8 +157,6 @@
       transform: none;
 
       img { transform: none; }
-      .hover { opacity: 0; }
-      .scrim { opacity: 0; }
     }
 
     /* The skin scales the focused tile up; touch has no focus, so press down. */
@@ -220,17 +169,10 @@
       }
     }
   }
-
-  .hover { display: none; }
 }
 
 @media (max-width: 860px) {
   .card { width: var(--card-w, 132px); }
-
-  .caption { padding-top: 8px; }
-
-  .title { font-size: 12px; }
-  .sub { font-size: 10.5px; }
 
   /* Badges shrink with the tile, or they eat the poster. */
   .type { font-size: 9.5px; padding: 3px 7px; }

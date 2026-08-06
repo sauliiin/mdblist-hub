@@ -59,7 +59,7 @@
   display: flex;
   align-items: center;
   gap: 18px;
-  font-size: 13px;
+  font-size: 14.5px;
 
   /* Below 860px the bottom tab bar takes over navigation; only the account
      stays up here, where it is a status readout rather than a control. */
@@ -100,7 +100,7 @@
   place-items: center;
   background: var(--surface-strong);
   color: var(--text);
-  font-size: 11.5px;
+  font-size: 13px;
   font-weight: 700;
   text-transform: uppercase;
 }
@@ -116,7 +116,7 @@
   border-radius: 99px;
   border: 1px solid var(--border);
   color: var(--text-dim);
-  font-size: 12.5px;
+  font-size: 13.5px;
   transition: color 0.25s var(--ease), border-color 0.25s var(--ease), background 0.25s var(--ease);
 
   &:hover {
@@ -128,7 +128,7 @@
 
 .powered {
   color: var(--text-faint);
-  font-size: 11.5px;
+  font-size: 12.5px;
   letter-spacing: 0.06em;
   padding-left: 18px;
   border-left: 1px solid var(--border);
@@ -154,12 +154,12 @@
 @media (max-width: 720px) {
   .powered { display: none; }
   .links { gap: 12px; }
-  .links a { font-size: 12.5px; }
+  .links a { font-size: 13.5px; }
   /* The avatar alone identifies the account once space runs short. */
   .who { display: none; }
 }
 
 @media (max-width: 520px) {
   .name { display: none; }
-  .links a { font-size: 12px; }
+  .links a { font-size: 13px; }
 }

@@ -79,7 +79,9 @@ function assemble(
     originalTitle: tmdb.original_title || tmdb.original_name || null,
     tagline: tmdb.tagline || info?.tagline || null,
     overview: tmdb.overview || info?.description || omdb?.Plot || null,
-    backdrop: tmdbImg(tmdb.backdrop_path, 'original'),
+    // `w1280` e não `original`: um backdrop original chega a 3–8 MB e não há
+    // tela no app que pinte mais que 1280px dele — o hero já usa w1280.
+    backdrop: tmdbImg(tmdb.backdrop_path, 'w1280'),
     poster: tmdbImg(tmdb.poster_path, 'w500'),
     year: date ? Number(date.slice(0, 4)) : info?.year ?? null,
     releaseDate: date,

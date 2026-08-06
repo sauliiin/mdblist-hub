@@ -75,5 +75,23 @@ export class MediaRow implements OnInit {
     if (!el) return;
     this.atStart.set(el.scrollLeft < 12);
     this.atEnd.set(el.scrollLeft + el.clientWidth >= el.scrollWidth - 12);
+    this.warmNextPage(el);
+  }
+
+  /** Offset já pré-aquecido, para disparar uma única vez por página. */
+  private warmedOffset = -1;
+
+  /*
+   * Chegando perto do fim da faixa, a página seguinte é buscada em background
+   * — só para aquecer o cache HTTP, sem adicionar cards. O passo continua
+   * explícito no botão "Carregar mais" (decisão registrada no template), mas o
+   * clique resolve do cache e vira instantâneo.
+   */
+  private warmNextPage(el: HTMLElement): void {
+    const offset = this.items().length;
+    if (!this.canLoadMore() || offset === 0 || this.warmedOffset === offset) return;
+    if (el.scrollLeft + el.clientWidth < el.scrollWidth - el.clientWidth * 1.5) return;
+    this.warmedOffset = offset;
+    this.mdblist.listItems(this.list().id, PAGE, offset).subscribe();
   }
 }

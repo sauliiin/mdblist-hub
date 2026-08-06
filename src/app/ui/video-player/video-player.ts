@@ -3,6 +3,7 @@ import {
   output, signal, viewChild,
 } from '@angular/core';
 import { SubtitleOption } from '../../core/stremio/models';
+import { TvService } from '../../core/tv/tv.service';
 
 /** What the settings menu offers, in YouTube's own steps. */
 const SPEEDS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
@@ -33,6 +34,7 @@ const HEARTBEAT = 60_000;
 })
 export class VideoPlayer {
   private readonly host: ElementRef<HTMLElement> = inject(ElementRef);
+  private readonly tv = inject(TvService);
 
   readonly src = input.required<string>();
   /** A `blob:` URL of a WebVTT file, or null when no subtitle is loaded. */
@@ -56,9 +58,13 @@ export class VideoPlayer {
   /** Shown over the top edge in fullscreen, where the page header is gone. */
   readonly mediaTitle = input<string>('');
   readonly mediaSubtitle = input<string | null>(null);
+  /** Fanart shown behind the title until the first video frame starts playing. */
+  readonly mediaBackdrop = input<string | null>(null);
 
   readonly theaterChange = output<boolean>();
-  readonly playbackError = output<void>();
+  /** Includes the attempted URL so a late error cannot skip the next source. */
+  readonly playbackError = output<string>();
+  readonly playbackReady = output<string>();
 
   /** Where to pick up, 0–100. Applied once, on the first metadata load. */
   readonly resumeAt = input<number | null>(null);
@@ -72,9 +78,14 @@ export class VideoPlayer {
   private readonly media = viewChild<ElementRef<HTMLVideoElement>>('media');
   private readonly track = viewChild<ElementRef<HTMLDivElement>>('track');
   private readonly trackEl = viewChild<ElementRef<HTMLTrackElement>>('trackEl');
+  private readonly captionsButton = viewChild<ElementRef<HTMLButtonElement>>('captionsButton');
+  private readonly settingsButton = viewChild<ElementRef<HTMLButtonElement>>('settingsButton');
 
   protected readonly playing = signal(false);
   protected readonly waiting = signal(false);
+  /** Keeps the cinematic opening visible until playback truly starts. */
+  protected readonly opening = signal(true);
+  protected readonly backdropFailed = signal(false);
   protected readonly ended = signal(false);
   protected readonly currentTime = signal(0);
   protected readonly duration = signal(0);
@@ -103,6 +114,8 @@ export class VideoPlayer {
   private hideTimer?: ReturnType<typeof setTimeout>;
   private flashTimer?: ReturnType<typeof setTimeout>;
   private beat?: ReturnType<typeof setInterval>;
+  /** Prevents unrelated signal changes from resetting an already-playing source. */
+  private currentSrc: string | null = null;
   /** The resume point is applied once per source, not on every metadata load. */
   private resumed = false;
 
@@ -136,16 +149,28 @@ export class VideoPlayer {
   });
 
   constructor() {
-    // A new source is a new title: reset everything the old one left behind.
+    const destroyRef = inject(DestroyRef);
+
+    // A new source resets everything the old one left behind.
     effect(() => {
-      this.src();
-      this.currentTime.set(0);
-      this.duration.set(0);
-      this.buffered.set(0);
-      this.ended.set(false);
-      this.settingsOpen.set(false);
-      this.resumed = false;
-      this.show();
+      const src = this.src();
+      const sourceChanged = src !== this.currentSrc;
+
+      if (sourceChanged) {
+        this.currentSrc = src;
+        this.stopHeartbeat();
+        this.currentTime.set(0);
+        this.duration.set(0);
+        this.buffered.set(0);
+        this.playing.set(false);
+        this.opening.set(true);
+        this.backdropFailed.set(false);
+        this.waiting.set(false);
+        this.ended.set(false);
+        this.settingsOpen.set(false);
+        this.resumed = false;
+        this.show();
+      }
 
       // Fullscreen needs transient user activation. The click that picked the
       // source granted it moments ago and it lasts a few seconds, so asking
@@ -158,10 +183,44 @@ export class VideoPlayer {
       // mounted only changes the `src` property, which the spec does not
       // treat as a reason to restart playback on its own. Calling `play()`
       // explicitly covers both paths.
-      setTimeout(() => void this.media()?.nativeElement.play().catch(() => undefined));
+      if (sourceChanged) {
+        setTimeout(() => {
+          void this.media()?.nativeElement.play().catch((error: unknown) => {
+            if (this.src() !== src || this.playing()) return;
+
+            const name = error instanceof DOMException ? error.name : '';
+            // A newer load or play request superseded this one; its own event
+            // will decide when the opening has actually finished.
+            if (name === 'AbortError') return;
+
+            if (name === 'NotAllowedError') {
+              // Autoplay policy is not a broken source. Reveal a manual retry.
+              this.opening.set(false);
+              return;
+            }
+
+            this.onMediaError(src);
+          });
+        });
+      }
     });
 
-    inject(DestroyRef).onDestroy(() => this.stopHeartbeat());
+    destroyRef.onDestroy(() => this.stopHeartbeat());
+
+    // Android TV's WebView frequently sends DPAD_CENTER to the document after
+    // fullscreen has moved focus away from the original `.shell`. Capture it
+    // here so OK and the D-pad keep working even when no element owns focus.
+    const onRemoteKey = (event: KeyboardEvent) => {
+      if (!this.tv.isTv()) return;
+
+      const active = document.activeElement;
+      const ownsFullscreen = document.fullscreenElement === this.host.nativeElement;
+      if (!ownsFullscreen && (!active || !this.host.nativeElement.contains(active))) return;
+
+      this.onKey(event);
+    };
+    document.addEventListener('keydown', onRemoteKey, true);
+    destroyRef.onDestroy(() => document.removeEventListener('keydown', onRemoteKey, true));
 
     // The `<track>` element only exists once the template sees a URL, and it
     // renders disabled until something asks for it.
@@ -184,7 +243,11 @@ export class VideoPlayer {
     const element = this.media()?.nativeElement;
     if (!element) return;
 
-    if (element.paused) void element.play().catch(() => this.playbackError.emit());
+    // While autoplay is buffering, another OK/click must not pause the load.
+    // If autoplay was blocked the element is paused, so the same gesture still retries it.
+    if (this.opening() && !element.paused) return;
+
+    if (element.paused) void element.play().catch(() => this.onMediaError());
     else element.pause();
   }
 
@@ -194,6 +257,13 @@ export class VideoPlayer {
     this.scheduleHide();
     this.report('start');
     this.startHeartbeat();
+  }
+
+  /** `playing`, unlike `play`, means the browser can present real frames. */
+  protected onPlaying(): void {
+    this.waiting.set(false);
+    this.opening.set(false);
+    this.playbackReady.emit(this.currentSrc || this.src());
   }
 
   protected onPause(): void {
@@ -236,6 +306,33 @@ export class VideoPlayer {
       element.currentTime = (resume / 100) * element.duration;
       this.currentTime.set(element.currentTime);
     }
+  }
+
+  protected onMediaError(failedSrc?: string): void {
+    this.playing.set(false);
+    this.waiting.set(false);
+    this.stopHeartbeat();
+    this.show();
+
+    // Keep the opening artwork mounted while Player switches to the next
+    // source. Only `showFailure()` removes it after every retry is exhausted.
+    const elementSrc = this.media()?.nativeElement.currentSrc;
+    this.playbackError.emit(failedSrc || elementSrc || this.currentSrc || this.src());
+  }
+
+  /** Called by the page only after every source and retry has failed. */
+  showFailure(): void {
+    const element = this.media()?.nativeElement;
+    element?.pause();
+    if (element) {
+      element.removeAttribute('src');
+      element.load();
+    }
+
+    this.opening.set(false);
+    this.waiting.set(false);
+    this.show();
+    if (document.fullscreenElement === this.host.nativeElement) void document.exitFullscreen();
   }
 
   // ----------------------------------------------------------- scrobble
@@ -384,10 +481,14 @@ export class VideoPlayer {
   protected pickSubtitle(option: SubtitleOption | null): void {
     this.subtitleSelect.emit(option);
     this.captionsMenuOpen.set(false);
+    if (this.tv.isTv()) setTimeout(() => this.captionsButton()?.nativeElement.focus());
   }
 
   protected toggleCaptionsMenu(): void {
-    this.captionsMenuOpen.set(!this.captionsMenuOpen());
+    const open = !this.captionsMenuOpen();
+    this.captionsMenuOpen.set(open);
+    this.settingsOpen.set(false);
+    if (open && this.tv.isTv()) setTimeout(() => this.focusMenuItem('.captions-menu'));
   }
 
   /**
@@ -421,6 +522,14 @@ export class VideoPlayer {
   protected setSpeed(value: number): void {
     this.speed.set(value);
     this.settingsOpen.set(false);
+    if (this.tv.isTv()) setTimeout(() => this.settingsButton()?.nativeElement.focus());
+  }
+
+  protected toggleSettingsMenu(): void {
+    const open = !this.settingsOpen();
+    this.settingsOpen.set(open);
+    this.captionsMenuOpen.set(false);
+    if (open && this.tv.isTv()) setTimeout(() => this.focusMenuItem('.settings .menu'));
   }
 
   protected toggleTheater(): void {
@@ -449,7 +558,9 @@ export class VideoPlayer {
   }
 
   protected onFullscreenChange(): void {
-    this.fullscreen.set(document.fullscreenElement === this.host.nativeElement);
+    const isFullscreen = document.fullscreenElement === this.host.nativeElement;
+    this.fullscreen.set(isFullscreen);
+    if (isFullscreen) setTimeout(() => this.focusShell());
   }
 
   /** Any pointer activity brings the controls back and restarts the countdown. */
@@ -474,7 +585,9 @@ export class VideoPlayer {
     if (!this.playing()) return;
 
     this.hideTimer = setTimeout(() => {
-      if (!this.settingsOpen() && !this.captionsMenuOpen() && !this.scrubbing()) {
+      const focusedChrome = document.activeElement instanceof HTMLElement &&
+        !!document.activeElement.closest('[data-player-control], .menu');
+      if (!this.settingsOpen() && !this.captionsMenuOpen() && !this.scrubbing() && !focusedChrome) {
         this.controls.set(false);
       }
     }, HIDE_AFTER);
@@ -494,8 +607,20 @@ export class VideoPlayer {
    * their own arrow and space keys.
    */
   protected onKey(event: KeyboardEvent): void {
-    const key = event.key.toLowerCase();
-    const handled = true;
+    const key = remoteKey(event);
+
+    // The first OK after the chrome faded only wakes it. This check comes
+    // before focused controls because Android can leave focus on a hidden
+    // button after the inactivity timer runs.
+    if (key === 'enter' && !this.controls()) {
+      this.focusShell();
+      this.consume(event);
+      this.wake();
+      return;
+    }
+
+    if (this.handleMenuKey(event, key)) return;
+    if (this.handleControlKey(event, key)) return;
 
     switch (key) {
       /*
@@ -511,14 +636,17 @@ export class VideoPlayer {
       case 'enter':
         if (this.controls()) this.togglePlay();
         break;
-      case ' ':
+      case 'space':
       case 'k': this.togglePlay(); break;
       case 'arrowright': this.seekBy(5); break;
       case 'arrowleft': this.seekBy(-5); break;
       case 'l': this.seekBy(10); break;
       case 'j': this.seekBy(-10); break;
       case 'arrowup': this.nudgeVolume(0.05); break;
-      case 'arrowdown': this.nudgeVolume(-0.05); break;
+      case 'arrowdown':
+        if (this.tv.isTv() && this.controls()) this.focusPlayerControl(0);
+        else this.nudgeVolume(-0.05);
+        break;
       case 'm': this.toggleMute(); break;
       case 'f': this.toggleFullscreen(); break;
       case 't': this.toggleTheater(); break;
@@ -530,10 +658,97 @@ export class VideoPlayer {
         else return;
     }
 
-    if (handled) {
-      event.preventDefault();
-      this.wake();
+    this.consume(event);
+    this.wake();
+  }
+
+  /** Up/down/OK navigation inside the open subtitle or speed menu. */
+  private handleMenuKey(event: KeyboardEvent, key: string): boolean {
+    const menu = this.host.nativeElement.querySelector<HTMLElement>('.menu');
+    if (!menu) return false;
+
+    const items = Array.from(menu.querySelectorAll<HTMLButtonElement>('button:not(:disabled)'));
+    if (!items.length) return false;
+
+    const active = document.activeElement as HTMLButtonElement | null;
+    const index = items.indexOf(active!);
+
+    if (key === 'arrowdown' || key === 'arrowup') {
+      const step = key === 'arrowdown' ? 1 : -1;
+      const next = index < 0
+        ? (key === 'arrowdown' ? 0 : items.length - 1)
+        : (index + step + items.length) % items.length;
+      items[next].focus({ preventScroll: true });
+      items[next].scrollIntoView({ block: 'nearest' });
+    } else if (key === 'enter' || key === 'space') {
+      (items.includes(active!) ? active! : items[0]).click();
+    } else if (key === 'arrowleft' || key === 'escape' || key === 'backspace') {
+      const captions = this.captionsMenuOpen();
+      this.captionsMenuOpen.set(false);
+      this.settingsOpen.set(false);
+      setTimeout(() => (captions
+        ? this.captionsButton()?.nativeElement
+        : this.settingsButton()?.nativeElement)?.focus());
+    } else {
+      return false;
     }
+
+    this.consume(event);
+    this.wake();
+    return true;
+  }
+
+  /** Left/right chooses a player button; OK activates the chosen control. */
+  private handleControlKey(event: KeyboardEvent, key: string): boolean {
+    if (!this.tv.isTv()) return false;
+
+    const active = document.activeElement instanceof HTMLElement
+      ? document.activeElement.closest<HTMLButtonElement>('[data-player-control]')
+      : null;
+    if (!active || !this.host.nativeElement.contains(active)) return false;
+
+    if (key === 'arrowleft' || key === 'arrowright') {
+      const controls = this.playerControls();
+      const index = Math.max(0, controls.indexOf(active));
+      const step = key === 'arrowright' ? 1 : -1;
+      controls[(index + step + controls.length) % controls.length]?.focus({ preventScroll: true });
+    } else if (key === 'enter' || key === 'space') {
+      active.click();
+    } else if (key === 'arrowup') {
+      this.focusShell();
+    } else if (key === 'arrowdown') {
+      // Down on CC/settings opens that menu; on other controls it remains put.
+      if (active === this.captionsButton()?.nativeElement ||
+          active === this.settingsButton()?.nativeElement) active.click();
+    } else {
+      return false;
+    }
+
+    this.consume(event);
+    this.wake();
+    return true;
+  }
+
+  private playerControls(): HTMLButtonElement[] {
+    return Array.from(
+      this.host.nativeElement.querySelectorAll<HTMLButtonElement>('[data-player-control]:not(:disabled)'),
+    );
+  }
+
+  private focusPlayerControl(index: number): void {
+    this.playerControls()[index]?.focus({ preventScroll: true });
+  }
+
+  private focusMenuItem(selector: string): void {
+    const menu = this.host.nativeElement.querySelector<HTMLElement>(selector);
+    const selected = menu?.querySelector<HTMLButtonElement>('.menu-item.on');
+    const first = menu?.querySelector<HTMLButtonElement>('button:not(:disabled)');
+    (selected ?? first)?.focus({ preventScroll: true });
+  }
+
+  private consume(event: KeyboardEvent): void {
+    event.preventDefault();
+    event.stopPropagation();
   }
 
   private nudgeVolume(delta: number): void {
@@ -549,6 +764,27 @@ export class VideoPlayer {
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
+}
+
+/** Android DPAD key codes are used when WebView reports `Unidentified`. */
+function remoteKey(event: KeyboardEvent): string {
+  const named = event.key.toLowerCase();
+  if (named && named !== 'unidentified') {
+    if (named === ' ' || named === 'spacebar') return 'space';
+    if (named === 'select' || named === 'accept' || named === 'dpad_center') return 'enter';
+    return named;
+  }
+
+  switch (event.keyCode) {
+    case 19: return 'arrowup';
+    case 20: return 'arrowdown';
+    case 21: return 'arrowleft';
+    case 22: return 'arrowright';
+    case 23:
+    case 66: return 'enter';
+    case 4: return 'backspace';
+    default: return '';
+  }
 }
 
 /** `1:02:03` past an hour, `2:03` below it — the way players have always done. */

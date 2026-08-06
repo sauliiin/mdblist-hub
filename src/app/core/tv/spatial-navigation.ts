@@ -92,8 +92,11 @@ export class SpatialNavigation {
       }
     }
 
-    best?.focus({ preventScroll: true });
-    if (best) this.lastRect = best.getBoundingClientRect();
+    if (best) {
+      best.focus({ preventScroll: true });
+      this.reveal(best);
+      this.lastRect = best.getBoundingClientRect();
+    }
   }
 
   private onKey(event: KeyboardEvent): void {
@@ -191,9 +194,40 @@ export class SpatialNavigation {
       // be scrolled and the focus appeared to jump sideways.
     }
 
-    // Same row as before (or no row at all, e.g. a still-loading placeholder
-    // with nothing to pin to yet): keep the focused card in place horizontally.
-    element.scrollIntoView({ block: 'nearest', inline: 'start', behavior: 'smooth' });
+    /*
+     * Android WebView may treat `scrollIntoView({ inline: 'start' })` as a
+     * no-op while the next card is already visible. That lets focus walk over
+     * the whole first viewport and only starts scrolling at the first card of
+     * the "second page". Move the strip to an absolute item offset instead:
+     * every item then occupies the exact slot where the row's first item began.
+     */
+    if (row) {
+      this.pinItemToRowStart(row, element);
+      return;
+    }
+
+    // Controls outside a media row still use the browser's normal reveal.
+    element.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+  }
+
+  /** Keeps a row's focused item in the screen position of its first item. */
+  private pinItemToRowStart(row: Element, element: HTMLElement): void {
+    const track = element.closest<HTMLElement>('.track');
+    if (!track || track.closest('[data-row]') !== row) return;
+
+    let item = element;
+    while (item.parentElement && item.parentElement !== track) item = item.parentElement;
+
+    const first = track.firstElementChild;
+    if (item.parentElement !== track || !(first instanceof HTMLElement)) return;
+
+    /*
+     * The two flex items share an offset parent, so their difference is stable
+     * even during a smooth scroll and ignores the focused card's CSS scale.
+     * It is also independent of viewport width, card size and row padding.
+     */
+    const left = Math.max(0, item.offsetLeft - first.offsetLeft);
+    track.scrollTo({ left, top: track.scrollTop, behavior: 'smooth' });
   }
 
   /**

@@ -1,3 +1,11 @@
+:host {
+  display: block;
+
+  /* Mesma poupança de paint das linhas — ver comentário em media-row.scss. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 320px;
+}
+
 .feed {
   margin-top: 46px;
 }
@@ -38,9 +46,16 @@
 }
 
 /* See the identical rule in `media-row.scss` — same clipping, same fix. */
-/* See the notes on the identical rules in `media-row.scss`. */
+/* See the notes on the identical rules in `media-row.scss`, including the
+   fixed-focus fix (`padding-inline-end`) for why the far end needs room. */
 :host-context(html.tv) .track {
+  --track-inset: max(var(--overscan), clamp(16px, 3.6vw, 56px));
   padding-top: 28px;
+  margin-top: -18px;
+  /* This row's card is a fixed 210px, not `--card-w` — see `.card` above. */
+  padding-inline-start: var(--track-inset);
+  padding-inline-end: calc(100% - 210px - var(--track-inset));
+  scroll-padding-inline: var(--track-inset);
   scroll-snap-type: x mandatory;
 }
 

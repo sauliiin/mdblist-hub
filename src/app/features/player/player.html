@@ -18,7 +18,7 @@
       <section class="screen">
         @if (selected(); as stream) {
           <app-video-player
-            [src]="stream.url!"
+            [src]="playbackSrc()!"
             [subtitleUrl]="subtitleUrl()"
             [subtitleLabel]="subtitle()?.label ?? 'Legenda'"
             [subtitleLang]="subtitle()?.srclang ?? 'pt'"
@@ -29,12 +29,14 @@
             [theater]="theater()"
             [mediaTitle]="d.title"
             [mediaSubtitle]="episodeLabel()"
+            [mediaBackdrop]="d.backdrop"
             [resumeAt]="resumeAt()"
             [autoFullscreen]="autoFullscreen()"
             (theaterChange)="theater.set($event)"
             (playbackState)="onPlaybackState($event)"
+            (playbackReady)="onPlaybackReady($event)"
             (subtitleSelect)="onSubtitleSelect($event)"
-            (playbackError)="onPlaybackError()" />
+            (playbackError)="onPlaybackError($event)" />
 
           @if (resumeAt(); as point) {
             <p class="resumed">Retomado de {{ point }}% — o ponto veio do mdblist.</p>
@@ -45,11 +47,16 @@
 
           @if (playbackError()) {
             <div class="overlay" role="alert">
-              <p class="headline">O navegador não conseguiu reproduzir esta fonte.</p>
-              <p>
-                Normalmente é o container (MKV não toca em Chrome nem Firefox) ou o link já
-                expirou. Escolha outra fonte, ou abra esta em um player externo.
-              </p>
+              @if (triedEverySource()) {
+                <p class="headline">Nenhuma fonte conseguiu reproduzir.</p>
+                <p>Tentei todos os links disponíveis e repeti a lista uma vez.</p>
+              } @else {
+                <p class="headline">O navegador não conseguiu reproduzir esta fonte.</p>
+                <p>
+                  Normalmente é o container (MKV não toca em Chrome nem Firefox) ou o link já
+                  expirou. Escolha outra fonte, ou abra esta em um player externo.
+                </p>
+              }
               <div class="overlay-actions">
                 <a class="ghost" [href]="stream.externalUrl" target="_blank" rel="noopener">
                   Abrir o link

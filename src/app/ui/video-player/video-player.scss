@@ -6,7 +6,11 @@
   overflow: hidden;
 
   /* Fullscreen owns the whole screen, so the rounding has to go. */
-  &:fullscreen { border-radius: 0; }
+  &:fullscreen {
+    width: 100vw;
+    height: 100vh;
+    border-radius: 0;
+  }
 }
 
 .shell {
@@ -34,9 +38,26 @@
 }
 
 :host(:fullscreen) .media {
+  width: 100vw;
   height: 100vh;
   aspect-ratio: auto;
   object-fit: contain;
+}
+
+:host(:fullscreen) .shell {
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* The Android player always starts in Stretch, as requested for the APK. */
+:host-context(html.native) .media { object-fit: fill; }
+
+/* Fixed keeps the artwork tied to the TV viewport during source reloads. */
+:host-context(html.native):fullscreen .opening {
+  position: fixed;
+  width: 100vw;
+  height: 100vh;
 }
 
 /* The video element swallows pointer events the controls need to see. */
@@ -49,6 +70,7 @@
 .titlebar {
   display: none;
   position: absolute;
+  z-index: 4;
   top: 0;
   left: 0;
   right: 0;
@@ -82,8 +104,85 @@
 
 /* ------------------------------------------------------------ feedback */
 
+.opening {
+  position: absolute;
+  inset: 0;
+  z-index: 7;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  isolation: isolate;
+  background:
+    radial-gradient(circle at 50% 42%, rgba(58, 48, 92, 0.5), transparent 58%),
+    #030407;
+  opacity: 1;
+  visibility: visible;
+  pointer-events: none;
+  transition: opacity 0.65s var(--ease), visibility 0s;
+
+  &.loaded {
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.65s var(--ease), visibility 0s linear 0.65s;
+
+    /* Freeze the current fade frame so the title cannot flash back to 100%. */
+    .opening-copy { animation-play-state: paused; }
+  }
+}
+
+.opening-art {
+  position: absolute;
+  inset: -2%;
+  width: 104%;
+  height: 104%;
+  object-fit: cover;
+  opacity: 0.76;
+  transform: scale(1.02);
+}
+
+.opening-shade {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at center, transparent 8%, rgba(0, 0, 0, 0.18) 58%, rgba(0, 0, 0, 0.72) 100%),
+    linear-gradient(180deg, rgba(0, 0, 0, 0.22), transparent 38%, rgba(0, 0, 0, 0.48));
+}
+
+.opening-copy {
+  position: relative;
+  z-index: 1;
+  width: min(82%, 980px);
+  text-align: center;
+  color: #fff;
+  animation: opening-title-fade 2.6s ease-in-out infinite;
+}
+
+.opening-title {
+  margin: 0;
+  font-size: clamp(24px, 3.2vw, 56px);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.035em;
+  text-wrap: balance;
+  text-shadow: 0 4px 28px rgba(0, 0, 0, 0.92);
+}
+
+.opening-subtitle {
+  margin: 12px 0 0;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: clamp(14px, 1.5vw, 21px);
+  font-weight: 500;
+  text-shadow: 0 3px 18px rgba(0, 0, 0, 0.92);
+}
+
+@keyframes opening-title-fade {
+  0%, 100% { opacity: 0.28; transform: translateY(4px); }
+  50% { opacity: 1; transform: translateY(0); }
+}
+
 .big-play {
   position: absolute;
+  z-index: 5;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
@@ -109,6 +208,7 @@
 
 .spinner {
   position: absolute;
+  z-index: 5;
   top: 50%;
   left: 50%;
   width: 46px;
@@ -124,6 +224,7 @@
 
 .flash {
   position: absolute;
+  z-index: 5;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
@@ -140,6 +241,7 @@
 
 .bar {
   position: absolute;
+  z-index: 6;
   left: 0;
   right: 0;
   bottom: 0;
@@ -242,6 +344,11 @@
   svg { width: 22px; height: 22px; fill: #fff; }
 
   &:hover:not(:disabled) { background: rgba(255, 255, 255, 0.14); }
+  &:focus-visible {
+    outline: 3px solid #fff;
+    outline-offset: 2px;
+    background: rgba(255, 255, 255, 0.2);
+  }
   &:disabled { opacity: 0.35; cursor: default; }
   /* Captions off reads as a dimmed CC, the way every player marks it. */
   &.off svg { opacity: 0.45; }
@@ -348,6 +455,12 @@
   cursor: pointer;
 
   &:hover { background: var(--surface-strong); color: var(--text); }
+  &:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: -2px;
+    background: var(--surface-strong);
+    color: var(--text);
+  }
   &.on { color: var(--accent); font-weight: 600; }
 
   small { opacity: 0.6; font-weight: 400; }
@@ -400,6 +513,11 @@
   cursor: pointer;
 
   &:hover { border-color: var(--border-strong); color: var(--text); }
+  &:focus-visible {
+    outline: 2px solid #fff;
+    outline-offset: 2px;
+    color: var(--text);
+  }
 }
 
 .sync-value {
@@ -418,6 +536,8 @@
  * Everything here is the same layout, just sized for the viewing distance.
  */
 :host(:fullscreen) {
+  .opening-title { font-size: clamp(36px, 4.5vw, 72px); }
+
   .curtain { bottom: 132px; }
 
   .bar {

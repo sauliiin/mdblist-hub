@@ -1,6 +1,10 @@
 :host {
   display: block;
   --card-w: 172px;
+
+  /* Mesma poupança de paint das linhas — ver comentário em media-row.scss. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 480px;
 }
 
 /* Matches `media-row`'s TV sizing — the two sit in the same feed and read as
@@ -92,10 +96,18 @@
   &::-webkit-scrollbar { display: none; }
 }
 
-/* See the identical rule in `media-row.scss` — same clipping, same fix. */
-/* See the notes on the identical rules in `media-row.scss`. */
+/* See the notes on the identical rules in `media-row.scss`, including the
+   fixed-focus fix (`padding-inline-end`) for why the far end needs room. */
 :host-context(html.tv) .track {
   padding-top: 28px;
+  margin-top: -18px;
+  /* The base rule above never got the overscan-aware inset `media-row` has;
+     without it, the start edge sat closer to the bezel than the list rows. */
+  padding-inline: max(var(--overscan), clamp(16px, 3.6vw, 56px));
+  scroll-padding-inline: max(var(--overscan), clamp(16px, 3.6vw, 56px));
+  padding-inline-end: calc(
+    100% - var(--card-w) - max(var(--overscan), clamp(16px, 3.6vw, 56px))
+  );
   scroll-snap-type: x mandatory;
 }
 
