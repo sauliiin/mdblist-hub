@@ -169,6 +169,24 @@
     </button>
   </form>
 
+  <!-- ------------------------------------------------- quick add -->
+  <div class="quick-add">
+    <span class="quick-label">Padrão para começar</span>
+    <div class="quick-buttons">
+      @for (s of quickAdd; track s.name) {
+        @if (s.url) {
+          <button type="button" class="chip-btn" [disabled]="busy()" (click)="install(s.url!)">
+            + {{ s.name }}
+          </button>
+        } @else if (s.configure) {
+          <a class="chip-btn" [href]="s.configure" target="_blank" rel="noopener">
+            + {{ s.name }} <span class="chip-note">(configurar)</span>
+          </a>
+        }
+      }
+    </div>
+  </div>
+
   @if (error()) {
     <p class="error" role="alert">{{ error() }}</p>
   }

@@ -21,15 +21,8 @@ import { TmdbService } from '../../core/tmdb.service';
 import { VideoPlayer } from '../../ui/video-player/video-player';
 
 const EMPTY_QUERY: StreamQuery = { streams: [], queried: 0, failed: 0 };
-/** A dead CDN must not hold the TV on one source forever. */
+/** A dead CDN must not hold the cascade on one source forever. */
 const STREAM_ATTEMPT_TIMEOUT = 6_000;
-
-/** Human text for the reasons a stream cannot reach `<video>`. */
-const REASONS: Record<string, string> = {
-  torrent: 'Torrent — o navegador não fala BitTorrent. Configure o addon com um debrid, ou use o magnet.',
-  insecure: 'O addon devolveu um link http://, que uma página https bloqueia.',
-  external: 'Este addon aponta para uma página, não para um arquivo de vídeo.',
-};
 
 @Component({
   selector: 'app-player',
@@ -59,26 +52,37 @@ export class Player {
 
   protected readonly addonCount = this.addons.count;
 
-  /** Theater mode drops the source list below the video instead of beside it. */
+  /** Theater mode widens the video, dropping the side panel below it. */
   protected readonly theater = signal(false);
 
   /**
-   * On a television and on a phone, picking a source is a decision to watch —
-   * so playback opens fullscreen straight away. A desktop browser keeps the
-   * windowed player, where comparing sources back to back is the common case
-   * and being thrown into fullscreen each time would fight the user.
+   * Opening a title is already the decision to watch — there is no source to
+   * pick any more — so playback goes fullscreen on a television and on a
+   * phone. A desktop browser keeps the windowed player, where the page around
+   * the video is still worth seeing.
    */
   protected readonly autoFullscreen = computed(
     () => this.tv.isTv() || this.platform.handset(),
   );
 
+  /** The candidate currently under test. Never shown as a choice. */
   protected readonly selected = signal<PlayableStream | null>(null);
   /** Reload token lives in the fragment, which is never sent to the stream host. */
   protected readonly playbackSrc = signal<string | null>(null);
   protected readonly playbackError = signal(false);
   protected readonly triedEverySource = signal(false);
-  /** Key of the stream whose link was just copied, for the button's feedback. */
-  protected readonly copied = signal<string | null>(null);
+
+  /**
+   * True from the moment the cascade starts until a source actually plays.
+   *
+   * The video element is covered while this holds: a cascade swaps `src`
+   * several times a second in the bad case, and letting that show is exactly
+   * the flicker this design exists to avoid.
+   */
+  protected readonly resolving = signal(false);
+  /** 1-based position in the candidate queue, for the discreet counter. */
+  protected readonly attemptAt = signal(0);
+  protected readonly candidateCount = signal(0);
 
   protected readonly subtitle = signal<SubtitleOption | null>(null);
   protected readonly subtitleUrl = signal<string | null>(null);
@@ -206,8 +210,13 @@ export class Player {
     { initialValue: [] as SubtitleOption[] },
   );
 
-  protected readonly playableCount = computed(
-    () => this.streams().filter((s) => s.playable).length,
+  /**
+   * Whether the side panel has anything left to hold. With the source list
+   * gone it only carries the episode and subtitle pickers, and a film with no
+   * subtitles on offer needs no panel at all — the video takes the full width.
+   */
+  protected readonly hasPanel = computed(
+    () => this.isShow() || this.subtitleOptions().length > 0,
   );
 
   /** How many installed addons were actually asked, and how many broke. */
@@ -259,19 +268,17 @@ export class Player {
 
   constructor() {
     /*
-     * On a TV, arriving here from "Assistir" should slide straight to the
-     * sources: the video pane is empty until one is picked, so leaving focus
-     * anywhere else means the first press of the remote goes nowhere useful.
+     * The sources are never shown, so nothing waits for a choice: as soon as
+     * the addons answer, the cascade starts on its own. Which link ends up
+     * playing is an implementation detail of getting the film on screen, not a
+     * question to put to whoever pressed play.
      */
     effect(() => {
       const streams = this.streams();
-      if (!this.tv.isTv() || this.selected() || !streams.length) return;
+      if (this.selected() || this.playbackSrc()) return;
 
-      setTimeout(() => {
-        const first = document.querySelector<HTMLElement>('.source:not([disabled])');
-        first?.focus({ preventScroll: true });
-        first?.scrollIntoView({ block: 'center', behavior: 'smooth' });
-      });
+      const first = streams.find((stream) => stream.playable);
+      if (first) this.startAttempts(first);
     });
 
     const destroyRef = inject(DestroyRef);
@@ -328,21 +335,10 @@ export class Player {
     return ['/title', this.type(), this.id()];
   }
 
-  protected pick(stream: PlayableStream): void {
-    if (!stream.playable) return;
-
-    // Automatic failover is intentionally native-Android-only. Desktop keeps
-    // the explicit source picker behavior it already had.
-    if (this.platform.native) {
-      this.startAttempts(stream);
-      return;
-    }
-
-    this.cancelAttempts();
-    this.playbackError.set(false);
-    this.triedEverySource.set(false);
-    this.selected.set(stream);
-    this.playbackSrc.set(stream.url);
+  /** Runs the whole cascade again, after it gave up on every candidate. */
+  protected retry(): void {
+    const first = this.streams().find((stream) => stream.playable);
+    if (first) this.startAttempts(first);
   }
 
   protected onPlaybackError(failedSrc: string): void {
@@ -353,7 +349,7 @@ export class Player {
     this.attemptTimer = undefined;
 
     if (this.attemptQueue.length && this.advanceAttempt()) return;
-    this.finishPlaybackFailure(this.platform.native && this.attemptQueue.length > 0);
+    this.finishPlaybackFailure(this.attemptQueue.length > 0);
   }
 
   protected onPlaybackReady(playedSrc: string): void {
@@ -365,9 +361,18 @@ export class Player {
     this.attemptIndex = -1;
     this.playbackError.set(false);
     this.triedEverySource.set(false);
+    // The veil comes down only here: the frame is decoding, so what the
+    // element shows from now on is the film and not a source being probed.
+    this.resolving.set(false);
   }
 
-  /** Selected source first, then every other playable link; repeat once. */
+  /**
+   * Queues every playable link, best first, and walks it until one plays.
+   *
+   * The list is walked twice. A CDN that 403s on the first pass has often
+   * handed out a fresh token by the time the queue comes round again, and a
+   * second attempt is far cheaper than telling someone to try later.
+   */
   private startAttempts(first: PlayableStream): void {
     this.cancelAttempts();
     this.playbackError.set(false);
@@ -383,6 +388,10 @@ export class Player {
 
     this.attemptQueue = [...candidates, ...candidates];
     this.attemptIndex = -1;
+    this.candidateCount.set(candidates.length);
+    this.attemptAt.set(0);
+    this.resolving.set(candidates.length > 0);
+
     if (!this.advanceAttempt()) this.finishPlaybackFailure(true);
   }
 
@@ -390,6 +399,10 @@ export class Player {
     this.attemptIndex += 1;
     const stream = this.attemptQueue[this.attemptIndex];
     if (!stream?.url) return false;
+
+    // Counts within one pass, so the second lap does not read as "17 of 12".
+    const total = this.candidateCount() || 1;
+    this.attemptAt.set((this.attemptIndex % total) + 1);
 
     const separator = stream.url.includes('#') ? '&' : '#';
     const attemptSrc = `${stream.url}${separator}mdblist_attempt=${++this.attemptSerial}`;
@@ -407,6 +420,7 @@ export class Player {
   private finishPlaybackFailure(triedAll: boolean): void {
     clearTimeout(this.attemptTimer);
     this.attemptTimer = undefined;
+    this.resolving.set(false);
     this.playbackError.set(true);
     this.triedEverySource.set(triedAll);
     this.videoPlayer()?.showFailure();
@@ -417,20 +431,9 @@ export class Player {
     this.attemptTimer = undefined;
     this.attemptQueue = [];
     this.attemptIndex = -1;
-  }
-
-  protected reason(stream: PlayableStream): string | null {
-    return stream.reason ? REASONS[stream.reason] ?? null : null;
-  }
-
-  /** Torrent streams get a magnet; direct ones get the URL itself. */
-  protected copy(stream: PlayableStream): void {
-    if (!stream.externalUrl) return;
-
-    navigator.clipboard.writeText(stream.externalUrl).then(() => {
-      this.copied.set(stream.key);
-      setTimeout(() => this.copied.set(null), 2000);
-    });
+    this.resolving.set(false);
+    this.attemptAt.set(0);
+    this.candidateCount.set(0);
   }
 
   protected chooseSeason(event: Event): void {

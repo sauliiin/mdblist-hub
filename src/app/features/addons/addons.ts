@@ -53,9 +53,34 @@ export class Addons {
   protected readonly report = signal<ImportReport | null>(null);
 
   /**
-   * All four source addons hand out a per-user URL at their own configuration
-   * page, so none of them can be installed from a bare host here — which is why
-   * only the subtitle addon gets a one-click button.
+   * The two addons installed by default, offered right under the field
+   * instead of buried in the suggestions further down — one for subtitles,
+   * one for streams, which between them get a fresh install working.
+   *
+   * OpenSubtitles v3 has a fixed manifest that works for anyone, so it is a
+   * real one-tap install. AIOStreams does not: its root answers with the
+   * site's own PWA manifest, not an addon one — the per-user URL only exists
+   * after configuring — so its button opens that page instead.
+   */
+  protected readonly quickAdd: Suggestion[] = [
+    {
+      name: 'OpenSubtitles v3',
+      what: 'Legendas em dezenas de idiomas, já indexadas por IMDb ID.',
+      url: 'https://opensubtitles-v3.strem.io/manifest.json',
+    },
+    {
+      name: 'AIOStreams',
+      what:
+        'Junta vários addons de fontes num só, deduplica e reordena os resultados. A URL do ' +
+        'manifest é gerada por usuário na configuração.',
+      configure: 'https://aiostreams.elfhosted.com/configure',
+      unconfigured: 'só funciona pela URL gerada',
+    },
+  ];
+
+  /**
+   * The rest — all three hand out a per-user URL at their own configuration
+   * page, so none of them can be installed from a bare host here.
    */
   protected readonly suggestions: Suggestion[] = [
     {
@@ -82,20 +107,6 @@ export class Addons {
         'tem o arquivo em cache.',
       configure: 'https://comet.elfhosted.com/configure',
       unconfigured: 'sem configurar, responde 403',
-    },
-    {
-      name: 'AIOStreams',
-      what:
-        'Junta vários addons num só, deduplica e reordena os resultados. A URL do manifest ' +
-        'é gerada por usuário na configuração — o endereço base do site não é um addon, é a ' +
-        'própria página dele.',
-      configure: 'https://aiostreams.elfhosted.com/configure',
-      unconfigured: 'só funciona pela URL gerada',
-    },
-    {
-      name: 'OpenSubtitles v3',
-      what: 'Legendas em dezenas de idiomas, já indexadas por IMDb ID.',
-      url: 'https://opensubtitles-v3.strem.io/manifest.json',
     },
   ];
 

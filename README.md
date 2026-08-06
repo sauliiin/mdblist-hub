@@ -239,58 +239,15 @@ uma coluna, e a ficha técnica desce para depois do conteúdo principal.
 
 ### APK Android para uso pessoal
 
-O projeto Android em `android/` empacota a mesma interface Angular com
-[Capacitor](https://capacitorjs.com/). No APK, as requisições `fetch`/XHR usam a
-pilha HTTP nativa: isso contorna CORS e permite que as ações de
-watchlist/coleção/assistido falem diretamente com o mdblist, sem o proxy do
-servidor de desenvolvimento.
+Este repositório contém só o site. O empacotamento em APK (wrapper Capacitor
+`mobile`/`tv` e o app nativo para Android TV) vive no repo irmão
+[`mdblist-hub-apk`](../mdblist-hub-apk), que lê o build deste projeto em
+`dist/mdblist-hub/browser` para montar os APKs — veja o README de lá para os
+comandos de build, flavors e instalação.
 
-São **dois produtos a partir do mesmo build web**, separados por um *product
-flavor* do Gradle:
-
-| flavor | applicationId | para |
-| --- | --- | --- |
-| `mobile` | `com.mdblisthub.app` | celular e tablet |
-| `tv` | `com.mdblisthub.app.tv` | Android TV (Leanback) |
-
-O sufixo no `applicationId` do flavor de TV é deliberado: os dois convivem no
-mesmo aparelho, o que importa porque um TV box roda qualquer um dos dois e é
-assim que dá para comparar.
-
-Pré-requisitos para recompilar: Node 22+, JDK 21, Android SDK 36 e Build Tools
-35.0.0+. Com `ANDROID_HOME` apontando para o SDK:
-
-```bash
-npm install
-npm run android:apk          # os dois
-npm run android:apk:mobile   # só celular
-npm run android:apk:tv       # só Android TV
-```
-
-Se o `gradlew` reclamar de `JAVA_HOME`, aponte-o para o JDK (o Android Studio
-traz um embutido em `<studio>/jbr`):
-
-```bash
-JAVA_HOME=/usr/lib/jvm/java-21-openjdk npm run android:apk
-```
-
-Os APKs de teste, assinados com a chave de debug do Android, saem em:
-
-```
-android/app/build/outputs/apk/mobile/debug/app-mobile-debug.apk
-android/app/build/outputs/apk/tv/debug/app-tv-debug.apk
-```
-
-Para instalar num aparelho conectado (ou num box na mesma rede, via
-`adb connect IP:5555`):
-
-```bash
-adb install -r android/app/build/outputs/apk/tv/debug/app-tv-debug.apk
-```
-
-O manifesto permite tráfego HTTP e conteúdo misto porque alguns addons
-pessoais devolvem links de vídeo `http://`. Instale apenas addons em que você
-confia: essa exceção é intencional para o player e não é necessária no site.
+O restante desta seção documenta como o *front-end* reconhece que está
+rodando numa TV, o que é lógica deste repo independentemente de onde o APK é
+montado.
 
 ### Android TV
 

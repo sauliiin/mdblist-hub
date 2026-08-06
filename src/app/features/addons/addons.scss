@@ -170,6 +170,59 @@
   &:disabled { opacity: 0.45; cursor: default; }
 }
 
+/* ------------------------------------------------------------ quick add */
+
+.quick-add {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.quick-label {
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+
+.quick-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chip-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 13px;
+  border-radius: 999px;
+  border: 1px solid rgba(124, 92, 255, 0.34);
+  background: rgba(124, 92, 255, 0.1);
+  color: #c4b5fd;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition: border-color 0.2s var(--ease), background 0.2s var(--ease);
+
+  &:hover:not(:disabled) {
+    border-color: rgba(124, 92, 255, 0.55);
+    background: rgba(124, 92, 255, 0.16);
+  }
+
+  &:disabled { opacity: 0.45; cursor: default; }
+}
+
+.chip-note {
+  color: var(--text-faint);
+  font-weight: 500;
+}
+
 .error,
 .ok {
   margin-top: 14px;

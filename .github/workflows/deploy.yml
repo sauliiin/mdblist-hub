@@ -10,17 +10,25 @@ permissions:
   pages: write
   id-token: write
 
+# Um deploy por vez, mas sem cancelar o que já está no ar.
+#
+# `cancel-in-progress: true` aborta a publicação no meio: a action cancela o
+# deployment enquanto o backend do Pages ainda o processa, e o próximo pode
+# ficar preso esperando um antecessor que nunca terminou. É a recomendação
+# oficial do workflow de Pages, e prevenção — não foi a causa do run de 06/08,
+# que não teve run concorrente.
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -36,16 +44,23 @@ jobs:
       # erro faz o roteador assumir a partir dali.
       - run: cp dist/mdblist-hub/browser/index.html dist/mdblist-hub/browser/404.html
 
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v4
         with:
           path: dist/mdblist-hub/browser
 
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
+        with:
+          # O padrão é 10 minutos, e é pouco: a fila do Pages costuma engasgar
+          # por vários minutos sem que haja nada errado com o artefato. Abortar
+          # cedo não conserta nada — só transforma uma lentidão do serviço em
+          # um build vermelho.
+          timeout: 1200000
