@@ -29,11 +29,16 @@
   aspect-ratio: 16 / 9;
   background: #000;
 
+  &.stretched {
+    object-fit: cover !important;
+  }
+
   &::cue {
-    background: rgba(8, 8, 8, 0.78);
-    color: #fff;
-    font-size: 0.92em;
+    background-color: transparent !important;
+    color: yellow;
+    font-size: 1.8em;
     line-height: 1.35;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.9), 0 0 3px black;
   }
 }
 
@@ -339,15 +344,18 @@
   border-radius: 50%;
   background: none;
   cursor: pointer;
-  transition: background 0.18s var(--ease), opacity 0.18s var(--ease);
+  transition: background 0.25s var(--ease), opacity 0.25s var(--ease), transform 0.2s var(--ease), outline 0.2s var(--ease), outline-offset 0.2s var(--ease);
 
-  svg { width: 22px; height: 22px; fill: #fff; }
+  svg { width: 22px; height: 22px; fill: #fff; transition: fill 0.2s var(--ease); }
 
   &:hover:not(:disabled) { background: rgba(255, 255, 255, 0.14); }
-  &:focus-visible {
+  &:focus-visible,
+  :host-context(html.tv) &:focus {
     outline: 3px solid #fff;
     outline-offset: 2px;
-    background: rgba(255, 255, 255, 0.2);
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.25);
+    transform: scale(1.15);
   }
   &:disabled { opacity: 0.35; cursor: default; }
   /* Captions off reads as a dimmed CC, the way every player marks it. */
@@ -635,7 +643,7 @@
   .sync-btn { padding: 10px 16px; font-size: 16px; }
   .sync-value { font-size: 16px; }
 
-  .media::cue { font-size: 1.35em; }
+  .media::cue { font-size: 2.5em; }
 }
 
 @media (max-width: 620px) {

@@ -21,21 +21,15 @@ const ASS_OVERRIDE = /\{\\[^}]*\}/g;
  * replacement characters is retried as windows-1252.
  */
 export function decodeSubtitle(bytes: ArrayBuffer, declared?: string | null): string {
-  if (declared) {
-    try {
-      return new TextDecoder(declared).decode(bytes);
-    } catch {
-      // An encoding label the browser does not know — fall through.
-    }
-  }
-
-  const utf8 = new TextDecoder('utf-8').decode(bytes);
-  if (!utf8.includes('�')) return utf8;
-
   try {
-    return new TextDecoder('windows-1252').decode(bytes);
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
   } catch {
-    return utf8;
+    const fallback = declared || 'windows-1252';
+    try {
+      return new TextDecoder(fallback).decode(bytes);
+    } catch {
+      return new TextDecoder('windows-1252').decode(bytes);
+    }
   }
 }
 
@@ -55,7 +49,9 @@ export function srtToVtt(input: string): string {
     )
     // Drop SRT's sequence numbers. Left in place they would be read as cue
     // identifiers, which is legal but shows up in some players' cue lists.
-    .replace(/^\d+\n(?=\d{2}:\d{2}:\d{2}\.)/gm, '');
+    .replace(/^\d+\n(?=\d{2}:\d{2}:\d{2}\.)/gm, '')
+    // Raise subtitles slightly (standard for movies) by appending line:82% to the timestamp line
+    .replace(/(-->\s*\d{2}:\d{2}:\d{2}\.\d{3})(.*)/g, '$1 line:82% align:center$2');
 
   return `WEBVTT\n\n${body.trim()}\n`;
 }

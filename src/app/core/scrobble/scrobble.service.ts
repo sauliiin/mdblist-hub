@@ -59,12 +59,12 @@ export class ScrobbleService {
   beaconStop(target: ScrobbleTarget, progress: number): void {
     if (!this.auth.key() || (!target.imdbId && !target.tmdbId)) return;
 
-    const url = `${API.mdblist.base}/scrobble/stop?apikey=${encodeURIComponent(this.auth.key())}`;
-    const form = new URLSearchParams(body(target, progress).toString());
+    const url = `${API.mdblist.writeProxy}/scrobble/stop?apikey=${encodeURIComponent(this.auth.key())}`;
+    const payload = body(target, progress);
 
     navigator.sendBeacon?.(
       url,
-      new Blob([form.toString()], { type: 'application/x-www-form-urlencoded' }),
+      new Blob([JSON.stringify(payload)], { type: 'application/json' }),
     );
   }
 
@@ -109,7 +109,7 @@ export class ScrobbleService {
     if (!this.auth.key() || (!target.imdbId && !target.tmdbId)) return of(false);
 
     return this.http
-      .post(`${API.mdblist.base}/scrobble/${action}`, body(target, progress), {
+      .post(`${API.mdblist.writeProxy}/scrobble/${action}`, body(target, progress), {
         params: { apikey: this.auth.key() },
         context: noCache(),
       })
@@ -136,20 +136,25 @@ export class ScrobbleService {
  * also accepts a flat `season`/`episode` pair for shows, so that is the shape
  * used here rather than the nested alternative.
  */
-function body(target: ScrobbleTarget, progress: number): HttpParams {
-  const root = target.type === 'show' ? 'show' : 'movie';
-  let params = new HttpParams().set('progress', progress.toFixed(2));
+function body(target: ScrobbleTarget, progress: number): any {
+  const payload: any = { progress: Number(progress.toFixed(2)) };
 
-  if (target.imdbId) params = params.set(`${root}[ids][imdb]`, target.imdbId);
-  if (target.tmdbId) params = params.set(`${root}[ids][tmdb]`, String(target.tmdbId));
+  const ids: Record<string, string | number> = {};
+  if (target.imdbId) ids['imdb'] = target.imdbId;
+  if (target.tmdbId) ids['tmdb'] = target.tmdbId;
 
-  if (root === 'show' && target.season && target.episode) {
-    params = params
-      .set('show[season]', String(target.season))
-      .set('show[episode]', String(target.episode));
+  if (target.type === 'show') {
+    const show: any = { ids };
+    if (target.season && target.episode) {
+      show.season = target.season;
+      show.episode = target.episode;
+    }
+    payload.show = show;
+  } else {
+    payload.movie = { ids };
   }
 
-  return params;
+  return payload;
 }
 
 function matches(item: ResumeItem, target: ScrobbleTarget): boolean {

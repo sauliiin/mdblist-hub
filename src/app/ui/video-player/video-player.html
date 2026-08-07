@@ -7,6 +7,7 @@
   <video
     #media
     class="media"
+    [class.stretched]="stretch()"
     [src]="src()"
     autoplay
     playsinline
@@ -244,9 +245,9 @@
         }
       </div>
 
-      <button type="button" class="icon" data-player-control (click)="toggleTheater()"
-              [attr.aria-label]="theater() ? 'Sair do modo cinema' : 'Modo cinema'">
-        <svg viewBox="0 0 24 24"><path d="M3 7h18v10H3V7zm2 2v6h14V9H5z" /></svg>
+      <button type="button" class="icon" data-player-control (click)="toggleStretch()"
+              [attr.aria-label]="stretch() ? 'Ajustar aspecto' : 'Esticar vídeo'">
+        <svg viewBox="0 0 24 24"><path d="M4 19h16v-2H4v2zm16-14H4v2h16V5zm-8 9l-4-4h3V8h2v2h3l-4 4z" /></svg>
       </button>
 
       <button type="button" class="icon" data-player-control (click)="toggleFullscreen()"
