@@ -29,7 +29,6 @@ const HEARTBEAT = 60_000;
     '(pointermove)': 'wake()',
     '(pointerleave)': 'onLeave()',
     '[class.idle]': 'playing() && !controls()',
-    '[class.theater]': 'theater()',
   },
 })
 export class VideoPlayer {
@@ -41,7 +40,6 @@ export class VideoPlayer {
   readonly subtitleUrl = input<string | null>(null);
   readonly subtitleLabel = input<string>('Legenda');
   readonly subtitleLang = input<string>('pt');
-  readonly theater = input(false);
 
   /**
    * The subtitle chooser lives here, not just in the page around the player,
@@ -61,8 +59,6 @@ export class VideoPlayer {
   /** Fanart shown behind the title until the first video frame starts playing. */
   readonly mediaBackdrop = input<string | null>(null);
 
-  readonly theaterChange = output<boolean>();
-  /** Includes the attempted URL so a late error cannot skip the next source. */
   readonly playbackError = output<string>();
   readonly playbackReady = output<string>();
 
@@ -98,6 +94,7 @@ export class VideoPlayer {
   protected readonly settingsOpen = signal(false);
   protected readonly captionsMenuOpen = signal(false);
   protected readonly controls = signal(true);
+  protected readonly stretch = signal(false);
 
   /** Seconds shifted from the addon's original timing — negative moves cues earlier. */
   protected readonly subtitleOffset = signal(0);
@@ -532,8 +529,8 @@ export class VideoPlayer {
     if (open && this.tv.isTv()) setTimeout(() => this.focusMenuItem('.settings .menu'));
   }
 
-  protected toggleTheater(): void {
-    this.theaterChange.emit(!this.theater());
+  protected toggleStretch(): void {
+    this.stretch.set(!this.stretch());
   }
 
   protected toggleFullscreen(): void {
@@ -613,9 +610,13 @@ export class VideoPlayer {
     // before focused controls because Android can leave focus on a hidden
     // button after the inactivity timer runs.
     if (key === 'enter' && !this.controls()) {
-      this.focusShell();
       this.consume(event);
       this.wake();
+      if (this.tv.isTv()) {
+        setTimeout(() => this.focusPlayerControl(0));
+      } else {
+        this.focusShell();
+      }
       return;
     }
 
@@ -649,7 +650,7 @@ export class VideoPlayer {
         break;
       case 'm': this.toggleMute(); break;
       case 'f': this.toggleFullscreen(); break;
-      case 't': this.toggleTheater(); break;
+      case 't': this.toggleStretch(); break;
       case 'c': this.toggleCaptions(); break;
       case 'home': this.seekTo(0); break;
       case 'end': this.seekTo(1); break;

@@ -9,7 +9,8 @@ import { tmdbImg, upscalePoster } from '../../core/api.config';
 import { AuthService } from '../../core/auth.service';
 import { MdblistService } from '../../core/mdblist.service';
 import {
-  GenreOption, GridItem, MdbItem, MdbList, TmdbKeyword, TmdbSearchResult, toTmdbType,
+  GenreOption, GridItem, MdbItem, MdbList, TmdbKeyword, TmdbSearchResult, formatYear,
+  toTmdbType,
 } from '../../core/models';
 import { TmdbService } from '../../core/tmdb.service';
 import { TvService } from '../../core/tv/tv.service';
@@ -54,6 +55,7 @@ export class Home {
   /** Selected genre name; empty means "every genre". */
   protected readonly genre = signal('');
   protected readonly searching = signal(false);
+  protected readonly formatYear = formatYear;
 
   protected readonly genres = toSignal(this.tmdb.genres(), {
     initialValue: [] as GenreOption[],

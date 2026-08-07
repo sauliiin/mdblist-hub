@@ -214,17 +214,28 @@ h3 {
   }
 
   .credit-title {
-    display: block;
+    display: flex;
+    align-items: baseline;
+    gap: 0.3em;
     margin-top: 7px;
     font-size: 12px;
     font-weight: 600;
     white-space: nowrap;
+  }
+
+  .caption-name {
+    flex: 1 1 auto;
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
   }
 
-  .credit-role,
-  .credit-year {
+  .caption-year {
+    flex: none;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .credit-role {
     display: block;
     font-size: 11px;
     color: var(--text-faint);

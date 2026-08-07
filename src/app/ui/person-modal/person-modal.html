@@ -80,11 +80,15 @@
             @for (credit of knownFor(); track credit.media_type + credit.id) {
               <a class="credit" [routerLink]="creditLink(credit)" (click)="close()">
                 <img [src]="creditPoster(credit)" [alt]="creditTitle(credit)" loading="lazy" />
-                <span class="credit-title">{{ creditTitle(credit) }}</span>
+                <span class="credit-title">
+                  <span class="caption-name">{{ creditTitle(credit) }}</span>
+                  @if (formatYear(creditYear(credit)); as year) {
+                    <span class="caption-year">({{ year }})</span>
+                  }
+                </span>
                 @if (credit.character) {
                   <span class="credit-role">{{ credit.character }}</span>
                 }
-                <span class="credit-year">{{ creditYear(credit) }}</span>
               </a>
             }
           </app-scroll-track>

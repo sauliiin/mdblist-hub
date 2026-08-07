@@ -5,7 +5,7 @@ import {
 import { RouterLink } from '@angular/router';
 import { forkJoin, of, switchMap } from 'rxjs';
 import { tmdbImg } from '../../core/api.config';
-import { TmdbPerson, TmdbPersonCredit } from '../../core/models';
+import { TmdbPerson, TmdbPersonCredit, formatYear } from '../../core/models';
 import { TmdbService } from '../../core/tmdb.service';
 import { WikiBio, WikipediaService } from '../../core/wikipedia.service';
 import { ScrollTrack } from '../scroll-track/scroll-track';
@@ -29,6 +29,7 @@ export class PersonModal {
   protected readonly person = signal<TmdbPerson | null>(null);
   protected readonly wiki = signal<WikiBio | null>(null);
   protected readonly loading = signal(true);
+  protected readonly formatYear = formatYear;
 
   protected readonly photo = computed(() => tmdbImg(this.person()?.profile_path, 'w342'));
 

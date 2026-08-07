@@ -9,6 +9,7 @@
 export const API = {
   mdblist: {
     base: 'https://api.mdblist.com',
+    writeProxy: '/mdblist-api',
   },
   tmdb: {
     base: 'https://api.themoviedb.org/3',
