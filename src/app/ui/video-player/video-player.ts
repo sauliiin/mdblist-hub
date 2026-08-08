@@ -13,6 +13,14 @@ const HIDE_AFTER = 2600;
 const HEARTBEAT = 60_000;
 
 /**
+ * A removal notice runs 30s to a couple of minutes against a feature of
+ * ninety-plus, so the real gap is enormous; half is a deliberately loose line
+ * that no correct file gets anywhere near. See `isDecoy`.
+ */
+const DECOY_MAX_FRACTION = 0.5;
+const DECOY_ABSOLUTE_CAP = 15 * 60;
+
+/**
  * A YouTube-shaped player around a plain `<video>`.
  *
  * The native `controls` attribute is deliberately off: the browser's own bar
@@ -62,8 +70,23 @@ export class VideoPlayer {
   readonly playbackError = output<string>();
   readonly playbackReady = output<string>();
 
+  /**
+   * A source that opened fine but is not the title — see [isDecoy]. Separate
+   * from [playbackError] because the page has to remember *which* url this
+   * was before moving on: the cascade laps the queue twice, and a decoy is
+   * still perfectly playable the second time round.
+   */
+  readonly decoyDetected = output<string>();
+
   /** Where to pick up, 0–100. Applied once, on the first metadata load. */
   readonly resumeAt = input<number | null>(null);
+
+  /**
+   * How long this title is supposed to run, in minutes, from the metadata.
+   * Null disables the decoy check in [onLoadedMetadata] rather than letting
+   * it guess.
+   */
+  readonly expectedRuntimeMinutes = input<number | null>(null);
 
   /** Go straight to fullscreen when a source is handed over. */
   readonly autoFullscreen = input(false);
@@ -291,6 +314,17 @@ export class VideoPlayer {
     const element = this.media()?.nativeElement;
     if (!element) return;
 
+    // A lot of dead mirrors answer with a 30-second "this file has been
+    // removed" clip instead of the film. It opens, decodes and plays without
+    // a single error, so it is the one failure the source cascade cannot see
+    // by waiting for something to go wrong — every other dead source refuses
+    // to open, while this one succeeds at being the wrong thing. Reported as
+    // a playback error so it takes the same path to the next candidate.
+    if (this.isDecoy(element.duration)) {
+      this.decoyDetected.emit(element.currentSrc || this.currentSrc || this.src());
+      return;
+    }
+
     this.duration.set(isFinite(element.duration) ? element.duration : 0);
     element.playbackRate = this.speed();
     this.applyCaptions();
@@ -303,6 +337,23 @@ export class VideoPlayer {
       element.currentTime = (resume / 100) * element.duration;
       this.currentTime.set(element.currentTime);
     }
+  }
+
+  /**
+   * Whether what just loaded is too short to be the title that was asked for.
+   *
+   * Both conditions have to hold. The fraction alone would throw away a good
+   * file whenever the metadata's runtime is wrong, which happens; the
+   * absolute cap alone would throw away genuinely short titles. Together they
+   * only reject something both far shorter than expected and short in its own
+   * right — the removal notice, and very little else.
+   */
+  private isDecoy(seconds: number): boolean {
+    const expectedMinutes = this.expectedRuntimeMinutes();
+    if (!expectedMinutes || expectedMinutes <= 0) return false;
+    if (!isFinite(seconds) || seconds <= 0) return false;
+
+    return seconds < expectedMinutes * 60 * DECOY_MAX_FRACTION && seconds < DECOY_ABSOLUTE_CAP;
   }
 
   protected onMediaError(failedSrc?: string): void {

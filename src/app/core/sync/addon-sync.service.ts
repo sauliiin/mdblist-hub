@@ -23,6 +23,17 @@ interface Payload {
   addons: InstalledAddon[];
 }
 
+/**
+ * A refusal worth explaining, as opposed to the transport failing.
+ *
+ * `request` below turns every error into "não foi possível falar com o
+ * Firebase", which is right for a dropped connection and actively misleading
+ * for a sync that reached the database, read it fine, and declined to apply
+ * what it found. Carrying a distinct type is what lets that one case keep its
+ * own message.
+ */
+class SyncRefusal extends Error {}
+
 @Injectable({ providedIn: 'root' })
 export class AddonSyncService {
   private readonly http = inject(HttpClient);
@@ -89,11 +100,27 @@ export class AddonSyncService {
    * an addon removed elsewhere is simply absent from the stored copy. Merging
    * here would read that absence as "nothing to add" and the deletion would
    * never arrive — worse, the next push would put it back.
+   *
+   * An empty read is the one thing never applied. It is ambiguous — a
+   * genuinely empty list is indistinguishable from a token never written to, a
+   * payload that failed to parse, or Firebase answering `null`, all of which
+   * `read` flattens to `[]`. Replacing on that wipes a working set of addons
+   * and leaves nothing behind, and because the effect in the constructor
+   * pushes every local change straight back, the empty list would then be
+   * written to the database and travel on to every other device. So the
+   * destructive reading is refused outright and the local list is kept.
    */
   pull(): Observable<number> {
     return this.request((token) =>
       this.read(token).pipe(
         map((remote) => {
+          if (!remote.length) {
+            throw new SyncRefusal(
+              'A nuvem não devolveu nenhum addon, então não mexi nos daqui. ' +
+                'Use "Enviar" no aparelho que tem os addons certos primeiro.',
+            );
+          }
+
           const before = this.addons.installed().length;
           this.apply(() => this.addons.replaceAll(remote));
           return Math.abs(remote.length - before);
@@ -162,10 +189,13 @@ export class AddonSyncService {
         this.last.set(new Date().toISOString());
         return count;
       }),
-      catchError(() => {
+      catchError((cause: unknown) => {
         this.working.set(false);
-        this.failure.set('Não foi possível falar com o Firebase. Verifique sua conexão.');
-        return throwError(() => new Error('sync falhou'));
+        const refused = cause instanceof SyncRefusal;
+        this.failure.set(
+          refused ? cause.message : 'Não foi possível falar com o Firebase. Verifique sua conexão.',
+        );
+        return throwError(() => (refused ? cause : new Error('sync falhou')));
       }),
     );
   }

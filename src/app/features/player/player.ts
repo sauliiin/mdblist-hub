@@ -266,6 +266,36 @@ export class Player {
   private attemptSerial = 0;
   private attemptTimer?: ReturnType<typeof setTimeout>;
 
+  /**
+   * Sources unmasked as decoys, by url.
+   *
+   * The queue holds every candidate twice so the cascade gets a second lap;
+   * without this, that lap would cheerfully re-open the same "file removed"
+   * clip that was just rejected and the user would watch it start again.
+   */
+  private readonly decoys = new Set<string>();
+
+  /**
+   * How long this exact thing should run — what makes a decoy recognisable.
+   *
+   * For an episode the series-level runtime is useless: a 45-minute show next
+   * to a two-minute clip is the comparison that matters, not the whole
+   * season. So the episode's own runtime wins and the series value is only
+   * the fallback.
+   */
+  protected readonly expectedRuntimeMinutes = computed(() => {
+    const detail = this.detail();
+    if (!detail) return null;
+
+    if (detail.type === 'show') {
+      const current = this.episodes().find(
+        (candidate) => candidate.episode_number === this.episodeNumber(),
+      );
+      if (current?.runtime) return current.runtime;
+    }
+    return detail.runtime ?? null;
+  });
+
   constructor() {
     /*
      * The sources are never shown, so nothing waits for a choice: as soon as
@@ -341,6 +371,19 @@ export class Player {
     if (first) this.startAttempts(first);
   }
 
+  /**
+   * A source that played, but played the wrong thing. Remembered before it is
+   * handed to the normal failure path, so the queue's second lap skips it
+   * instead of starting the same removal notice over again.
+   */
+  protected onDecoyDetected(failedSrc: string): void {
+    if (failedSrc !== this.playbackSrc()) return;
+
+    const url = this.selected()?.url;
+    if (url) this.decoys.add(url);
+    this.onPlaybackError(failedSrc);
+  }
+
   protected onPlaybackError(failedSrc: string): void {
     // Ignore a delayed error from the source that was just replaced.
     if (failedSrc !== this.playbackSrc()) return;
@@ -388,6 +431,9 @@ export class Player {
 
     this.attemptQueue = [...candidates, ...candidates];
     this.attemptIndex = -1;
+    // Scoped to one playback: a url rejected for this title says nothing
+    // about the next one, which is a different film behind the same mirror.
+    this.decoys.clear();
     this.candidateCount.set(candidates.length);
     this.attemptAt.set(0);
     this.resolving.set(candidates.length > 0);
@@ -397,6 +443,11 @@ export class Player {
 
   private advanceAttempt(): boolean {
     this.attemptIndex += 1;
+    while (this.attemptQueue[this.attemptIndex]?.url &&
+      this.decoys.has(this.attemptQueue[this.attemptIndex].url!)) {
+      this.attemptIndex += 1;
+    }
+
     const stream = this.attemptQueue[this.attemptIndex];
     if (!stream?.url) return false;
 

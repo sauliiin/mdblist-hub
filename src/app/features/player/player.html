@@ -30,11 +30,13 @@
             [mediaSubtitle]="episodeLabel()"
             [mediaBackdrop]="d.backdrop"
             [resumeAt]="resumeAt()"
+            [expectedRuntimeMinutes]="expectedRuntimeMinutes()"
             [autoFullscreen]="autoFullscreen()"
             (playbackState)="onPlaybackState($event)"
             (playbackReady)="onPlaybackReady($event)"
             (subtitleSelect)="onSubtitleSelect($event)"
-            (playbackError)="onPlaybackError($event)" />
+            (playbackError)="onPlaybackError($event)"
+            (decoyDetected)="onDecoyDetected($event)" />
 
           <!--
             The veil. A cascade can swap `src` several times a second, and each
