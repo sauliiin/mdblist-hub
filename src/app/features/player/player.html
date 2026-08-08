@@ -69,6 +69,13 @@
 
           @if (playbackError()) {
             <div class="overlay" role="alert">
+              @if (decoyRateLimited()) {
+                <p class="headline">Seu provedor debrid está limitando as requisições.</p>
+                <p>
+                  As fontes responderam com um aviso no lugar do filme. Não adianta trocar de
+                  link — espere alguns minutos e tente de novo.
+                </p>
+              } @else {
               <p class="headline">Nenhuma fonte conseguiu reproduzir.</p>
               @if (triedEverySource()) {
                 <p>
@@ -78,6 +85,7 @@
                 </p>
               } @else {
                 <p>O link disponível não abriu. Tente de novo, ou verifique seus addons.</p>
+              }
               }
               <div class="overlay-actions">
                 <button type="button" class="cta" (click)="retry()">Tentar de novo</button>

@@ -30,7 +30,8 @@
         kind="subtitles"
         [src]="vtt"
         [srclang]="subtitleLang()"
-        [label]="subtitleLabel()" />
+        [label]="subtitleLabel()"
+        (load)="onSubtitleTrackLoad()" />
     }
   </video>
 

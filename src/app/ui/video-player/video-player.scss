@@ -35,7 +35,15 @@
 
   &::cue {
     background-color: transparent !important;
+    // `-webkit-text-fill-color` is what actually paints a cue's glyphs in
+    // WebKit/Blink's caption renderer; plain `color` is what the spec says
+    // to use, but some of their versions read it only as a fallback for
+    // when the fill color is unset, and quietly keep the UA default (white)
+    // otherwise. Setting both is what makes yellow apply everywhere rather
+    // than only on the engines that treat `color` as authoritative.
     color: yellow;
+    -webkit-text-fill-color: yellow;
+    font-weight: 600;
     font-size: 1.8em;
     line-height: 1.35;
     text-shadow: 0 2px 4px rgba(0, 0, 0, 0.9), 0 0 3px black;

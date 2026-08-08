@@ -19,18 +19,52 @@ const ASS_OVERRIDE = /\{\\[^}]*\}/g;
  * UTF-8 decode of those turns every accented character into U+FFFD. So the
  * declared encoding wins, and otherwise a UTF-8 attempt that comes back with
  * replacement characters is retried as windows-1252.
+ *
+ * Decoded per line rather than as one block. A subtitle stitched together
+ * over the years by more than one fansubber commonly ends up with most of
+ * the file in UTF-8 and a handful of lines still in windows-1252 from
+ * whichever tool touched them last — and a *fatal* UTF-8 decode of the whole
+ * file throws on that single bad line, which used to fall the entire
+ * document back to windows-1252 and mojibake every accent the file actually
+ * had right ("não" → "nÃ£o"). Splitting on the raw `\n` byte first and
+ * decoding each line on its own merit is what confines a bad line's damage
+ * to that line. The split itself is UTF-8-safe: a continuation byte is
+ * always ≥ 0x80, so it can never be mistaken for the ASCII `\n` (0x0A).
  */
 export function decodeSubtitle(bytes: ArrayBuffer, declared?: string | null): string {
-  try {
-    return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
-  } catch {
-    const fallback = declared || 'windows-1252';
-    try {
-      return new TextDecoder(fallback).decode(bytes);
-    } catch {
-      return new TextDecoder('windows-1252').decode(bytes);
-    }
+  const view = new Uint8Array(bytes);
+
+  // A BOM is authoritative for the whole file — nothing that adds one part
+  // way through a document also leaves the rest correctly encoded.
+  if (view.length >= 3 && view[0] === 0xef && view[1] === 0xbb && view[2] === 0xbf) {
+    return new TextDecoder('utf-8').decode(view.subarray(3));
   }
+
+  const utf8 = new TextDecoder('utf-8', { fatal: true });
+  // `declared` comes from an addon's metadata and is not a validated charset
+  // name — falling back to the one decoder guaranteed to exist rather than
+  // letting a garbage string throw out of the constructor itself.
+  let fallback: TextDecoder;
+  try {
+    fallback = new TextDecoder(declared || 'windows-1252');
+  } catch {
+    fallback = new TextDecoder('windows-1252');
+  }
+
+  const lines: string[] = [];
+  let start = 0;
+  for (let i = 0; i <= view.length; i++) {
+    if (i !== view.length && view[i] !== 0x0a) continue;
+
+    const chunk = view.subarray(start, i);
+    try {
+      lines.push(utf8.decode(chunk));
+    } catch {
+      lines.push(fallback.decode(chunk));
+    }
+    start = i + 1;
+  }
+  return lines.join('\n');
 }
 
 /**
@@ -49,10 +83,16 @@ export function srtToVtt(input: string): string {
     )
     // Drop SRT's sequence numbers. Left in place they would be read as cue
     // identifiers, which is legal but shows up in some players' cue lists.
-    .replace(/^\d+\n(?=\d{2}:\d{2}:\d{2}\.)/gm, '')
-    // Raise subtitles slightly (standard for movies) by appending line:82% to the timestamp line
-    .replace(/(-->\s*\d{2}:\d{2}:\d{2}\.\d{3})(.*)/g, '$1 line:82% align:center$2');
+    .replace(/^\d+\n(?=\d{2}:\d{2}:\d{2}\.)/gm, '');
 
+  // Vertical position is set at runtime instead, directly on the parsed
+  // `TextTrackCue` objects (see `video-player.ts`'s `positionCues`). Baking a
+  // fixed `line:82%` into the text here meant it could never move again once
+  // the browser had parsed it — which is exactly wrong on top of the custom
+  // bottom control bar this player draws, where a fixed position either
+  // sits under the controls when they are visible or leaves an odd gap once
+  // they fade. Cue objects stay live for the whole session, so the position
+  // can track that instead of being fixed at parse time.
   return `WEBVTT\n\n${body.trim()}\n`;
 }
 

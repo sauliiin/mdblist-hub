@@ -24,6 +24,9 @@ const EMPTY_QUERY: StreamQuery = { streams: [], queried: 0, failed: 0 };
 /** A dead CDN must not hold the cascade on one source forever. */
 const STREAM_ATTEMPT_TIMEOUT = 6_000;
 
+/** Decoys in a row that mean the provider, not the mirror, is the problem. */
+const DECOY_STREAK_LIMIT = 3;
+
 @Component({
   selector: 'app-player',
   imports: [RouterLink, VideoPlayer],
@@ -71,6 +74,8 @@ export class Player {
   protected readonly playbackSrc = signal<string | null>(null);
   protected readonly playbackError = signal(false);
   protected readonly triedEverySource = signal(false);
+  /** Distinguishes "no source worked" from "the provider is refusing everything". */
+  protected readonly decoyRateLimited = signal(false);
 
   /**
    * True from the moment the cascade starts until a source actually plays.
@@ -276,6 +281,17 @@ export class Player {
   private readonly decoys = new Set<string>();
 
   /**
+   * Decoys hit back to back, without a real source in between.
+   *
+   * One decoy means one dead mirror. Several in a row means the debrid
+   * provider itself is refusing everything — rate limiting, most often — and
+   * the placeholder is the same clip whichever candidate asks. Walking sixty
+   * more cannot fix that; it just spends a minute reaching the same wall, so
+   * the streak turns "try the next one" into "stop and say what is wrong".
+   */
+  private decoyStreak = 0;
+
+  /**
    * How long this exact thing should run — what makes a decoy recognisable.
    *
    * For an episode the series-level runtime is useless: a 45-minute show next
@@ -381,6 +397,13 @@ export class Player {
 
     const url = this.selected()?.url;
     if (url) this.decoys.add(url);
+
+    if (++this.decoyStreak >= DECOY_STREAK_LIMIT) {
+      this.decoyRateLimited.set(true);
+      this.cancelAttempts();
+      this.finishPlaybackFailure(false);
+      return;
+    }
     this.onPlaybackError(failedSrc);
   }
 
@@ -404,6 +427,8 @@ export class Player {
     this.attemptIndex = -1;
     this.playbackError.set(false);
     this.triedEverySource.set(false);
+    this.decoyRateLimited.set(false);
+    this.decoyStreak = 0;
     // The veil comes down only here: the frame is decoding, so what the
     // element shows from now on is the film and not a source being probed.
     this.resolving.set(false);
@@ -420,6 +445,8 @@ export class Player {
     this.cancelAttempts();
     this.playbackError.set(false);
     this.triedEverySource.set(false);
+    this.decoyRateLimited.set(false);
+    this.decoyStreak = 0;
 
     const seen = new Set<string>();
     const candidates = [first, ...this.streams().filter((stream) => stream.key !== first.key)]

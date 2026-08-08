@@ -12,6 +12,11 @@ const HIDE_AFTER = 2600;
 /** How often a playing session refreshes its stored point on mdblist. */
 const HEARTBEAT = 60_000;
 
+/** Cue line position (percent from the top) with the control bar hidden. */
+const SUBTITLE_LINE_BASE = 90;
+/** Raised further while the control bar is visible, so cues clear it. */
+const SUBTITLE_LINE_LIFTED = 78;
+
 /**
  * A removal notice runs 30s to a couple of minutes against a feature of
  * ninety-plus, so the real gap is enormous; half is a deliberately loose line
@@ -255,6 +260,15 @@ export class VideoPlayer {
       const element = this.media()?.nativeElement;
       if (element) element.playbackRate = this.speed();
     });
+
+    // Cues cannot be repositioned through CSS — a `::cue` box is placed by
+    // its own `line`/`align` properties, which is why this tracks the same
+    // `controls` visibility the chrome below fades on, and pushes the cue up
+    // out from under the control bar for exactly as long as that bar is on
+    // screen.
+    effect(() => {
+      this.positionCues(this.controls() ? SUBTITLE_LINE_LIFTED : SUBTITLE_LINE_BASE);
+    });
   }
 
   // ------------------------------------------------------------ playback
@@ -321,7 +335,13 @@ export class VideoPlayer {
     // to open, while this one succeeds at being the wrong thing. Reported as
     // a playback error so it takes the same path to the next candidate.
     if (this.isDecoy(element.duration)) {
-      this.decoyDetected.emit(element.currentSrc || this.currentSrc || this.src());
+      // `src()` and not `element.currentSrc`: the page matches this against
+      // the exact string it handed over, attempt fragment and all, and drops
+      // anything that does not match as a stale event from a replaced source.
+      // The browser normalises `currentSrc`, so reporting that was reporting
+      // a url the page could never recognise — the event was discarded and
+      // the decoy played on.
+      this.decoyDetected.emit(this.src());
       return;
     }
 
@@ -563,6 +583,36 @@ export class VideoPlayer {
   protected resetSync(): void {
     const current = this.subtitleOffset();
     if (current) this.adjustSync(-current);
+  }
+
+  /**
+   * Sets every cue's vertical position, in percent down the video — `90` is
+   * a small margin above a plain bottom edge, `78` clears the custom control
+   * bar this player draws (see the effect below).
+   *
+   * `snapToLines = false` is required before a plain number in `line` is
+   * read as a percentage rather than an integer row count, and `lineAlign =
+   * 'end'` anchors that percentage to the box's *bottom* edge — with the
+   * default `'start'` anchor a multi-line cue grows downward from the
+   * percentage point instead of sitting above it, which on a two-line cue
+   * pushes the second line noticeably lower than intended.
+   */
+  private positionCues(percentFromTop: number): void {
+    const cues = this.trackEl()?.nativeElement.track?.cues;
+    if (!cues?.length) return;
+
+    for (let i = 0; i < cues.length; i++) {
+      const cue = cues[i] as VTTCue;
+      cue.snapToLines = false;
+      cue.line = percentFromTop;
+      cue.lineAlign = 'end';
+      cue.align = 'center';
+    }
+  }
+
+  /** Cues exist only once the browser has finished parsing the VTT resource. */
+  protected onSubtitleTrackLoad(): void {
+    this.positionCues(this.controls() ? SUBTITLE_LINE_LIFTED : SUBTITLE_LINE_BASE);
   }
 
   // --------------------------------------------------------------- chrome
