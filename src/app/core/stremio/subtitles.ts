@@ -13,6 +13,71 @@ const CUE_TIME = /(\d{1,3}):(\d{2}):(\d{2})[,.](\d{1,3})/g;
 const ASS_OVERRIDE = /\{\\[^}]*\}/g;
 
 /**
+ * Unpacks the archive a mirror may hand back instead of a subtitle.
+ *
+ * The same download URL is served as plain text, gzip or a zip depending on
+ * which mirror answers, and nothing in the response reliably says which — the
+ * Kodi addons that do this dependably all sniff the leading bytes, so this
+ * does too. Without it a compressed file reaches [decodeSubtitle] as binary
+ * and produces a track with no cues: no error, no subtitle, no explanation.
+ *
+ * Async because the browser's only unzip/ungzip is `DecompressionStream`.
+ * Anything that fails to unpack is returned untouched, so a false positive on
+ * two bytes degrades to "try reading it as text" rather than to an error.
+ */
+export async function unwrapSubtitle(bytes: ArrayBuffer): Promise<ArrayBuffer> {
+  const view = new Uint8Array(bytes);
+
+  if (view.length >= 2 && view[0] === 0x1f && view[1] === 0x8b) {
+    return (await inflate(bytes, 'gzip')) ?? bytes;
+  }
+  if (view.length >= 4 && view[0] === 0x50 && view[1] === 0x4b) {
+    return (await firstZipEntry(view)) ?? bytes;
+  }
+  return bytes;
+}
+
+async function inflate(data: ArrayBuffer, format: 'gzip' | 'deflate-raw'): Promise<ArrayBuffer | null> {
+  try {
+    const stream = new Blob([data]).stream().pipeThrough(new DecompressionStream(format));
+    return await new Response(stream).arrayBuffer();
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The first entry of a zip, read from its local header.
+ *
+ * Deliberately minimal: subtitle archives hold one file, so walking the
+ * central directory to find "the best" entry would be ceremony over a
+ * one-element list.
+ */
+async function firstZipEntry(view: Uint8Array): Promise<ArrayBuffer | null> {
+  try {
+    const dv = new DataView(view.buffer, view.byteOffset, view.byteLength);
+    if (dv.getUint32(0, true) !== 0x04034b50) return null;
+
+    const method = dv.getUint16(8, true);
+    const compressedSize = dv.getUint32(18, true);
+    const nameLength = dv.getUint16(26, true);
+    const extraLength = dv.getUint16(28, true);
+    const start = 30 + nameLength + extraLength;
+
+    // A zero size means the writer deferred it to a trailing data descriptor;
+    // taking the rest of the buffer is correct for a single-entry archive.
+    const end = compressedSize > 0 ? start + compressedSize : view.length;
+    const body = view.slice(start, end);
+
+    if (method === 0) return body.buffer as ArrayBuffer;
+    if (method === 8) return await inflate(body.buffer as ArrayBuffer, 'deflate-raw');
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Decodes a subtitle file.
  *
  * Portuguese subtitles are still frequently published as windows-1252, and a

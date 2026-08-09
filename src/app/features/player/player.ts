@@ -1,4 +1,5 @@
 import { Location } from '@angular/common';
+import { HttpErrorResponse } from '@angular/common/http';
 import {
   ChangeDetectionStrategy, Component, DestroyRef, computed, effect, inject, input, signal,
   viewChild,
@@ -553,14 +554,9 @@ export class Player {
         this.subtitleBusy.set(false);
         this.subtitleUrl.set(url);
       },
-      error: () => {
+      error: (error: unknown) => {
         this.subtitleBusy.set(false);
-        // Nearly always CORS: the addon lists the file, but the host it is
-        // mirrored on does not allow a cross-origin read.
-        this.subtitleError.set(
-          'O arquivo da legenda não pôde ser baixado — o servidor que a hospeda não libera ' +
-            'acesso a partir do navegador. Tente outra legenda da lista.',
-        );
+        this.subtitleError.set(subtitleFailureMessage(error));
       },
     });
   }
@@ -576,4 +572,35 @@ export class Player {
     const url = this.subtitleUrl();
     if (url) URL.revokeObjectURL(url);
   }
+}
+
+/**
+ * Says what actually went wrong with a subtitle.
+ *
+ * This used to be a single fixed sentence blaming CORS, which was a guess
+ * dressed as a diagnosis — and a wrong one. The host these files come from
+ * (`subs5.strem.io`) does send `Access-Control-Allow-Origin: *`, so a
+ * cross-origin read of it succeeds; the message sent everyone hunting a
+ * browser-security problem that was not there, while the real failure — a
+ * refused status, a dropped connection, an unreadable file — went unnamed.
+ *
+ * `status === 0` is the one case where the old text was right: that is what
+ * Angular reports when the browser blocks the request before any response
+ * exists, which does mean CORS, an offline tab or a blocked host.
+ */
+function subtitleFailureMessage(error: unknown): string {
+  const tail = ' Tente outra legenda da lista.';
+
+  if (error instanceof HttpErrorResponse) {
+    if (error.status === 0) {
+      return 'O navegador bloqueou o download da legenda — pode ser falta de conexão ou uma ' +
+        'restrição do servidor que a hospeda.' + tail;
+    }
+    return `O servidor recusou o download da legenda (HTTP ${error.status}).${tail}`;
+  }
+
+  // Anything that is not an HTTP failure got here from the decode/convert
+  // step, i.e. the file downloaded fine and was not a subtitle this player
+  // could read.
+  return 'A legenda foi baixada, mas o arquivo não pôde ser lido.' + tail;
 }

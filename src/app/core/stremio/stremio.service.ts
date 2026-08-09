@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { Observable, catchError, forkJoin, map, of } from 'rxjs';
+import { Observable, catchError, forkJoin, map, of, switchMap } from 'rxjs';
 import { Capacitor } from '@capacitor/core';
 import { noCache } from '../http-cache.interceptor';
 import {
@@ -8,7 +8,9 @@ import {
   SubtitleOption,
 } from './models';
 import { AddonsService } from './addons.service';
-import { decodeSubtitle, languageLabel, languageRank, srtToVtt, toBcp47 } from './subtitles';
+import {
+  decodeSubtitle, languageLabel, languageRank, srtToVtt, toBcp47, unwrapSubtitle,
+} from './subtitles';
 
 /** Containers no desktop browser demuxes, however direct the link is. */
 const UNPLAYABLE_CONTAINERS = /\.(mkv|avi|wmv|flv|mpg|mpeg|m2ts|ts|rmvb|ogm)(\?|$)/i;
@@ -75,14 +77,14 @@ export class StremioService {
    * Downloads a subtitle, converts it to WebVTT and returns a `blob:` URL for
    * `<track src>`. The caller owns the URL and must revoke it.
    *
-   * This is the one call that can fail on CORS: subtitle files are served from
-   * wherever the addon mirrors them, and those hosts are not always as
-   * permissive as the addon endpoint itself.
+   * The bytes go through [unwrapSubtitle] first: mirrors serve the same URL as
+   * plain text, gzip or a zip, and only the leading bytes say which.
    */
   subtitleTrack(option: SubtitleOption): Observable<string> {
     return this.http
       .get(option.url, { responseType: 'arraybuffer', context: noCache() })
       .pipe(
+        switchMap((bytes) => unwrapSubtitle(bytes)),
         map((bytes) => {
           const vtt = srtToVtt(decodeSubtitle(bytes, option.encoding));
           return URL.createObjectURL(new Blob([vtt], { type: 'text/vtt' }));
