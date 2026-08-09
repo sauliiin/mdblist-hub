@@ -4,6 +4,7 @@ import {
 } from '@angular/core';
 import { SubtitleOption } from '../../core/stremio/models';
 import { TvService } from '../../core/tv/tv.service';
+import { isLikelyRemovalNotice } from './decoy-detector';
 
 /** What the settings menu offers, in YouTube's own steps. */
 const SPEEDS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
@@ -16,14 +17,6 @@ const HEARTBEAT = 60_000;
 const SUBTITLE_LINE_BASE = 90;
 /** Raised further while the control bar is visible, so cues clear it. */
 const SUBTITLE_LINE_LIFTED = 78;
-
-/**
- * A removal notice runs 30s to a couple of minutes against a feature of
- * ninety-plus, so the real gap is enormous; half is a deliberately loose line
- * that no correct file gets anywhere near. See `isDecoy`.
- */
-const DECOY_MAX_FRACTION = 0.5;
-const DECOY_ABSOLUTE_CAP = 15 * 60;
 
 /**
  * A YouTube-shaped player around a plain `<video>`.
@@ -76,10 +69,10 @@ export class VideoPlayer {
   readonly playbackReady = output<string>();
 
   /**
-   * A source that opened fine but is not the title — see [isDecoy]. Separate
-   * from [playbackError] because the page has to remember *which* url this
-   * was before moving on: the cascade laps the queue twice, and a decoy is
-   * still perfectly playable the second time round.
+   * A source that opened fine but is not the title — see
+   * [isLikelyRemovalNotice]. Separate from [playbackError] because the page has
+   * to remember *which* url this was before moving on: the cascade laps the
+   * queue twice, and a decoy is still perfectly playable the second time round.
    */
   readonly decoyDetected = output<string>();
 
@@ -334,7 +327,7 @@ export class VideoPlayer {
     // by waiting for something to go wrong — every other dead source refuses
     // to open, while this one succeeds at being the wrong thing. Reported as
     // a playback error so it takes the same path to the next candidate.
-    if (this.isDecoy(element.duration)) {
+    if (isLikelyRemovalNotice(element.duration, this.expectedRuntimeMinutes())) {
       // `src()` and not `element.currentSrc`: the page matches this against
       // the exact string it handed over, attempt fragment and all, and drops
       // anything that does not match as a stale event from a replaced source.
@@ -357,23 +350,6 @@ export class VideoPlayer {
       element.currentTime = (resume / 100) * element.duration;
       this.currentTime.set(element.currentTime);
     }
-  }
-
-  /**
-   * Whether what just loaded is too short to be the title that was asked for.
-   *
-   * Both conditions have to hold. The fraction alone would throw away a good
-   * file whenever the metadata's runtime is wrong, which happens; the
-   * absolute cap alone would throw away genuinely short titles. Together they
-   * only reject something both far shorter than expected and short in its own
-   * right — the removal notice, and very little else.
-   */
-  private isDecoy(seconds: number): boolean {
-    const expectedMinutes = this.expectedRuntimeMinutes();
-    if (!expectedMinutes || expectedMinutes <= 0) return false;
-    if (!isFinite(seconds) || seconds <= 0) return false;
-
-    return seconds < expectedMinutes * 60 * DECOY_MAX_FRACTION && seconds < DECOY_ABSOLUTE_CAP;
   }
 
   protected onMediaError(failedSrc?: string): void {

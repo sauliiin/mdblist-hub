@@ -4,5 +4,11 @@
     "secure": true,
     "changeOrigin": true,
     "pathRewrite": { "^/mdblist-api": "" }
+  },
+  "/opensubtitles-api": {
+    "target": "https://api.opensubtitles.com",
+    "secure": true,
+    "changeOrigin": true,
+    "pathRewrite": { "^/opensubtitles-api": "/api/v1" }
   }
 }

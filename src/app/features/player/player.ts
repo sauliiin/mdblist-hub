@@ -6,7 +6,7 @@ import {
 } from '@angular/core';
 import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
-import { of, switchMap, tap } from 'rxjs';
+import { Subscription, of, startWith, switchMap, tap } from 'rxjs';
 import { MediaDetailService } from '../../core/media-detail.service';
 import { TmdbEpisode, toMediaType } from '../../core/models';
 import { AddonsService } from '../../core/stremio/addons.service';
@@ -18,6 +18,7 @@ import { ScrobbleTarget } from '../../core/scrobble/models';
 import { TvService } from '../../core/tv/tv.service';
 import { ScrobbleService } from '../../core/scrobble/scrobble.service';
 import { StremioService } from '../../core/stremio/stremio.service';
+import { bestSubtitleMatch } from '../../core/stremio/subtitle-matcher';
 import { TmdbService } from '../../core/tmdb.service';
 import { VideoPlayer } from '../../ui/video-player/video-player';
 
@@ -94,6 +95,8 @@ export class Player {
   protected readonly subtitleUrl = signal<string | null>(null);
   protected readonly subtitleError = signal<string | null>(null);
   protected readonly subtitleBusy = signal(false);
+  /** The candidate that reached actual playback, rather than merely being attempted. */
+  private readonly confirmedStream = signal<PlayableStream | null>(null);
 
   protected readonly loadingStreams = signal(false);
   protected readonly loadingDetail = signal(true);
@@ -210,8 +213,10 @@ export class Player {
 
   protected readonly subtitleOptions = toSignal(
     toObservable(this.streamKey).pipe(
-      tap(() => this.clearSubtitle()),
-      switchMap((key) => (key ? this.stremio.subtitles(key.type, key.id) : of([]))),
+      tap(() => this.resetSubtitleContext()),
+      switchMap((key) => (key
+        ? this.stremio.subtitles(key.type, key.id).pipe(startWith([] as SubtitleOption[]))
+        : of([]))),
     ),
     { initialValue: [] as SubtitleOption[] },
   );
@@ -271,6 +276,11 @@ export class Player {
   private attemptIndex = -1;
   private attemptSerial = 0;
   private attemptTimer?: ReturnType<typeof setTimeout>;
+  private subtitleRequest?: Subscription;
+
+  /** Manual selection, including "sem legenda", always disables automation for this title. */
+  private subtitleChosenByUser = false;
+  private autoSelectedForStream: string | null = null;
 
   /**
    * Sources unmasked as decoys, by url.
@@ -326,6 +336,26 @@ export class Player {
 
       const first = streams.find((stream) => stream.playable);
       if (first) this.startAttempts(first);
+    });
+
+    /*
+     * Wait for both halves of a trustworthy match: the source that really
+     * reached `playing` and the complete subtitle result. This prevents a
+     * subtitle being chosen for a high-ranked stream that the cascade later
+     * rejects, and never overrides a deliberate user choice.
+     */
+    effect(() => {
+      const stream = this.confirmedStream();
+      const options = this.subtitleOptions();
+      if (!stream || !options.length || this.subtitleChosenByUser ||
+        this.autoSelectedForStream === stream.key) return;
+
+      const release = [stream.title, stream.filename, stream.detail].filter(Boolean).join(' ');
+      const match = bestSubtitleMatch(options, release);
+      if (!match) return;
+
+      this.autoSelectedForStream = stream.key;
+      this.applySubtitle(match);
     });
 
     const destroyRef = inject(DestroyRef);
@@ -430,6 +460,7 @@ export class Player {
     this.triedEverySource.set(false);
     this.decoyRateLimited.set(false);
     this.decoyStreak = 0;
+    this.confirmedStream.set(this.selected());
     // The veil comes down only here: the frame is decoding, so what the
     // element shows from now on is the film and not a source being probed.
     this.resolving.set(false);
@@ -534,27 +565,31 @@ export class Player {
   /** The sidebar's own `<select>`, kept for the windowed desktop player. */
   protected chooseSubtitle(event: Event): void {
     const key = (event.target as HTMLSelectElement).value;
-    this.selectSubtitle(this.subtitleOptions().find((s) => s.key === key) ?? null);
+    this.subtitleChosenByUser = true;
+    this.applySubtitle(this.subtitleOptions().find((s) => s.key === key) ?? null);
   }
 
   /** The in-player chooser — the only way to pick a subtitle once fullscreen. */
   protected onSubtitleSelect(option: SubtitleOption | null): void {
-    this.selectSubtitle(option);
+    this.subtitleChosenByUser = true;
+    this.applySubtitle(option);
   }
 
-  private selectSubtitle(option: SubtitleOption | null): void {
+  private applySubtitle(option: SubtitleOption | null): void {
     this.clearSubtitle();
     if (!option) return;
 
     this.subtitle.set(option);
     this.subtitleBusy.set(true);
 
-    this.stremio.subtitleTrack(option).subscribe({
+    this.subtitleRequest = this.stremio.subtitleTrack(option).subscribe({
       next: (url) => {
+        this.subtitleRequest = undefined;
         this.subtitleBusy.set(false);
         this.subtitleUrl.set(url);
       },
       error: (error: unknown) => {
+        this.subtitleRequest = undefined;
         this.subtitleBusy.set(false);
         this.subtitleError.set(subtitleFailureMessage(error));
       },
@@ -562,10 +597,20 @@ export class Player {
   }
 
   private clearSubtitle(): void {
+    this.subtitleRequest?.unsubscribe();
+    this.subtitleRequest = undefined;
     this.revoke();
     this.subtitle.set(null);
     this.subtitleUrl.set(null);
     this.subtitleError.set(null);
+    this.subtitleBusy.set(false);
+  }
+
+  private resetSubtitleContext(): void {
+    this.subtitleChosenByUser = false;
+    this.autoSelectedForStream = null;
+    this.confirmedStream.set(null);
+    this.clearSubtitle();
   }
 
   private revoke(): void {

@@ -20,6 +20,17 @@ export const API = {
     base: 'https://www.omdbapi.com',
     key: 'b2f2fcca',
   },
+  openSubtitles: {
+    base: 'https://api.opensubtitles.com/api/v1',
+    /** Same-origin route supplied by `proxy.config.json` / `public/_redirects`. */
+    webProxy: '/opensubtitles-api',
+    key: '9eBRI85k0K0D7teGENPWBhCrCH4jnsLF',
+    userAgent: 'mestreyoddarossi api for kodi',
+  },
+  wyzie: {
+    base: 'https://sub.wyzie.io',
+    key: 'wyzie-s9qb8pabb1bllkptwqe0z19ufdnpa5sa',
+  },
 } as const;
 
 /**

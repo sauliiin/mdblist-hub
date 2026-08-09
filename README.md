@@ -142,14 +142,12 @@ home, e o player retoma sozinho do ponto guardado.
 
 Duas coisas valem nota:
 
-- **O corpo vai form-encoded, nunca JSON**, e isso é estrutural: um POST JSON
-  exige preflight, e o mdblist responde `405` no OPTIONS — a mesma parede das
-  escritas de biblioteca. `application/x-www-form-urlencoded` é um tipo
-  CORS-safelisted, então a requisição é "simples" e sai direto. É por isso que
-  o scrobble funciona em host estático e adicionar à watchlist não.
+- **O corpo segue o JSON aninhado da API**: filmes usam `movie.ids`; episódios
+  usam `show.ids`, `show.season.number` e `show.season.episode.number`. Como o
+  mdblist responde `405` ao preflight de um POST JSON direto, as escritas passam
+  pelo proxy same-origin `/mdblist-api`.
 - **Fechar a aba** nunca chega ao `ngOnDestroy`, então o `stop` desse caso sai
-  por `navigator.sendBeacon` — que só emite requisições simples, exatamente o
-  que o corpo form-encoded já é.
+  por `navigator.sendBeacon` para o mesmo proxy, preservando o corpo JSON.
 
 O `/sync/playback` devolve `progress_at_update`, `updated_at_ts` e `runtime`
 justamente para o cliente projetar o ponto atual de uma sessão ainda rodando;
@@ -215,7 +213,7 @@ existe, e sem isso não haveria como trocar de legenda. A sincronia edita
 `startTime`/`endTime` das cues carregadas, que são objetos vivos; o desvio zera
 ao trocar de legenda ou de vídeo, para não herdar o ajuste anterior.
 
-As sugestões na página de Addons (Torrentio, MediaFusion, Comet, AIOStreams,
+As sugestões na página de Addons (Torrentio, MediaFusion, Comet, AIOStreams | ElfHosted,
 OpenSubtitles) foram verificadas contra os endpoints reais. As quatro de fontes
 **exigem configuração**: sem ela o Torrentio devolve torrent, o MediaFusion
 responde lista vazia, o Comet responde `403` e o AIOStreams sequer serve um
@@ -223,12 +221,22 @@ manifest de addon no endereço base — serve o manifest PWA do próprio site. P
 isso só o addon de legendas tem botão de instalação direta; os outros levam à
 página de configuração, de onde sai a URL por usuário.
 
-**Legendas** vêm do recurso `subtitles` dos addons. Como `<track>` só lê WebVTT e
-os addons servem SubRip, o arquivo é baixado, convertido para VTT e entregue como
-`blob:` — o que também resolve o CORS que o `<track src>` exigiria. Arquivos em
-windows-1252 (comum em legendas pt-BR) são detectados e decodificados certo.
+**Legendas** vêm do recurso `subtitles` dos addons e também das buscas diretas no
+OpenSubtitles.com e no Wyzie. As fontes diretas consultam pt-BR, pt e en em
+paralelo. Quando o vídeo começa de fato, o player seleciona português (com inglês
+como fallback) e compara qualidade, origem, codec e release group da legenda com
+o release que entrou em reprodução; uma escolha manual, inclusive "sem legenda",
+sempre prevalece. Como `<track>` só lê WebVTT e as fontes servem SubRip, o arquivo
+é baixado, convertido para VTT e entregue como `blob:`. Arquivos em windows-1252
+(comum em legendas pt-BR) são detectados e decodificados certo.
 
 O que o player toca e o que não toca está em [Limitações](#limitações-conhecidas).
+
+Links mortos que reproduzem um clipe de aviso em vez do título também entram no
+failover automático. O player reconhece a faixa típica desses avisos (30s–2min),
+mas só rejeita o arquivo quando ele também tem menos da metade da duração esperada
+do filme ou episódio. Assim um curta legítimo não é confundido com “vídeo
+removido”; sem runtime confiável, a heurística fica desligada.
 
 ## Mobile
 
@@ -415,11 +423,6 @@ histórico), é por isso que ela não é embutida no bundle.
   Capacitor (que serve de `https://localhost`) atendem; testar o dev server pelo
   celular em `http://192.168.x.x:4200` não. A tela diz isso explicitamente em vez
   de reportar erro de rede.
-- **Formato do corpo do scrobble não confirmado contra a API real** — o mdblist
-  valida a chave *antes* do corpo, então não foi possível confirmar a grafia do
-  alvo aninhado (`movie[ids][imdb]`) sem uma chave válida. Se estiver errado, o
-  player mostra o status e o corpo cru da resposta em vez de falhar calado.
-
 ---
 
 ## Estrutura

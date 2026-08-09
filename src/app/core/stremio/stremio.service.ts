@@ -8,6 +8,7 @@ import {
   SubtitleOption,
 } from './models';
 import { AddonsService } from './addons.service';
+import { SubtitleSourcesService } from './subtitle-sources.service';
 import {
   decodeSubtitle, languageLabel, languageRank, srtToVtt, toBcp47, unwrapSubtitle,
 } from './subtitles';
@@ -19,6 +20,7 @@ const UNPLAYABLE_CONTAINERS = /\.(mkv|avi|wmv|flv|mpg|mpeg|m2ts|ts|rmvb|ogm)(\?|
 export class StremioService {
   private readonly http = inject(HttpClient);
   private readonly addons = inject(AddonsService);
+  private readonly subtitleSources = inject(SubtitleSourcesService);
 
   /**
    * Asks every installed addon that serves `stream` for this id, in parallel.
@@ -53,24 +55,25 @@ export class StremioService {
     );
   }
 
-  /** The same fan-out for `subtitles`. */
+  /** Installed addons plus the direct OpenSubtitles.com and Wyzie catalogs. */
   subtitles(type: StremioType, id: string): Observable<SubtitleOption[]> {
     const providers = this.addons.subtitleProviders(type, id);
-    if (!providers.length) return of([]);
+    const addonSearches = providers.map((addon) =>
+      this.http
+        .get<{ subtitles?: StremioSubtitle[] }>(
+          `${addon.base}/subtitles/${type}/${encodeURIComponent(id)}.json`,
+          { context: noCache() },
+        )
+        .pipe(
+          map((res) => (res?.subtitles ?? []).map((s, i) => toOption(s, addon, i))),
+          catchError(() => of([] as SubtitleOption[])),
+        ),
+    );
 
-    return forkJoin(
-      providers.map((addon) =>
-        this.http
-          .get<{ subtitles?: StremioSubtitle[] }>(
-            `${addon.base}/subtitles/${type}/${encodeURIComponent(id)}.json`,
-            { context: noCache() },
-          )
-          .pipe(
-            map((res) => (res?.subtitles ?? []).map((s, i) => toOption(s, addon, i))),
-            catchError(() => of([] as SubtitleOption[])),
-          ),
-      ),
-    ).pipe(map((lists) => sortSubtitles(dedupeSubtitles(lists.flat()))));
+    return forkJoin([
+      ...addonSearches,
+      this.subtitleSources.search(id),
+    ]).pipe(map((lists) => sortSubtitles(dedupeSubtitles(lists.flat()))));
   }
 
   /**
@@ -81,15 +84,17 @@ export class StremioService {
    * plain text, gzip or a zip, and only the leading bytes say which.
    */
   subtitleTrack(option: SubtitleOption): Observable<string> {
-    return this.http
-      .get(option.url, { responseType: 'arraybuffer', context: noCache() })
-      .pipe(
-        switchMap((bytes) => unwrapSubtitle(bytes)),
-        map((bytes) => {
-          const vtt = srtToVtt(decodeSubtitle(bytes, option.encoding));
-          return URL.createObjectURL(new Blob([vtt], { type: 'text/vtt' }));
-        }),
-      );
+    return this.subtitleSources.resolveUrl(option).pipe(
+      switchMap((url) => this.http.get(url, {
+          responseType: 'arraybuffer',
+          context: noCache(),
+      })),
+      switchMap((bytes) => unwrapSubtitle(bytes)),
+      map((bytes) => {
+        const vtt = srtToVtt(decodeSubtitle(bytes, option.encoding));
+        return URL.createObjectURL(new Blob([vtt], { type: 'text/vtt' }));
+      }),
+    );
   }
 }
 
@@ -110,6 +115,7 @@ function normalise(stream: StremioStream, addon: InstalledAddon, index: number):
     addon: addon.manifest.name,
     title: headline,
     detail,
+    filename: stream.behaviorHints?.filename ?? null,
     quality: quality(label),
     size: size(label, stream.behaviorHints?.videoSize),
   };
@@ -226,6 +232,9 @@ function toOption(sub: StremioSubtitle, addon: InstalledAddon, index: number): S
     srclang: toBcp47(sub.lang ?? ''),
     url: sub.url,
     encoding: sub.SubEncoding ?? null,
+    releaseHint: [sub.title, sub.release, sub.SubFileName]
+      .find((hint) => !!hint?.trim()) ?? null,
+    popularity: 0,
   };
 }
 

@@ -176,7 +176,7 @@
                 Legenda
                 @if (subtitleBusy()) { <em>baixando…</em> }
               </span>
-              <select (change)="chooseSubtitle($event)">
+              <select [value]="subtitle()?.key ?? ''" (change)="chooseSubtitle($event)">
                 <option value="">Sem legenda</option>
                 @for (s of subtitleOptions(); track s.key) {
                   <option [value]="s.key">{{ s.label }} — {{ s.addon }}</option>

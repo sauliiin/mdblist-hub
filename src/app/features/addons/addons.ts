@@ -17,6 +17,15 @@ interface Suggestion {
   unconfigured?: string;
 }
 
+const AIOSTREAMS_ELFHOSTED: Suggestion = {
+  name: 'AIOStreams | ElfHosted',
+  what:
+    'Junta vários addons de fontes num só, deduplica e reordena os resultados. A URL do ' +
+    'manifest é gerada por usuário na configuração.',
+  configure: 'https://aiostreams.elfhosted.com/stremio/configure',
+  unconfigured: 'só funciona pela URL gerada',
+};
+
 @Component({
   selector: 'app-addons',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -68,21 +77,15 @@ export class Addons {
       what: 'Legendas em dezenas de idiomas, já indexadas por IMDb ID.',
       url: 'https://opensubtitles-v3.strem.io/manifest.json',
     },
-    {
-      name: 'AIOStreams',
-      what:
-        'Junta vários addons de fontes num só, deduplica e reordena os resultados. A URL do ' +
-        'manifest é gerada por usuário na configuração.',
-      configure: 'https://aiostreams.elfhosted.com/configure',
-      unconfigured: 'só funciona pela URL gerada',
-    },
+    AIOSTREAMS_ELFHOSTED,
   ];
 
   /**
-   * The rest — all three hand out a per-user URL at their own configuration
-   * page, so none of them can be installed from a bare host here.
+   * Detailed recommendations. Each stream aggregator hands out a per-user URL
+   * at its own configuration page, so none can be installed from a bare host.
    */
   protected readonly suggestions: Suggestion[] = [
+    AIOSTREAMS_ELFHOSTED,
     {
       name: 'Torrentio',
       what:

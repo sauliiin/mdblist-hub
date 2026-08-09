@@ -73,6 +73,10 @@ export interface StremioSubtitle {
   /** ISO 639-2/B most of the time ("por", "eng"), but addons vary. */
   lang: string;
   SubEncoding?: string;
+  /** Optional, non-standard release hints volunteered by some addons. */
+  title?: string;
+  release?: string;
+  SubFileName?: string;
 }
 
 /**
@@ -118,6 +122,8 @@ export interface PlayableStream {
   addon: string;
   title: string;
   detail: string | null;
+  /** Exact filename when the addon provides one; strongest release match hint. */
+  filename: string | null;
   /** Set only when the browser can attempt to load it into `<video>`. */
   url: string | null;
   /** A link to hand to an external player, set whenever we have any URL. */
@@ -165,6 +171,10 @@ export interface SubtitleOption {
   url: string;
   /** What the addon says the file is encoded in, when it says anything. */
   encoding: string | null;
+  /** Release/file name used to match the subtitle to the stream being played. */
+  releaseHint: string | null;
+  /** Source download count, used only as a matching tiebreaker. */
+  popularity: number;
 }
 
 /** Reads `resources` + `types` + `idPrefixes` to see if an addon can answer. */

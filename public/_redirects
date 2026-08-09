@@ -4,6 +4,7 @@
 # as escritas do mdblist pelo servidor, contornando o CORS. Sem ela, os botões
 # de watchlist, coleção e assistido não gravam.
 /mdblist-api/*  https://api.mdblist.com/:splat  200
+/opensubtitles-api/*  https://api.opensubtitles.com/api/v1/:splat  200
 
 # Rotas do Angular: qualquer caminho cai no index.html.
 /*  /index.html  200

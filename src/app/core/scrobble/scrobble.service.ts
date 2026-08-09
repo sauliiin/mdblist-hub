@@ -1,10 +1,11 @@
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 import { Injectable, inject, signal } from '@angular/core';
 import { Observable, catchError, map, of } from 'rxjs';
 import { API } from '../api.config';
 import { AuthService } from '../auth.service';
 import { noCache } from '../http-cache.interceptor';
 import { PlaybackSession, ResumeItem, ScrobbleAction, ScrobbleTarget, toResumeItem } from './models';
+import { scrobbleBody } from './payload';
 
 /**
  * Playback scrobbling against mdblist.
@@ -14,12 +15,9 @@ import { PlaybackSession, ResumeItem, ScrobbleAction, ScrobbleTarget, toResumeIt
  * makes a film resumable on another device without this app storing anything.
  * Past 80% mdblist marks the title watched on its own.
  *
- * The bodies go out **form-encoded, never JSON**, and that is load-bearing: a
- * JSON POST needs a CORS preflight, and mdblist answers OPTIONS with 405 (the
- * same wall the library writes hit — see README). `application/x-www-form-
- * urlencoded` is a CORS-safelisted type, so the request is "simple" and goes
- * straight out. That is why scrobbling works from a static host and adding to
- * a watchlist does not.
+ * The API's current schema expects nested JSON. Browser writes use the
+ * same-origin proxy in [ApiConfig], because mdblist does not answer the CORS
+ * preflight a direct JSON POST would trigger.
  */
 @Injectable({ providedIn: 'root' })
 export class ScrobbleService {
@@ -27,12 +25,8 @@ export class ScrobbleService {
   private readonly auth = inject(AuthService);
 
   /**
-   * The raw body of the last rejection, surfaced in the player.
-   *
-   * mdblist checks the API key before it validates the body, so the exact
-   * spelling of the nested target fields could not be confirmed against the
-   * live API beforehand. If the encoding below is wrong, the answer says so
-   * and lands here rather than disappearing.
+   * The raw body of the last rejection, surfaced in the player rather than
+   * disappearing as a generic playback warning.
    */
   private readonly failure = signal<string | null>(null);
   readonly error = this.failure.asReadonly();
@@ -53,14 +47,14 @@ export class ScrobbleService {
    * A stop that survives the tab closing.
    *
    * `sendBeacon` is the only request the browser commits to delivering once the
-   * page is going away, and it can only issue simple requests — which the
-   * form-encoded body already is, so nothing has to change to use it.
+   * page is going away. It targets the same-origin proxy, so its JSON Blob does
+   * not need a cross-origin preflight before the page closes.
    */
   beaconStop(target: ScrobbleTarget, progress: number): void {
     if (!this.auth.key() || (!target.imdbId && !target.tmdbId)) return;
 
     const url = `${API.mdblist.writeProxy}/scrobble/stop?apikey=${encodeURIComponent(this.auth.key())}`;
-    const payload = body(target, progress);
+    const payload = scrobbleBody(target, progress);
 
     navigator.sendBeacon?.(
       url,
@@ -109,7 +103,7 @@ export class ScrobbleService {
     if (!this.auth.key() || (!target.imdbId && !target.tmdbId)) return of(false);
 
     return this.http
-      .post(`${API.mdblist.writeProxy}/scrobble/${action}`, body(target, progress), {
+      .post(`${API.mdblist.writeProxy}/scrobble/${action}`, scrobbleBody(target, progress), {
         params: { apikey: this.auth.key() },
         context: noCache(),
       })
@@ -126,35 +120,6 @@ export class ScrobbleService {
         }),
       );
   }
-}
-
-/**
- * Builds the form body.
- *
- * The nested target is written in bracket notation (`movie[ids][imdb]`), which
- * is how the common server frameworks read nested form data. mdblist's schema
- * also accepts a flat `season`/`episode` pair for shows, so that is the shape
- * used here rather than the nested alternative.
- */
-function body(target: ScrobbleTarget, progress: number): any {
-  const payload: any = { progress: Number(progress.toFixed(2)) };
-
-  const ids: Record<string, string | number> = {};
-  if (target.imdbId) ids['imdb'] = target.imdbId;
-  if (target.tmdbId) ids['tmdb'] = target.tmdbId;
-
-  if (target.type === 'show') {
-    const show: any = { ids };
-    if (target.season && target.episode) {
-      show.season = target.season;
-      show.episode = target.episode;
-    }
-    payload.show = show;
-  } else {
-    payload.movie = { ids };
-  }
-
-  return payload;
 }
 
 function matches(item: ResumeItem, target: ScrobbleTarget): boolean {
