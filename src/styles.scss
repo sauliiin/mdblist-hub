@@ -404,6 +404,16 @@ html.tv {
 /* ============================================================
    Cyberpunk Theme
    ============================================================ */
+@property --cyberpunk-neon-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@keyframes cyberpunk-neon-orbit {
+  to { --cyberpunk-neon-angle: 1turn; }
+}
+
 body.cyberpunk-theme {
   --bg: #050510;
   --bg-elev: #0a0b16;
@@ -489,16 +499,65 @@ body.cyberpunk-theme h3 {
 body.cyberpunk-theme .card .poster,
 body.cyberpunk-theme .result .poster {
   border: 1px solid var(--border);
-  border-radius: 0;
-  box-shadow: 0 0 10px rgba(0, 243, 255, 0.1);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 0 12px rgba(0, 243, 255, 0.16);
+}
+
+/*
+ * A masked conic gradient paints only the rounded rim. Animating its starting
+ * angle makes the cyan/magenta/yellow highlights orbit the poster without
+ * rotating or distorting the artwork itself.
+ */
+body.cyberpunk-theme .card .poster::after,
+body.cyberpunk-theme .result .poster::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  padding: 4px;
+  pointer-events: none;
+  border-radius: inherit;
+  background: conic-gradient(
+    from var(--cyberpunk-neon-angle),
+    #00f3ff 0deg,
+    #00f3ff 62deg,
+    #ff00aa 132deg,
+    #ff003c 210deg,
+    #fff000 278deg,
+    #00f3ff 360deg
+  );
+  opacity: 0;
+  transition: opacity 0.2s var(--ease);
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
 }
 
 body.cyberpunk-theme .card:focus .poster,
 body.cyberpunk-theme .card:focus-within .poster,
 body.cyberpunk-theme .card:hover .poster,
+body.cyberpunk-theme .result:focus .poster,
+body.cyberpunk-theme .result:focus-visible .poster,
 body.cyberpunk-theme .result:hover .poster {
-  border-color: var(--accent);
-  box-shadow: 0 0 20px rgba(255, 0, 60, 0.4);
+  border-color: transparent;
+  box-shadow:
+    var(--shadow-lift),
+    0 0 0 2px rgba(0, 243, 255, 0.6),
+    0 0 18px 5px rgba(0, 243, 255, 0.38),
+    0 0 24px 5px rgba(255, 0, 170, 0.3);
+}
+
+body.cyberpunk-theme .card:focus .poster::after,
+body.cyberpunk-theme .card:focus-within .poster::after,
+body.cyberpunk-theme .card:hover .poster::after,
+body.cyberpunk-theme .result:focus .poster::after,
+body.cyberpunk-theme .result:focus-visible .poster::after,
+body.cyberpunk-theme .result:hover .poster::after {
+  opacity: 1;
+  animation: cyberpunk-neon-orbit 2.4s linear infinite;
+  will-change: --cyberpunk-neon-angle;
 }
 
 body.cyberpunk-theme .brand .name {
