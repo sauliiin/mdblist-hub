@@ -113,30 +113,24 @@ h2 {
   overflow-y: hidden;
   scroll-snap-type: x proximity;
   scroll-padding-inline: clamp(16px, 3.6vw, 56px);
-  padding: 10px clamp(16px, 3.6vw, 56px) 6px;
+  padding: 24px clamp(16px, 3.6vw, 56px) 6px;
+  margin-top: -14px;
   scrollbar-width: none;
 
   &::-webkit-scrollbar { display: none; }
 }
 
 /*
- * The focused-card scale on TV (see the global `html.tv .card:focus-within`
- * rule) grows the poster upward past this container's own top edge — and
- * `overflow-x: auto` forces `overflow-y` to clip rather than stay open, per
- * the CSS spec's rule for mismatched overflow axes. 10px was never enough
- * headroom for that growth; this is the room the zoomed card actually needs.
- */
-/*
- * Down from 40px as part of tightening the title-to-poster gap. It cannot go
- * much lower: the focused card grows about 24px upward (scale 1.06 on a
- * ~267px-tall poster, plus the 8px lift), and `overflow-x: auto` forces the
- * vertical axis to clip, so anything under that starts cutting the zoom off.
+ * The focused-card scale and neon grow past the poster's normal top edge.
+ * `overflow-x: auto` forces the vertical axis to clip, so this internal band
+ * gives both the smaller 1.035 zoom and its rounded glow somewhere to paint.
+ * A matching negative margin keeps the visible heading-to-poster gap intact.
  */
 :host-context(html.tv) .track {
-  padding-top: 28px;
+  padding-top: 36px;
 
   /*
-   * The gap to the heading and the zoom headroom are the same 28px, which put
+   * The gap to the heading and the zoom headroom are the same space, which put
    * them in direct conflict: shrinking the gap clipped the focused card, and
    * keeping the card whole left the title floating far above its posters.
    *
@@ -145,7 +139,7 @@ h2 {
    * while the strip itself sits closer to the title. The empty padding band
    * is what moves under the heading, not the posters.
    */
-  margin-top: -18px;
+  margin-top: -26px;
 
   /*
    * The TV `.shell` widens its inline padding to clear overscan

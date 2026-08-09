@@ -20,6 +20,9 @@
   --accent: #7c5cff;
   --accent-2: #12d6c4;
   --accent-glow: rgba(124, 92, 255, 0.45);
+  /* Netflix-like focus reserved for artwork: a solid red rim plus bloom. */
+  --poster-focus: #e50914;
+  --poster-focus-glow: rgba(229, 9, 20, 0.52);
   --gold: #f5c518;
   --fresh: #22c55e;
   --rotten: #ef4444;
@@ -350,6 +353,12 @@ html.tv {
     border-radius: 8px;
   }
 
+  /* Movie cards paint focus around the rounded poster, not the whole caption. */
+  a.card:focus,
+  a.result:focus {
+    outline: none;
+  }
+
   /* Scrolling a focused tile into view should not bring it flush to the edge. */
   * { scroll-margin: 12vh 14vw; }
 
@@ -372,15 +381,18 @@ html.tv {
    * only need top headroom, not top and bottom both, to keep this on-screen.
    */
   .card:focus-within {
-    transform: translateY(-8px) scale(1.06);
+    transform: translateY(-4px) scale(1.035);
     transform-origin: 50% 100%;
     z-index: 3;
   }
 
   .card:focus .poster,
   .card:focus-within .poster {
-    border-color: var(--accent);
-    box-shadow: var(--shadow-lift), 0 0 0 3px var(--accent-glow);
+    border-color: var(--poster-focus);
+    box-shadow:
+      var(--shadow-lift),
+      0 0 0 3px var(--poster-focus),
+      0 0 18px 4px var(--poster-focus-glow);
   }
 }
 
@@ -401,6 +413,8 @@ body.cyberpunk-theme {
   --accent: #ff003c;
   --accent-2: #12d6c4;
   --accent-glow: rgba(255, 0, 60, 0.45);
+  --poster-focus: #ff003c;
+  --poster-focus-glow: rgba(255, 0, 60, 0.48);
   --surface: rgba(0, 243, 255, 0.05);
   --surface-strong: rgba(0, 243, 255, 0.1);
   --border: rgba(0, 243, 255, 0.3);

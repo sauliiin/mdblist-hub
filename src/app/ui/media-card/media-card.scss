@@ -6,18 +6,27 @@
 .card {
   display: block;
   width: var(--card-w, 172px);
-  transition: transform 0.35s var(--ease);
+  transition: transform 0.2s var(--ease);
+
+  &:focus,
+  &:focus-visible {
+    outline: none;
+  }
 
   &:hover,
+  &:focus,
   &:focus-visible {
     transform: translateY(-6px);
 
     .poster {
-      border-color: var(--border-strong);
-      box-shadow: var(--shadow-lift), 0 0 0 1px rgba(124, 92, 255, 0.35);
+      border-color: var(--poster-focus);
+      box-shadow:
+        var(--shadow-lift),
+        0 0 0 3px var(--poster-focus),
+        0 0 18px 4px var(--poster-focus-glow);
     }
 
-    img { transform: scale(1.07); }
+    img { transform: scale(1.035); }
     .title { color: #fff; }
   }
 }
@@ -30,7 +39,7 @@
   background: var(--bg-elev);
   border: 1px solid var(--border);
   box-shadow: 0 10px 26px rgba(0, 0, 0, 0.45);
-  transition: box-shadow 0.35s var(--ease), border-color 0.35s var(--ease);
+  transition: box-shadow 0.2s var(--ease), border-color 0.2s var(--ease);
 
   img {
     width: 100%;
