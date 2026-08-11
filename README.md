@@ -129,6 +129,12 @@ O botão **Assistir** na ficha abre `/watch/:type/:id`, que consulta o recurso
 TMDB. A escolha de episódio vai para a URL (`?season=2&episode=5`), então o link
 é compartilhável.
 
+As fontes HTTPS diretas entram numa corrida com até **16 probes simultâneos**.
+Cada probe tem 16 segundos para produzir frames; o primeiro que chega a
+`playing` assume o player visível e todos os demais são cancelados. Quando um
+probe falha ou revela um clipe de remoção, a vaga é imediatamente preenchida
+pelo próximo link, sem serializar toda a lista atrás de um CDN lento.
+
 ### Scrobble e continuar assistindo
 
 O mdblist tem uma API de scrobble dedicada (documentada em

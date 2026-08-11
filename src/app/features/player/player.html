@@ -38,28 +38,6 @@
             (playbackError)="onPlaybackError($event)"
             (decoyDetected)="onDecoyDetected($event)" />
 
-          <!--
-            The veil. A cascade can swap `src` several times a second, and each
-            swap paints a black frame and a flash of the controls. Covering the
-            element until something actually plays is what makes the failover
-            invisible — which is the whole point of not showing the sources.
-          -->
-          @if (resolving()) {
-            <div
-              class="veil"
-              role="status"
-              aria-live="polite"
-              [style.background-image]="d.backdrop ? 'url(' + d.backdrop + ')' : null">
-              <div class="veil-inner">
-                <span class="spinner" aria-hidden="true"></span>
-                <p class="headline">Preparando a reprodução…</p>
-                @if (candidateCount() > 1) {
-                  <p class="veil-sub">Testando fonte {{ attemptAt() }} de {{ candidateCount() }}</p>
-                }
-              </div>
-            </div>
-          }
-
           @if (resumeAt(); as point) {
             <p class="resumed">Retomado de {{ point }}% — o ponto veio do mdblist.</p>
           }
@@ -67,33 +45,55 @@
             <p class="warning">{{ err }}</p>
           }
 
-          @if (playbackError()) {
-            <div class="overlay" role="alert">
-              @if (decoyRateLimited()) {
-                <p class="headline">Seu provedor debrid está limitando as requisições.</p>
-                <p>
-                  As fontes responderam com um aviso no lugar do filme. Não adianta trocar de
-                  link — espere alguns minutos e tente de novo.
+        }
+
+        <!-- The race itself has no selected source yet, so this sits outside the player block. -->
+        @if (resolving()) {
+          <div
+            class="veil"
+            role="status"
+            aria-live="polite"
+            [style.background-image]="d.backdrop ? 'url(' + d.backdrop + ')' : null">
+            <div class="veil-inner">
+              <span class="spinner" aria-hidden="true"></span>
+              <p class="headline">Preparando a reprodução…</p>
+              @if (candidateCount() > 1) {
+                <p class="veil-sub">
+                  Até 16 fontes ao mesmo tempo · {{ attemptAt() }} de {{ candidateCount() }} iniciadas
                 </p>
-              } @else {
+              }
+            </div>
+          </div>
+        }
+
+        @if (playbackError()) {
+          <div class="overlay" role="alert">
+            @if (decoyRateLimited()) {
+              <p class="headline">Seu provedor debrid está limitando as requisições.</p>
+              <p>
+                Várias fontes responderam com um aviso no lugar do filme. Todas as demais também
+                foram testadas antes de encerrar.
+              </p>
+            } @else {
               <p class="headline">Nenhuma fonte conseguiu reproduzir.</p>
               @if (triedEverySource()) {
                 <p>
-                  Testei os {{ candidateCount() }} links disponíveis e repeti a lista uma vez.
-                  Costuma ser o addon com links vencidos — reconfigurar o debrid dele resolve na
-                  maioria das vezes.
+                  Testei os {{ candidateCount() }} links disponíveis, até 16 por vez. Costuma ser
+                  o addon com links vencidos — reconfigurar o debrid dele resolve na maioria das
+                  vezes.
                 </p>
               } @else {
                 <p>O link disponível não abriu. Tente de novo, ou verifique seus addons.</p>
               }
-              }
-              <div class="overlay-actions">
-                <button type="button" class="cta" (click)="retry()">Tentar de novo</button>
-                <a class="ghost" routerLink="/addons">Ver addons</a>
-              </div>
+            }
+            <div class="overlay-actions">
+              <button type="button" class="cta" (click)="retry()">Tentar de novo</button>
+              <a class="ghost" routerLink="/addons">Ver addons</a>
             </div>
-          }
-        } @else {
+          </div>
+        }
+
+        @if (!selected() && !resolving() && !playbackError()) {
           <div class="idle">
             @if (loadingStreams()) {
               <span class="spinner" aria-hidden="true"></span>

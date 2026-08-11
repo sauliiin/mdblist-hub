@@ -20,14 +20,15 @@ import { ScrobbleService } from '../../core/scrobble/scrobble.service';
 import { StremioService } from '../../core/stremio/stremio.service';
 import { bestSubtitleMatch } from '../../core/stremio/subtitle-matcher';
 import { TmdbService } from '../../core/tmdb.service';
+import { isLikelyRemovalNotice } from '../../ui/video-player/decoy-detector';
 import { VideoPlayer } from '../../ui/video-player/video-player';
+import { CandidateRace, ProbeHandle, ProbeOutcome } from './candidate-race';
 
 const EMPTY_QUERY: StreamQuery = { streams: [], queried: 0, failed: 0 };
-/** A dead CDN must not hold the cascade on one source forever. */
-const STREAM_ATTEMPT_TIMEOUT = 6_000;
-
-/** Decoys in a row that mean the provider, not the mirror, is the problem. */
-const DECOY_STREAK_LIMIT = 3;
+/** Enough parallelism to get past a slow mirror without walking the list for minutes. */
+const STREAM_PROBE_CONCURRENCY = 16;
+/** Real sources in the reproduction case needed 7–12s before producing frames. */
+const STREAM_PROBE_TIMEOUT = 16_000;
 
 @Component({
   selector: 'app-player',
@@ -87,7 +88,7 @@ export class Player {
    * the flicker this design exists to avoid.
    */
   protected readonly resolving = signal(false);
-  /** 1-based position in the candidate queue, for the discreet counter. */
+  /** Number of unique candidates whose probes have already started. */
   protected readonly attemptAt = signal(0);
   protected readonly candidateCount = signal(0);
 
@@ -196,6 +197,10 @@ export class Player {
       tap(() => {
         this.loadingStreams.set(true);
         this.cancelAttempts();
+        this.raceStarted = false;
+        this.rejectedUrls.clear();
+        this.launchedUrls.clear();
+        this.decoyCount = 0;
         this.selected.set(null);
         this.playbackSrc.set(null);
         this.playbackError.set(false);
@@ -272,35 +277,18 @@ export class Player {
 
   /** Progress of the last report, so leaving the page can stop at the right point. */
   private lastProgress = 0;
-  private attemptQueue: PlayableStream[] = [];
-  private attemptIndex = -1;
   private attemptSerial = 0;
-  private attemptTimer?: ReturnType<typeof setTimeout>;
+  private playbackTimer?: ReturnType<typeof setTimeout>;
+  private race?: CandidateRace<PlayableStream>;
+  private raceStarted = false;
+  private readonly rejectedUrls = new Set<string>();
+  private readonly launchedUrls = new Set<string>();
+  private decoyCount = 0;
   private subtitleRequest?: Subscription;
 
   /** Manual selection, including "sem legenda", always disables automation for this title. */
   private subtitleChosenByUser = false;
   private autoSelectedForStream: string | null = null;
-
-  /**
-   * Sources unmasked as decoys, by url.
-   *
-   * The queue holds every candidate twice so the cascade gets a second lap;
-   * without this, that lap would cheerfully re-open the same "file removed"
-   * clip that was just rejected and the user would watch it start again.
-   */
-  private readonly decoys = new Set<string>();
-
-  /**
-   * Decoys hit back to back, without a real source in between.
-   *
-   * One decoy means one dead mirror. Several in a row means the debrid
-   * provider itself is refusing everything — rate limiting, most often — and
-   * the placeholder is the same clip whichever candidate asks. Walking sixty
-   * more cannot fix that; it just spends a minute reaching the same wall, so
-   * the streak turns "try the next one" into "stop and say what is wrong".
-   */
-  private decoyStreak = 0;
 
   /**
    * How long this exact thing should run — what makes a decoy recognisable.
@@ -332,7 +320,7 @@ export class Player {
      */
     effect(() => {
       const streams = this.streams();
-      if (this.selected() || this.playbackSrc()) return;
+      if (this.selected() || this.playbackSrc() || this.raceStarted) return;
 
       const first = streams.find((stream) => stream.playable);
       if (first) this.startAttempts(first);
@@ -412,73 +400,56 @@ export class Player {
     return ['/title', this.type(), this.id()];
   }
 
-  /** Runs the whole cascade again, after it gave up on every candidate. */
+  /** Runs a fresh race after every candidate in the previous one failed. */
   protected retry(): void {
     const first = this.streams().find((stream) => stream.playable);
     if (first) this.startAttempts(first);
   }
 
-  /**
-   * A source that played, but played the wrong thing. Remembered before it is
-   * handed to the normal failure path, so the queue's second lap skips it
-   * instead of starting the same removal notice over again.
-   */
+  /** The promoted source opened, but contained a removal notice instead of the title. */
   protected onDecoyDetected(failedSrc: string): void {
     if (failedSrc !== this.playbackSrc()) return;
-
     const url = this.selected()?.url;
-    if (url) this.decoys.add(url);
-
-    if (++this.decoyStreak >= DECOY_STREAK_LIMIT) {
-      this.decoyRateLimited.set(true);
-      this.cancelAttempts();
-      this.finishPlaybackFailure(false);
-      return;
+    if (url) {
+      this.rejectedUrls.add(url);
+      this.decoyCount += 1;
     }
-    this.onPlaybackError(failedSrc);
+    this.resumeRace();
   }
 
   protected onPlaybackError(failedSrc: string): void {
-    // Ignore a delayed error from the source that was just replaced.
     if (failedSrc !== this.playbackSrc()) return;
-
-    clearTimeout(this.attemptTimer);
-    this.attemptTimer = undefined;
-
-    if (this.attemptQueue.length && this.advanceAttempt()) return;
-    this.finishPlaybackFailure(this.attemptQueue.length > 0);
+    const url = this.selected()?.url;
+    if (url) this.rejectedUrls.add(url);
+    this.resumeRace();
   }
 
   protected onPlaybackReady(playedSrc: string): void {
     if (playedSrc !== this.playbackSrc()) return;
 
-    clearTimeout(this.attemptTimer);
-    this.attemptTimer = undefined;
-    this.attemptQueue = [];
-    this.attemptIndex = -1;
+    clearTimeout(this.playbackTimer);
+    this.playbackTimer = undefined;
+    this.race?.cancel();
+    this.race = undefined;
     this.playbackError.set(false);
     this.triedEverySource.set(false);
     this.decoyRateLimited.set(false);
-    this.decoyStreak = 0;
     this.confirmedStream.set(this.selected());
     // The veil comes down only here: the frame is decoding, so what the
     // element shows from now on is the film and not a source being probed.
     this.resolving.set(false);
   }
 
-  /**
-   * Queues every playable link, best first, and walks it until one plays.
-   *
-   * The list is walked twice. A CDN that 403s on the first pass has often
-   * handed out a fresh token by the time the queue comes round again, and a
-   * second attempt is far cheaper than telling someone to try later.
-   */
+  /** Starts up to 16 muted media probes; the first one producing frames wins. */
   private startAttempts(first: PlayableStream): void {
     this.cancelAttempts();
+    this.raceStarted = true;
     this.playbackError.set(false);
     this.triedEverySource.set(false);
     this.decoyRateLimited.set(false);
-    this.decoyStreak = 0;
+    this.rejectedUrls.clear();
+    this.launchedUrls.clear();
+    this.decoyCount = 0;
 
     const seen = new Set<string>();
     const candidates = [first, ...this.streams().filter((stream) => stream.key !== first.key)]
@@ -488,62 +459,166 @@ export class Player {
         return true;
       });
 
-    this.attemptQueue = [...candidates, ...candidates];
-    this.attemptIndex = -1;
-    // Scoped to one playback: a url rejected for this title says nothing
-    // about the next one, which is a different film behind the same mirror.
-    this.decoys.clear();
     this.candidateCount.set(candidates.length);
     this.attemptAt.set(0);
-    this.resolving.set(candidates.length > 0);
-
-    if (!this.advanceAttempt()) this.finishPlaybackFailure(true);
+    this.launchRace(candidates);
   }
 
-  private advanceAttempt(): boolean {
-    this.attemptIndex += 1;
-    while (this.attemptQueue[this.attemptIndex]?.url &&
-      this.decoys.has(this.attemptQueue[this.attemptIndex].url!)) {
-      this.attemptIndex += 1;
+  private launchRace(candidates: PlayableStream[]): void {
+    this.race?.cancel();
+    if (!candidates.length) {
+      this.finishPlaybackFailure(true);
+      return;
     }
 
-    const stream = this.attemptQueue[this.attemptIndex];
-    if (!stream?.url) return false;
+    this.resolving.set(true);
+    this.race = new CandidateRace(
+      candidates,
+      STREAM_PROBE_CONCURRENCY,
+      (stream, settle) => this.probeStream(stream, settle),
+      {
+        started: (stream) => {
+          if (stream.url) this.launchedUrls.add(stream.url);
+          this.attemptAt.set(this.launchedUrls.size);
+        },
+        rejected: (stream, outcome) => {
+          if (stream.url) this.rejectedUrls.add(stream.url);
+          if (outcome === 'decoy') this.decoyCount += 1;
+        },
+        winner: (stream) => this.promote(stream),
+        exhausted: () => this.finishPlaybackFailure(true),
+      },
+    );
+    this.race.start();
+  }
 
-    // Counts within one pass, so the second lap does not read as "17 of 12".
-    const total = this.candidateCount() || 1;
-    this.attemptAt.set((this.attemptIndex % total) + 1);
+  /**
+   * A muted off-screen video performs the same container/codec/network work as
+   * the visible player. `playing` is the success line: an HTTP 200 or metadata
+   * alone can still be an unsupported MKV or a two-minute removal notice.
+   */
+  private probeStream(
+    stream: PlayableStream,
+    settle: (outcome: ProbeOutcome) => void,
+  ): ProbeHandle {
+    const media = document.createElement('video');
+    media.muted = true;
+    media.defaultMuted = true;
+    media.volume = 0;
+    media.preload = 'auto';
+    media.playsInline = true;
+    media.setAttribute('playsinline', '');
+    media.setAttribute('aria-hidden', 'true');
+    media.style.cssText =
+      'position:fixed;width:1px;height:1px;left:-10000px;top:-10000px;opacity:0;pointer-events:none';
 
-    const separator = stream.url.includes('#') ? '&' : '#';
-    const attemptSrc = `${stream.url}${separator}mdblist_attempt=${++this.attemptSerial}`;
+    let autoplayBlocked = false;
+    const onMetadata = () => {
+      if (isLikelyRemovalNotice(media.duration, this.expectedRuntimeMinutes())) settle('decoy');
+    };
+    const onPlaying = () => settle('ready');
+    const onCanPlay = () => {
+      // If this browser refuses even muted autoplay, canplay is the strongest
+      // probe available; the visible player will expose its manual play button.
+      if (autoplayBlocked) settle('ready');
+    };
+    const onError = () => settle('failed');
+    const timer = setTimeout(() => settle('failed'), STREAM_PROBE_TIMEOUT);
+
+    media.addEventListener('loadedmetadata', onMetadata);
+    media.addEventListener('playing', onPlaying);
+    media.addEventListener('canplay', onCanPlay);
+    media.addEventListener('error', onError);
+    document.body.appendChild(media);
+    media.src = this.attemptUrl(stream.url!, 'probe');
+    media.load();
+    void media.play().catch((error: unknown) => {
+      const name = error instanceof DOMException ? error.name : '';
+      if (name === 'AbortError') return;
+      if (name === 'NotAllowedError') {
+        autoplayBlocked = true;
+        if (media.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) settle('ready');
+        return;
+      }
+      settle('failed');
+    });
+
+    return {
+      cancel: () => {
+        clearTimeout(timer);
+        media.removeEventListener('loadedmetadata', onMetadata);
+        media.removeEventListener('playing', onPlaying);
+        media.removeEventListener('canplay', onCanPlay);
+        media.removeEventListener('error', onError);
+        media.pause();
+        media.removeAttribute('src');
+        media.load();
+        media.remove();
+      },
+    };
+  }
+
+  /** Hands the race winner to the full player, which owns playback from here. */
+  private promote(stream: PlayableStream): void {
+    this.race = undefined;
+    const attemptSrc = this.attemptUrl(stream.url!, 'play');
     this.selected.set(stream);
     this.playbackSrc.set(attemptSrc);
 
-    clearTimeout(this.attemptTimer);
-    this.attemptTimer = setTimeout(
+    clearTimeout(this.playbackTimer);
+    this.playbackTimer = setTimeout(
       () => this.onPlaybackError(attemptSrc),
-      STREAM_ATTEMPT_TIMEOUT,
+      STREAM_PROBE_TIMEOUT,
     );
-    return true;
+  }
+
+  /** If promotion itself fails, race every candidate not conclusively rejected. */
+  private resumeRace(): void {
+    clearTimeout(this.playbackTimer);
+    this.playbackTimer = undefined;
+    this.selected.set(null);
+    this.playbackSrc.set(null);
+
+    const remaining = this.playableCandidates().filter(
+      (stream) => !!stream.url && !this.rejectedUrls.has(stream.url),
+    );
+    this.launchRace(remaining);
   }
 
   private finishPlaybackFailure(triedAll: boolean): void {
-    clearTimeout(this.attemptTimer);
-    this.attemptTimer = undefined;
+    clearTimeout(this.playbackTimer);
+    this.playbackTimer = undefined;
+    this.race?.cancel();
+    this.race = undefined;
     this.resolving.set(false);
     this.playbackError.set(true);
     this.triedEverySource.set(triedAll);
+    this.decoyRateLimited.set(this.decoyCount >= 3);
     this.videoPlayer()?.showFailure();
   }
 
   private cancelAttempts(): void {
-    clearTimeout(this.attemptTimer);
-    this.attemptTimer = undefined;
-    this.attemptQueue = [];
-    this.attemptIndex = -1;
+    clearTimeout(this.playbackTimer);
+    this.playbackTimer = undefined;
+    this.race?.cancel();
+    this.race = undefined;
     this.resolving.set(false);
     this.attemptAt.set(0);
     this.candidateCount.set(0);
+  }
+
+  private playableCandidates(): PlayableStream[] {
+    const seen = new Set<string>();
+    return this.streams().filter((stream) => {
+      if (!stream.playable || !stream.url || seen.has(stream.url)) return false;
+      seen.add(stream.url);
+      return true;
+    });
+  }
+
+  private attemptUrl(url: string, kind: 'probe' | 'play'): string {
+    const separator = url.includes('#') ? '&' : '#';
+    return `${url}${separator}mdblist_${kind}=${++this.attemptSerial}`;
   }
 
   protected chooseSeason(event: Event): void {

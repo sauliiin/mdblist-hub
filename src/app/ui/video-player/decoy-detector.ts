@@ -1,6 +1,9 @@
 /** Typical duration window of the playable "file removed" notices. */
 const NOTICE_MIN_SECONDS = 30;
-const NOTICE_MAX_SECONDS = 2 * 60;
+// The live provider currently returns a nominal two-minute notice as 120.96s.
+// Three minutes leaves container timestamp drift without approaching a real
+// feature; the expected-runtime fraction below still protects genuine shorts.
+const NOTICE_MAX_SECONDS = 3 * 60;
 /** A valid source must also be dramatically shorter than the requested title. */
 const MAX_EXPECTED_FRACTION = 0.5;
 
@@ -19,8 +22,7 @@ export function isLikelyRemovalNotice(
   if (!Number.isFinite(actualSeconds) || actualSeconds <= 0) return false;
   if (!expectedMinutes || !Number.isFinite(expectedMinutes) || expectedMinutes <= 0) return false;
 
-  // Container timestamps commonly turn a nominal 30s/120s clip into 29.97 or
-  // 120.04 seconds. Rounding keeps the human duration window inclusive.
+  // Container timestamps commonly move the nominal 30s/120s boundaries.
   const roundedSeconds = Math.round(actualSeconds);
   const insideNoticeWindow =
     roundedSeconds >= NOTICE_MIN_SECONDS && roundedSeconds <= NOTICE_MAX_SECONDS;
