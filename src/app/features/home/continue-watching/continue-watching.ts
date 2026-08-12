@@ -7,9 +7,9 @@ import { ScrobbleService } from '../../../core/scrobble/scrobble.service';
 import { TmdbService } from '../../../core/tmdb.service';
 import { TvService } from '../../../core/tv/tv.service';
 
-/** A resume entry with the poster TMDB has for it. */
+/** A resume entry with the backdrop TMDB has for it — landscape, not the poster. */
 interface ResumeCard extends ResumeItem {
-  poster: string | null;
+  backdrop: string | null;
 }
 
 /**
@@ -40,15 +40,17 @@ export class ContinueWatching implements OnInit {
 
   private load(): void {
     this.scrobble.sessions().subscribe((items) => {
-      // Show the row immediately; posters fill in as TMDB answers.
-      this.rows.set(items.map((item) => ({ ...item, poster: null })));
+      // Show the row immediately; backdrops fill in as TMDB answers.
+      this.rows.set(items.map((item) => ({ ...item, backdrop: null })));
       this.loading.set(false);
 
       for (const item of items) {
         if (!item.tmdbId) continue;
         this.tmdb.detail(item.type, item.tmdbId).subscribe((detail) => {
           if (!detail) return;
-          const size = this.tv.isTv() ? 'w185' : 'w342';
+          // Backdrop sizes are a separate scale from posters — `w185`/`w342`
+          // are poster-only and 404 against a backdrop path.
+          const size = this.tv.isTv() ? 'w300' : 'w780';
           const date = detail.release_date || detail.first_air_date || '';
           const year = Number(date.slice(0, 4)) || null;
           this.rows.update((list) =>
@@ -56,7 +58,7 @@ export class ContinueWatching implements OnInit {
               row.key === item.key
                 ? {
                     ...row,
-                    poster: tmdbImg(detail.poster_path, size),
+                    backdrop: tmdbImg(detail.backdrop_path, size),
                     year: row.year ?? year,
                   }
                 : row,

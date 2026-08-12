@@ -1,15 +1,16 @@
 :host {
   display: block;
-  --card-w: 172px;
+  /* Wider than the poster rows: a 16:9 card needs more width to read at the
+     same height, since the poster scale (172px) was tuned for 2:3. */
+  --card-w: 260px;
 
   /* Mesma poupança de paint das linhas — ver comentário em media-row.scss. */
   content-visibility: auto;
   contain-intrinsic-size: auto 420px;
 }
 
-/* Keep this row on the exact same responsive card scale as the media rows. */
 :host-context(html.tv) {
-  --card-w: clamp(113px, 9.22vw, 178px);
+  --card-w: clamp(170px, 13.9vw, 268px);
 }
 
 .feed {
@@ -42,6 +43,7 @@
 
 .track {
   display: flex;
+  justify-content: flex-start;
   gap: 16px;
   padding: 24px max(16px, calc((100vw - 1360px) / 2)) 8px;
   margin-top: -20px;
@@ -78,7 +80,7 @@
 
 .art {
   position: relative;
-  aspect-ratio: 2 / 3;
+  aspect-ratio: 16 / 9;
   border-radius: var(--radius);
   overflow: hidden;
   background: var(--bg-elev);

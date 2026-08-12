@@ -10,9 +10,9 @@
     <div class="track">
       @for (item of rows(); track item.key) {
         <a class="card" [routerLink]="link(item)" [queryParams]="query(item)">
-          <div class="art poster">
-            @if (item.poster) {
-              <img [src]="item.poster" [alt]="item.title" loading="lazy" />
+          <div class="art">
+            @if (item.backdrop) {
+              <img [src]="item.backdrop" [alt]="item.title" loading="lazy" />
             } @else {
               <span class="art-empty" aria-hidden="true">{{ item.title.charAt(0) }}</span>
             }
