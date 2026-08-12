@@ -27,6 +27,11 @@
   padding-block: 6px 30px;
 }
 
+/* Kept visible in edit mode (otherwise there is no way to un-hide it), just dimmed. */
+.row-hidden {
+  opacity: 0.5;
+}
+
 /* Less distance for a D-pad press to travel between one list and the next. */
 :host-context(html.tv) .row {
   padding-block: 4px 12px;
@@ -84,8 +89,52 @@ h2 {
 
 .row-meta {
   display: flex;
+  align-items: center;
   gap: 6px;
   flex-shrink: 0;
+}
+
+.rename-input {
+  min-width: 0;
+  max-width: 260px;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--accent);
+  background: var(--surface);
+  color: var(--text);
+  font-size: clamp(15px, 1.4vw, 19px);
+}
+
+.edit-controls {
+  display: flex;
+  gap: 6px;
+  margin-right: 4px;
+}
+
+.icon-btn {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-dim);
+  transition: border-color 0.2s var(--ease), color 0.2s var(--ease);
+
+  svg {
+    width: 15px;
+    height: 15px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  &:hover:not(:disabled) { border-color: var(--border-strong); color: var(--text); }
+  &:disabled { opacity: 0.35; cursor: default; }
+  &.danger:hover:not(:disabled) { border-color: rgba(239, 68, 68, 0.5); color: #fca5a5; }
 }
 
 .chip.accent {

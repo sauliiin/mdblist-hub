@@ -54,6 +54,22 @@ export interface MdbList {
   last_updated_at: string;
 }
 
+/**
+ * A visitor's own customization of one list's row on the home page — kept
+ * client-side (and optionally synced), never sent to mdblist: renaming or
+ * hiding here has no effect on the list itself at mdblist.com.
+ */
+export interface ListPref {
+  /** `MdbList.id`. */
+  id: number;
+  /** Overrides the shown name; unset falls back to the curated/original name. */
+  name?: string;
+  /** True hides the row from the home page. */
+  hidden?: boolean;
+  /** Explicit sort position; unset sorts after every positioned list, alphabetically among themselves. */
+  position?: number;
+}
+
 export interface MdbItem {
   id: number; // tmdb id
   mediatype: MediaType;

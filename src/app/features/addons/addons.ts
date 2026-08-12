@@ -1,10 +1,11 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
-import { Observable } from 'rxjs';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { Observable, forkJoin } from 'rxjs';
 import { GoogleAuthService } from '../../core/google-auth.service';
 import { AddonsService } from '../../core/stremio/addons.service';
 import { ImportReport, InstalledAddon, ManifestResource } from '../../core/stremio/models';
 import { StremioAccountService } from '../../core/stremio/stremio-account.service';
 import { AddonSyncService } from '../../core/sync/addon-sync.service';
+import { ListPrefsSyncService } from '../../core/sync/list-prefs-sync.service';
 import { PreferencesSyncService } from '../../core/sync/preferences-sync.service';
 
 /** Addons worth pointing people at, with what each one is for. */
@@ -38,6 +39,8 @@ export class Addons {
   private readonly service = inject(AddonsService);
   private readonly stremio = inject(StremioAccountService);
   private readonly cloud = inject(AddonSyncService);
+  /** Addon list and list rename/hide/order both ride the same Google-linked toggle below. */
+  private readonly listCloud = inject(ListPrefsSyncService);
   private readonly googleAuth = inject(GoogleAuthService);
   private readonly preferencesSync = inject(PreferencesSyncService);
 
@@ -46,10 +49,10 @@ export class Addons {
   protected readonly googleProfile = this.googleAuth.profile;
   protected readonly googleBusy = signal(false);
   protected readonly googleError = signal<string | null>(null);
-  protected readonly syncOn = this.cloud.enabled;
-  protected readonly syncBusy = this.cloud.busy;
-  protected readonly syncFailure = this.cloud.error;
-  protected readonly lastSync = this.cloud.lastSync;
+  protected readonly syncOn = computed(() => this.cloud.enabled() || this.listCloud.enabled());
+  protected readonly syncBusy = computed(() => this.cloud.busy() || this.listCloud.busy());
+  protected readonly syncFailure = computed(() => this.cloud.error() ?? this.listCloud.error());
+  protected readonly lastSync = computed(() => this.cloud.lastSync() ?? this.listCloud.lastSync());
   protected readonly pulled = signal<number | null>(null);
 
   protected readonly installed = this.service.installed;
@@ -204,19 +207,28 @@ export class Addons {
 
     if (this.syncOn()) {
       this.cloud.disable();
+      this.listCloud.disable();
       return;
     }
-    this.cloud.enable().subscribe({ next: (n) => this.pulled.set(n), error: () => undefined });
+    forkJoin({ addons: this.cloud.enable(), prefs: this.listCloud.enable() }).subscribe({
+      next: ({ addons, prefs }) => this.pulled.set(addons + prefs),
+      error: () => undefined,
+    });
   }
 
   protected pullNow(): void {
     this.pulled.set(null);
-    this.cloud.pull().subscribe({ next: (n) => this.pulled.set(n), error: () => undefined });
+    forkJoin({ addons: this.cloud.pull(), prefs: this.listCloud.pull() }).subscribe({
+      next: ({ addons, prefs }) => this.pulled.set(addons + prefs),
+      error: () => undefined,
+    });
   }
 
   protected pushNow(): void {
     this.pulled.set(null);
-    this.cloud.push().subscribe({ error: () => undefined });
+    forkJoin({ addons: this.cloud.push(), prefs: this.listCloud.push() }).subscribe({
+      error: () => undefined,
+    });
   }
 
   // --------------------------------------------------- Stremio account

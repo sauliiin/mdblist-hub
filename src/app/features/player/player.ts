@@ -29,6 +29,13 @@ const EMPTY_QUERY: StreamQuery = { streams: [], queried: 0, failed: 0 };
 const STREAM_PROBE_CONCURRENCY = 16;
 /** Real sources in the reproduction case needed 7–12s before producing frames. */
 const STREAM_PROBE_TIMEOUT = 16_000;
+/**
+ * The one-shot retry a merely-timed-out candidate gets, run with far less
+ * concurrency (so it isn't fighting 15 other downloads for bandwidth again)
+ * and more time to land.
+ */
+const RETRY_PROBE_CONCURRENCY = 4;
+const RETRY_PROBE_TIMEOUT = 30_000;
 
 @Component({
   selector: 'app-player',
@@ -199,6 +206,8 @@ export class Player {
         this.cancelAttempts();
         this.raceStarted = false;
         this.rejectedUrls.clear();
+        this.timedOutUrls.clear();
+        this.retriedTimeouts = false;
         this.launchedUrls.clear();
         this.decoyCount = 0;
         this.selected.set(null);
@@ -290,6 +299,9 @@ export class Player {
   private race?: CandidateRace<PlayableStream>;
   private raceStarted = false;
   private readonly rejectedUrls = new Set<string>();
+  /** Probes that only timed out — ambiguous, so they get one retry before joining `rejectedUrls`. */
+  private readonly timedOutUrls = new Set<string>();
+  private retriedTimeouts = false;
   private readonly launchedUrls = new Set<string>();
   private decoyCount = 0;
   private subtitleRequest?: Subscription;
@@ -466,6 +478,8 @@ export class Player {
     this.triedEverySource.set(false);
     this.decoyRateLimited.set(false);
     this.rejectedUrls.clear();
+    this.timedOutUrls.clear();
+    this.retriedTimeouts = false;
     this.launchedUrls.clear();
     this.decoyCount = 0;
     this.stallResumeSeconds.set(null);
@@ -483,32 +497,63 @@ export class Player {
     this.launchRace(candidates);
   }
 
-  private launchRace(candidates: PlayableStream[]): void {
+  private launchRace(
+    candidates: PlayableStream[],
+    concurrency = STREAM_PROBE_CONCURRENCY,
+    timeoutMs = STREAM_PROBE_TIMEOUT,
+  ): void {
     this.race?.cancel();
     if (!candidates.length) {
-      this.finishPlaybackFailure(true);
+      this.onRaceExhausted();
       return;
     }
 
     this.resolving.set(true);
     this.race = new CandidateRace(
       candidates,
-      STREAM_PROBE_CONCURRENCY,
-      (stream, settle) => this.probeStream(stream, settle),
+      concurrency,
+      (stream, settle) => this.probeStream(stream, settle, timeoutMs),
       {
         started: (stream) => {
           if (stream.url) this.launchedUrls.add(stream.url);
           this.attemptAt.set(this.launchedUrls.size);
         },
         rejected: (stream, outcome) => {
-          if (stream.url) this.rejectedUrls.add(stream.url);
+          if (!stream.url) return;
+          if (outcome === 'timeout') {
+            this.timedOutUrls.add(stream.url);
+            return;
+          }
+          this.rejectedUrls.add(stream.url);
           if (outcome === 'decoy') this.decoyCount += 1;
         },
         winner: (stream) => this.promote(stream),
-        exhausted: () => this.finishPlaybackFailure(true),
+        exhausted: () => this.onRaceExhausted(),
       },
     );
     this.race.start();
+  }
+
+  /**
+   * A candidate that only timed out is ambiguous — a slow mirror or, more
+   * often, bandwidth contention from the other 15 probes racing it — so it
+   * gets exactly one more attempt, alone with more room, before being
+   * written off for good. Only once that second pass also comes up empty is
+   * playback declared to have exhausted every source.
+   */
+  private onRaceExhausted(): void {
+    if (this.retriedTimeouts || !this.timedOutUrls.size) {
+      this.finishPlaybackFailure(true);
+      return;
+    }
+
+    this.retriedTimeouts = true;
+    const retryUrls = new Set(this.timedOutUrls);
+    this.timedOutUrls.clear();
+    const remaining = this.playableCandidates().filter(
+      (stream) => !!stream.url && retryUrls.has(stream.url),
+    );
+    this.launchRace(remaining, RETRY_PROBE_CONCURRENCY, RETRY_PROBE_TIMEOUT);
   }
 
   /**
@@ -519,6 +564,7 @@ export class Player {
   private probeStream(
     stream: PlayableStream,
     settle: (outcome: ProbeOutcome) => void,
+    timeoutMs = STREAM_PROBE_TIMEOUT,
   ): ProbeHandle {
     const media = document.createElement('video');
     media.muted = true;
@@ -542,7 +588,7 @@ export class Player {
       if (autoplayBlocked) settle('ready');
     };
     const onError = () => settle('failed');
-    const timer = setTimeout(() => settle('failed'), STREAM_PROBE_TIMEOUT);
+    const timer = setTimeout(() => settle('timeout'), timeoutMs);
 
     media.addEventListener('loadedmetadata', onMetadata);
     media.addEventListener('playing', onPlaying);

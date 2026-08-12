@@ -48,13 +48,14 @@
     <div class="sync-on">
       <div>
         <p class="sync-title">
-          Sincronizar addons entre aparelhos
+          Sincronizar addons e listas entre aparelhos
           <span class="pill" [class.live]="syncOn()">{{ syncOn() ? 'ligado' : 'desligado' }}</span>
         </p>
         <p class="sync-sub">
-          Guarda a lista de addons na nuvem, atrelada à sua conta Google acima. Ligue nos
-          aparelhos que entrarem com essa conta e a lista acompanha, sem depender de conta do
-          Stremio. Toda alteração sobe sozinha; não precisa apertar nada depois.
+          Guarda a lista de addons e o que você renomeou/ocultou/reordenou na home, na nuvem,
+          atrelado à sua conta Google acima. Ligue nos aparelhos que entrarem com essa conta e
+          tudo acompanha, sem depender de conta do Stremio. Toda alteração sobe sozinha; não
+          precisa apertar nada depois.
         </p>
       </div>
       <div class="row-actions">
@@ -79,7 +80,7 @@
     @if (pulled() !== null) {
       <p class="ok" role="status">
         @if (pulled()) {
-          Lista atualizada — {{ pulled() }} addon(s) de diferença.
+          Atualizado — {{ pulled() }} item(ns) de diferença entre addons e listas.
         } @else {
           Nada mudou — este aparelho já estava em dia.
         }

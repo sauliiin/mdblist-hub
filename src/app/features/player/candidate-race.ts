@@ -1,5 +1,14 @@
-/** Outcome of probing one stream away from the visible player. */
-export type ProbeOutcome = 'ready' | 'failed' | 'decoy';
+/**
+ * Outcome of probing one stream away from the visible player.
+ *
+ * `'timeout'` is deliberately distinct from `'failed'`: a real media error
+ * (bad container, 404, decode failure) means the link is genuinely broken,
+ * but a probe that never fired `playing` in time is ambiguous — under 16
+ * concurrent muted downloads a perfectly good but slower mirror can miss the
+ * window on bandwidth contention alone. `player.ts` gives `'timeout'`
+ * candidates one retry with less contention before writing them off too.
+ */
+export type ProbeOutcome = 'ready' | 'failed' | 'decoy' | 'timeout';
 
 /** Stops all network and media work owned by one probe. */
 export interface ProbeHandle {

@@ -1,5 +1,6 @@
 import {
-  ChangeDetectionStrategy, Component, ElementRef, OnInit, computed, inject, input, signal, viewChild,
+  ChangeDetectionStrategy, Component, ElementRef, OnInit, computed, inject, input, output, signal,
+  viewChild,
 } from '@angular/core';
 import { MdbItem, MdbList } from '../../core/models';
 import { MdblistService } from '../../core/mdblist.service';
@@ -22,6 +23,21 @@ export class MediaRow implements OnInit {
   readonly list = input.required<MdbList>();
   /** Show a numbered rank chip on each card (used for ranked lists). */
   readonly ranked = input(false);
+  /** Reveals the rename/hide/reorder controls next to the heading. */
+  readonly editMode = input(false);
+  /** Whether this list is currently hidden from the plain (non-edit) home view. */
+  readonly hidden = input(false);
+  /** Disables the respective reorder arrow when the list is at that edge. */
+  readonly atTop = input(false);
+  readonly atBottom = input(false);
+
+  readonly rename = output<string>();
+  readonly toggleHidden = output<void>();
+  readonly moveUp = output<void>();
+  readonly moveDown = output<void>();
+
+  protected readonly renaming = signal(false);
+  protected readonly draftName = signal('');
 
   private readonly track = viewChild<ElementRef<HTMLElement>>('track');
 
@@ -62,6 +78,25 @@ export class MediaRow implements OnInit {
       this.loadingMore.set(false);
       queueMicrotask(() => this.syncEdges());
     });
+  }
+
+  protected startRename(): void {
+    this.draftName.set(this.list().name);
+    this.renaming.set(true);
+  }
+
+  protected confirmRename(): void {
+    const name = this.draftName().trim();
+    this.renaming.set(false);
+    if (name && name !== this.list().name) this.rename.emit(name);
+  }
+
+  protected cancelRename(): void {
+    this.renaming.set(false);
+  }
+
+  protected onDraftName(event: Event): void {
+    this.draftName.set((event.target as HTMLInputElement).value);
   }
 
   protected scrollBy(direction: -1 | 1): void {

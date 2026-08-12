@@ -7,6 +7,8 @@ import {
 } from 'rxjs';
 import { tmdbImg, upscalePoster } from '../../core/api.config';
 import { AuthService } from '../../core/auth.service';
+import { applyPrefs } from '../../core/list-catalog';
+import { ListPrefsService } from '../../core/list-prefs.service';
 import { MdblistService } from '../../core/mdblist.service';
 import {
   GenreOption, GridItem, MdbItem, MdbList, TmdbKeyword, TmdbSearchResult, formatYear,
@@ -46,6 +48,7 @@ export class Home {
   private readonly tmdb = inject(TmdbService);
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
+  protected readonly listPrefs = inject(ListPrefsService);
 
   protected readonly lists = signal<MdbList[]>([]);
   protected readonly loading = signal(true);
@@ -56,6 +59,22 @@ export class Home {
   protected readonly genre = signal('');
   protected readonly searching = signal(false);
   protected readonly formatYear = formatYear;
+
+  /** Toggles the rename/hide/reorder controls on each row's heading. */
+  protected readonly editMode = signal(false);
+
+  /** Rename/hide/reorder applied on top of the fetched lists, hidden ones dropped. */
+  protected readonly curated = computed(() => applyPrefs(this.lists(), this.listPrefs.all()));
+  /**
+   * Same, but keeping hidden rows in — otherwise edit mode would have no way
+   * to reach a hidden list to un-hide it again.
+   */
+  protected readonly curatedForEditing = computed(() =>
+    applyPrefs(this.lists(), this.listPrefs.all(), { includeHidden: true }),
+  );
+  protected readonly hiddenIds = computed(
+    () => new Set(this.listPrefs.all().filter((p) => p.hidden).map((p) => p.id)),
+  );
 
   protected readonly genres = toSignal(this.tmdb.genres(), {
     initialValue: [] as GenreOption[],
@@ -107,13 +126,12 @@ export class Home {
 
   protected readonly visible = computed(() => {
     const kind = this.filter();
-    return this.lists().filter(
-      (l) => kind === 'all' || l.mediatype === kind || l.mediatype === null,
-    );
+    const source = this.editMode() ? this.curatedForEditing() : this.curated();
+    return source.filter((l) => kind === 'all' || l.mediatype === kind || l.mediatype === null);
   });
 
   protected readonly totalItems = computed(() =>
-    this.lists().reduce((sum, l) => sum + l.items, 0),
+    this.curated().reduce((sum, l) => sum + l.items, 0),
   );
 
   constructor() {
@@ -200,6 +218,24 @@ export class Home {
   protected reauth(): void {
     this.auth.signOut();
     this.router.navigate(['/login']);
+  }
+
+  protected toggleEditMode(): void {
+    this.editMode.update((v) => !v);
+  }
+
+  protected renameList(id: number, name: string): void {
+    this.listPrefs.rename(id, name);
+  }
+
+  protected toggleListHidden(id: number): void {
+    if (this.hiddenIds().has(id)) this.listPrefs.show(id);
+    else this.listPrefs.hide(id);
+  }
+
+  /** The neighbour swap needs the ids exactly as edit mode is showing them, hidden ones included. */
+  protected moveList(id: number, direction: -1 | 1): void {
+    this.listPrefs.move(id, direction, this.curatedForEditing().map((l) => l.id));
   }
 }
 

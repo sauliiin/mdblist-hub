@@ -45,6 +45,10 @@
 
     @if (browseMode()) {
       <button type="button" class="clear-all" (click)="clearAll()">Limpar</button>
+    } @else {
+      <button type="button" class="clear-all" [class.on]="editMode()" (click)="toggleEditMode()">
+        {{ editMode() ? 'Concluir' : 'Editar listas' }}
+      </button>
     }
 
     <div class="segmented" role="group" aria-label="Tipo de mídia">
@@ -118,9 +122,18 @@
          first, and it is what "down" from the hero should reach. -->
     <app-continue-watching />
 
-    @for (list of visible(); track list.id) {
+    @for (list of visible(); track list.id; let i = $index) {
       @defer (on viewport; prefetch on idle) {
-        <app-media-row [list]="list" />
+        <app-media-row
+          [list]="list"
+          [editMode]="editMode()"
+          [hidden]="hiddenIds().has(list.id)"
+          [atTop]="i === 0"
+          [atBottom]="i === visible().length - 1"
+          (rename)="renameList(list.id, $event)"
+          (toggleHidden)="toggleListHidden(list.id)"
+          (moveUp)="moveList(list.id, -1)"
+          (moveDown)="moveList(list.id, 1)" />
       } @placeholder (minimum 100ms) {
         <!--
           On TV, a loading row has to be a stop the D-pad can actually land on

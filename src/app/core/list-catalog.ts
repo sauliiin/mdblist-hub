@@ -1,4 +1,4 @@
-import { MdbList } from './models';
+import { ListPref, MdbList } from './models';
 
 /**
  * The curated set of lists the site shows **to the owner**, keyed by their
@@ -49,4 +49,33 @@ export function alphabetical(lists: MdbList[]): MdbList[] {
 
 function key(list: MdbList): string {
   return list.name.trim().toLowerCase();
+}
+
+/**
+ * Layers a visitor's own rename/hide/reorder on top of the curated or
+ * alphabetical list, in that order: hidden ones drop out (unless
+ * `includeHidden`, used by the home page's edit mode so a hidden list stays
+ * reachable to un-hide), then names are overridden, then anything with an
+ * explicit `position` moves to the front in that order — everything else
+ * keeps arriving in whatever order `curate()`/`alphabetical()` already gave it.
+ */
+export function applyPrefs(
+  lists: MdbList[],
+  prefs: ListPref[],
+  options: { includeHidden?: boolean } = {},
+): MdbList[] {
+  const byId = new Map(prefs.map((p) => [p.id, p]));
+
+  const visible = options.includeHidden ? lists : lists.filter((l) => !byId.get(l.id)?.hidden);
+  const named = visible.map((list) => {
+    const name = byId.get(list.id)?.name;
+    return name ? { ...list, name } : list;
+  });
+
+  const positioned = named
+    .filter((l) => byId.get(l.id)?.position !== undefined)
+    .sort((a, b) => byId.get(a.id)!.position! - byId.get(b.id)!.position!);
+  const rest = named.filter((l) => byId.get(l.id)?.position === undefined);
+
+  return [...positioned, ...rest];
 }
