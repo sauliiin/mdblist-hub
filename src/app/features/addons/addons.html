@@ -8,22 +8,57 @@
     </p>
   </header>
 
+  <!-- ------------------------------------------------ google account -->
+  <section class="sync cloud">
+    @if (googleLinked()) {
+      <div class="sync-on">
+        <div>
+          <p class="sync-title">Conta Google conectada</p>
+          @if (googleProfile(); as profile) {
+            <p class="sync-sub">{{ profile.email }} — a mesma conta que o APK e a TV usam.</p>
+          }
+        </div>
+        <div class="row-actions">
+          <button type="button" class="ghost" (click)="disconnectGoogle()">Desconectar</button>
+        </div>
+      </div>
+    } @else {
+      <div class="sync-on">
+        <div>
+          <p class="sync-title">Conectar conta Google</p>
+          <p class="sync-sub">
+            Necessário para ligar a sincronização de addons abaixo e a fonte da legenda no
+            player entre este site, o APK e a TV. Não substitui a chave do mdblist.
+          </p>
+        </div>
+        <div class="row-actions">
+          <button type="button" class="ghost" [disabled]="googleBusy()" (click)="connectGoogle()">
+            {{ googleBusy() ? 'Conectando…' : 'Conectar' }}
+          </button>
+        </div>
+      </div>
+    }
+    @if (googleError()) {
+      <p class="error" role="alert">{{ googleError() }}</p>
+    }
+  </section>
+
   <!-- ------------------------------------------------ cloud sync -->
   <section class="sync cloud">
     <div class="sync-on">
       <div>
         <p class="sync-title">
-          Sincronizar entre aparelhos
+          Sincronizar addons entre aparelhos
           <span class="pill" [class.live]="syncOn()">{{ syncOn() ? 'ligado' : 'desligado' }}</span>
         </p>
         <p class="sync-sub">
-          Guarda a lista de addons na nuvem, atrelada à sua chave do mdblist. Ligue nos dois
-          aparelhos e ela acompanha — sem depender de conta do Stremio. Toda alteração sobe
-          sozinha; não precisa apertar nada depois.
+          Guarda a lista de addons na nuvem, atrelada à sua conta Google acima. Ligue nos
+          aparelhos que entrarem com essa conta e a lista acompanha, sem depender de conta do
+          Stremio. Toda alteração sobe sozinha; não precisa apertar nada depois.
         </p>
       </div>
       <div class="row-actions">
-        <button type="button" class="ghost" [disabled]="syncBusy()" (click)="toggleSync()">
+        <button type="button" class="ghost" [disabled]="syncBusy() || !googleLinked()" (click)="toggleSync()">
           {{ syncOn() ? 'Desligar' : 'Ligar' }}
         </button>
         @if (syncOn()) {

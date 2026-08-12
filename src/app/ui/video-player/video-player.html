@@ -8,6 +8,7 @@
     #media
     class="media"
     [class.stretched]="stretch()"
+    [style.--subtitle-font]="subtitleFontValue()"
     [src]="src()"
     autoplay
     playsinline
@@ -20,9 +21,9 @@
     (progress)="onTimeUpdate()"
     (loadedmetadata)="onLoadedMetadata()"
     (volumechange)="onVolumeChange()"
-    (waiting)="waiting.set(true)"
+    (waiting)="onWaiting()"
     (playing)="onPlaying()"
-    (canplay)="waiting.set(false)"
+    (canplay)="onCanPlay()"
     (error)="onMediaError(src())">
     @if (subtitleUrl(); as vtt) {
       <track
@@ -85,6 +86,9 @@
 
   @if (waiting() && !opening()) {
     <div class="spinner" aria-label="Carregando"></div>
+    @if (reconnecting()) {
+      <span class="spinner-hint" aria-live="polite">Reconectando…</span>
+    }
   }
 
   @if (!playing() && !opening()) {
@@ -221,6 +225,17 @@
               @if (subtitleOffset()) {
                 <button type="button" class="menu-item" (click)="resetSync()">Repor sincronia</button>
               }
+
+              <div class="menu-divider"></div>
+              <p class="menu-head">Fonte</p>
+              <div class="font-row">
+                @for (option of fontOptions; track option.key) {
+                  <button type="button" class="menu-item" [class.on]="subtitleFontKey() === option.key"
+                          (click)="pickFont(option.key)">
+                    {{ option.label }}
+                  </button>
+                }
+              </div>
             }
           </div>
         }

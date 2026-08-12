@@ -275,6 +275,14 @@ export class Player {
 
   protected readonly scrobbleError = this.scrobble.error;
 
+  /**
+   * Where a stalled-out source died, in seconds — set by [onPlaybackStalledOut],
+   * cleared once the next candidate confirms playback. Takes priority over
+   * [resumeAt] in `VideoPlayer` so failover picks up exactly where the dead
+   * source left off instead of restarting from mdblist's stored percentage.
+   */
+  protected readonly stallResumeSeconds = signal<number | null>(null);
+
   /** Progress of the last report, so leaving the page can stop at the right point. */
   private lastProgress = 0;
   private attemptSerial = 0;
@@ -424,6 +432,15 @@ export class Player {
     this.resumeRace();
   }
 
+  /** A source that was genuinely playing stalled past recovery — fail over, but pick up where it died. */
+  protected onPlaybackStalledOut(event: { src: string; positionSeconds: number }): void {
+    if (event.src !== this.playbackSrc()) return;
+    const url = this.selected()?.url;
+    if (url) this.rejectedUrls.add(url);
+    this.stallResumeSeconds.set(event.positionSeconds);
+    this.resumeRace();
+  }
+
   protected onPlaybackReady(playedSrc: string): void {
     if (playedSrc !== this.playbackSrc()) return;
 
@@ -435,6 +452,7 @@ export class Player {
     this.triedEverySource.set(false);
     this.decoyRateLimited.set(false);
     this.confirmedStream.set(this.selected());
+    this.stallResumeSeconds.set(null);
     // The veil comes down only here: the frame is decoding, so what the
     // element shows from now on is the film and not a source being probed.
     this.resolving.set(false);
@@ -450,6 +468,7 @@ export class Player {
     this.rejectedUrls.clear();
     this.launchedUrls.clear();
     this.decoyCount = 0;
+    this.stallResumeSeconds.set(null);
 
     const seen = new Set<string>();
     const candidates = [first, ...this.streams().filter((stream) => stream.key !== first.key)]

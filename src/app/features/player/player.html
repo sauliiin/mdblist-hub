@@ -30,12 +30,14 @@
             [mediaSubtitle]="episodeLabel()"
             [mediaBackdrop]="d.backdrop"
             [resumeAt]="resumeAt()"
+            [resumeAtSeconds]="stallResumeSeconds()"
             [expectedRuntimeMinutes]="expectedRuntimeMinutes()"
             [autoFullscreen]="autoFullscreen()"
             (playbackState)="onPlaybackState($event)"
             (playbackReady)="onPlaybackReady($event)"
             (subtitleSelect)="onSubtitleSelect($event)"
             (playbackError)="onPlaybackError($event)"
+            (playbackStalledOut)="onPlaybackStalledOut($event)"
             (decoyDetected)="onDecoyDetected($event)" />
 
           @if (resumeAt(); as point) {

@@ -48,5 +48,38 @@
       na seção <em>API Key</em>. Não tem conta?
       <a href="https://mdblist.com" target="_blank" rel="noopener">Crie uma de graça</a>.
     </p>
+
+    <div class="google-divider" role="separator"></div>
+
+    @if (googleLinked()) {
+      <div class="google-account">
+        @if (googleProfile(); as profile) {
+          @if (profile.photoUrl) {
+            <img class="google-avatar" [src]="profile.photoUrl" alt="" width="36" height="36" />
+          }
+          <div class="google-who">
+            <p class="google-name">{{ profile.displayName }}</p>
+            <p class="google-email">{{ profile.email }}</p>
+          </div>
+        }
+        <button type="button" class="google-disconnect" (click)="disconnectGoogle()">Desconectar</button>
+      </div>
+      <p class="help">
+        Conta Google conectada — a fonte da legenda e os addons instalados acompanham qualquer
+        aparelho (site, APK ou TV) que entrar com a mesma conta.
+      </p>
+    } @else {
+      <button type="button" class="google-connect" [disabled]="googleBusy()" (click)="connectGoogle()">
+        {{ googleBusy() ? 'Conectando…' : 'Continuar com Google' }}
+      </button>
+      <p class="help">
+        Opcional — não substitui a chave do mdblist acima. Serve só para sincronizar
+        preferências e addons entre este site, o APK e a TV.
+      </p>
+    }
+
+    @if (googleError()) {
+      <p class="error" role="alert">{{ googleError() }}</p>
+    }
   </section>
 </main>

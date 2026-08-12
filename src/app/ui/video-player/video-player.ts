@@ -3,6 +3,7 @@ import {
   output, signal, viewChild,
 } from '@angular/core';
 import { SubtitleOption } from '../../core/stremio/models';
+import { SUBTITLE_FONT_OPTIONS, SubtitlePrefsService } from '../../core/subtitle-prefs.service';
 import { TvService } from '../../core/tv/tv.service';
 import { isLikelyRemovalNotice } from './decoy-detector';
 
@@ -12,6 +13,17 @@ const SPEEDS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
 const HIDE_AFTER = 2600;
 /** How often a playing session refreshes its stored point on mdblist. */
 const HEARTBEAT = 60_000;
+
+/**
+ * How long `waiting` may persist, once real playback has already started,
+ * before this treats it as a stall rather than ordinary buffering. Distinct
+ * from the page's own open-time timeout: that one guards a source that never
+ * starts at all, this one watches a source that started fine and then died.
+ */
+const STALL_WATCHDOG_MS = 9_000;
+/** A stall this many times over inside the window below gives up on the source. */
+const STALL_RETRY_LIMIT = 3;
+const STALL_RETRY_WINDOW_MS = 60_000;
 
 /** Cue line position (percent from the top) with the control bar hidden. */
 const SUBTITLE_LINE_BASE = 90;
@@ -40,6 +52,7 @@ const SUBTITLE_LINE_LIFTED = 78;
 export class VideoPlayer {
   private readonly host: ElementRef<HTMLElement> = inject(ElementRef);
   private readonly tv = inject(TvService);
+  private readonly subtitlePrefs = inject(SubtitlePrefsService);
 
   readonly src = input.required<string>();
   /** A `blob:` URL of a WebVTT file, or null when no subtitle is loaded. */
@@ -80,6 +93,22 @@ export class VideoPlayer {
   readonly resumeAt = input<number | null>(null);
 
   /**
+   * An absolute-seconds resume point, used instead of [resumeAt] when set.
+   * The page reaches for this after a mid-playback stall hands off to a new
+   * source: it knows exactly where the old one died but not, unlike the
+   * percentage `resumeAt` needs, that source's duration.
+   */
+  readonly resumeAtSeconds = input<number | null>(null);
+
+  /**
+   * A source that was genuinely playing stalled hard enough, and often
+   * enough, that this gave up recovering it in place. Carries the position
+   * so the page can hand the next candidate a [resumeAtSeconds] instead of
+   * restarting from zero.
+   */
+  readonly playbackStalledOut = output<{ src: string; positionSeconds: number }>();
+
+  /**
    * How long this title is supposed to run, in minutes, from the metadata.
    * Null disables the decoy check in [onLoadedMetadata] rather than letting
    * it guess.
@@ -100,6 +129,8 @@ export class VideoPlayer {
 
   protected readonly playing = signal(false);
   protected readonly waiting = signal(false);
+  /** A stall recovery is in flight — reusing the same spinner, with a small hint added. */
+  protected readonly reconnecting = signal(false);
   /** Keeps the cinematic opening visible until playback truly starts. */
   protected readonly opening = signal(true);
   protected readonly backdropFailed = signal(false);
@@ -137,6 +168,12 @@ export class VideoPlayer {
   /** The resume point is applied once per source, not on every metadata load. */
   private resumed = false;
 
+  /** Set once real frames have appeared for the current source — see [onWaiting]. */
+  private everPlayed = false;
+  private stallTimer?: ReturnType<typeof setTimeout>;
+  private stallCount = 0;
+  private stallWindowStart = 0;
+
   protected readonly progress = computed(() => {
     const total = this.duration();
     return total ? Math.min(1, this.currentTime() / total) : 0;
@@ -160,6 +197,13 @@ export class VideoPlayer {
   });
 
   protected readonly hasCaptions = computed(() => !!this.subtitleUrl());
+
+  protected readonly fontOptions = SUBTITLE_FONT_OPTIONS;
+  protected readonly subtitleFontKey = this.subtitlePrefs.fontKey;
+  /** The `--subtitle-font` value handed to the `<video>` element — see the `::cue` rule in the stylesheet. */
+  protected readonly subtitleFontValue = computed(
+    () => this.fontOptions.find((option) => option.key === this.subtitleFontKey())?.value ?? 'inherit',
+  );
 
   protected readonly volumeIcon = computed(() => {
     if (this.muted() || !this.volume()) return 'mute';
@@ -187,6 +231,12 @@ export class VideoPlayer {
         this.ended.set(false);
         this.settingsOpen.set(false);
         this.resumed = false;
+        this.everPlayed = false;
+        this.reconnecting.set(false);
+        clearTimeout(this.stallTimer);
+        this.stallTimer = undefined;
+        this.stallCount = 0;
+        this.stallWindowStart = 0;
         this.show();
       }
 
@@ -223,7 +273,10 @@ export class VideoPlayer {
       }
     });
 
-    destroyRef.onDestroy(() => this.stopHeartbeat());
+    destroyRef.onDestroy(() => {
+      this.stopHeartbeat();
+      clearTimeout(this.stallTimer);
+    });
 
     // Android TV's WebView frequently sends DPAD_CENTER to the document after
     // fullscreen has moved focus away from the original `.shell`. Capture it
@@ -290,7 +343,79 @@ export class VideoPlayer {
   protected onPlaying(): void {
     this.waiting.set(false);
     this.opening.set(false);
+    this.everPlayed = true;
+    this.reconnecting.set(false);
+    clearTimeout(this.stallTimer);
+    this.stallTimer = undefined;
     this.playbackReady.emit(this.currentSrc || this.src());
+  }
+
+  /**
+   * The browser stalled mid-playback — a dead CDN edge, a dropped connection.
+   * Distinct from the open-time case (`opening()` is already false here,
+   * `everPlayed` is already true): that one is covered by the page's own
+   * per-candidate timeout and never reaches this at all, since `onWaiting`
+   * below only arms the watchdog once a source has genuinely played.
+   */
+  protected onWaiting(): void {
+    this.waiting.set(true);
+    if (!this.everPlayed || this.scrubbing() || document.hidden) return;
+    this.armStallTimer();
+  }
+
+  protected onCanPlay(): void {
+    this.waiting.set(false);
+    clearTimeout(this.stallTimer);
+    this.stallTimer = undefined;
+  }
+
+  private armStallTimer(): void {
+    clearTimeout(this.stallTimer);
+    this.stallTimer = setTimeout(() => this.onStallTimeout(), STALL_WATCHDOG_MS);
+  }
+
+  /**
+   * First recovery is the cheap one: reload the same element where it left
+   * off, which fixes a transient network blip without abandoning a source
+   * that was otherwise working. Only after this repeats past `STALL_RETRY_LIMIT`
+   * within `STALL_RETRY_WINDOW_MS` does it give up and let the page fail over
+   * to another candidate, via the same [playbackStalledOut] → `resumeRace`
+   * path a hard error already uses.
+   */
+  private onStallTimeout(): void {
+    const element = this.media()?.nativeElement;
+    if (!element) return;
+
+    const now = Date.now();
+    if (now - this.stallWindowStart > STALL_RETRY_WINDOW_MS) {
+      this.stallWindowStart = now;
+      this.stallCount = 0;
+    }
+    this.stallCount += 1;
+
+    if (this.stallCount > STALL_RETRY_LIMIT) {
+      this.playbackStalledOut.emit({
+        src: this.currentSrc || this.src(),
+        positionSeconds: element.currentTime,
+      });
+      return;
+    }
+
+    this.reconnecting.set(true);
+    this.reloadInPlace(element);
+    this.armStallTimer();
+  }
+
+  /** Reopens the same `src` at the same position — a network-level retry, not a new source. */
+  private reloadInPlace(element: HTMLVideoElement): void {
+    const at = element.currentTime;
+    const onMetadata = () => {
+      element.removeEventListener('loadedmetadata', onMetadata);
+      element.currentTime = at;
+      void element.play().catch(() => undefined);
+    };
+    element.addEventListener('loadedmetadata', onMetadata);
+    element.load();
   }
 
   protected onPause(): void {
@@ -341,6 +466,18 @@ export class VideoPlayer {
     this.duration.set(isFinite(element.duration) ? element.duration : 0);
     element.playbackRate = this.speed();
     this.applyCaptions();
+
+    // A stall failover already knows the exact second it left off at, and
+    // takes priority over the percentage below — which still needs the
+    // duration this same event just supplied, so it stays as the fallback
+    // for a title's very first source.
+    const resumeSeconds = this.resumeAtSeconds();
+    if (!this.resumed && resumeSeconds != null && resumeSeconds > 0) {
+      this.resumed = true;
+      element.currentTime = resumeSeconds;
+      this.currentTime.set(element.currentTime);
+      return;
+    }
 
     // Resuming has to wait for the duration: the stored point is a percentage,
     // and there is nothing to turn it into seconds before metadata arrives.
@@ -559,6 +696,10 @@ export class VideoPlayer {
   protected resetSync(): void {
     const current = this.subtitleOffset();
     if (current) this.adjustSync(-current);
+  }
+
+  protected pickFont(key: string): void {
+    this.subtitlePrefs.setFont(key);
   }
 
   /**

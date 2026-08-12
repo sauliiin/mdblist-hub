@@ -1,9 +1,11 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { Observable } from 'rxjs';
+import { GoogleAuthService } from '../../core/google-auth.service';
 import { AddonsService } from '../../core/stremio/addons.service';
 import { ImportReport, InstalledAddon, ManifestResource } from '../../core/stremio/models';
 import { StremioAccountService } from '../../core/stremio/stremio-account.service';
 import { AddonSyncService } from '../../core/sync/addon-sync.service';
+import { PreferencesSyncService } from '../../core/sync/preferences-sync.service';
 
 /** Addons worth pointing people at, with what each one is for. */
 interface Suggestion {
@@ -36,8 +38,14 @@ export class Addons {
   private readonly service = inject(AddonsService);
   private readonly stremio = inject(StremioAccountService);
   private readonly cloud = inject(AddonSyncService);
+  private readonly googleAuth = inject(GoogleAuthService);
+  private readonly preferencesSync = inject(PreferencesSyncService);
 
   // ------------------------------------------------------ firebase sync
+  protected readonly googleLinked = this.googleAuth.linked;
+  protected readonly googleProfile = this.googleAuth.profile;
+  protected readonly googleBusy = signal(false);
+  protected readonly googleError = signal<string | null>(null);
   protected readonly syncOn = this.cloud.enabled;
   protected readonly syncBusy = this.cloud.busy;
   protected readonly syncFailure = this.cloud.error;
@@ -158,6 +166,38 @@ export class Addons {
   }
 
   // ------------------------------------------------------ firebase sync
+
+  /**
+   * The mdblist key's own login screen would be the natural place for this,
+   * but it is guarded to redirect an already-signed-in visitor straight back
+   * out — exactly the audience that needs to link Google to turn sync on. So
+   * this lives here instead, on the one page that is both reachable while
+   * signed in and already about "sync between devices".
+   */
+  protected connectGoogle(): void {
+    if (this.googleBusy()) return;
+
+    this.googleBusy.set(true);
+    this.googleError.set(null);
+
+    this.googleAuth.signIn().subscribe({
+      next: () => {
+        this.googleBusy.set(false);
+        // Best-effort: brings this browser's font choice in line with
+        // whatever was last synced, without blocking the button on it.
+        this.preferencesSync.pull().subscribe({ error: () => undefined });
+      },
+      error: (err: Error) => {
+        this.googleBusy.set(false);
+        this.googleError.set(err.message);
+      },
+    });
+  }
+
+  protected disconnectGoogle(): void {
+    if (this.syncOn()) this.cloud.disable();
+    this.googleAuth.signOut();
+  }
 
   protected toggleSync(): void {
     this.pulled.set(null);

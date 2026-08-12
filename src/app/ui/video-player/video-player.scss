@@ -43,6 +43,7 @@
     // than only on the engines that treat `color` as authoritative.
     color: yellow;
     -webkit-text-fill-color: yellow;
+    font-family: var(--subtitle-font, inherit);
     font-weight: 600;
     font-size: 1.8em;
     line-height: 1.35;
@@ -234,6 +235,18 @@
 }
 
 @keyframes spin { to { transform: rotate(360deg); } }
+
+.spinner-hint {
+  position: absolute;
+  z-index: 5;
+  top: calc(50% + 36px);
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.85em;
+  color: rgba(255, 255, 255, 0.8);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+  white-space: nowrap;
+}
 
 .flash {
   position: absolute;
@@ -514,6 +527,19 @@
   justify-content: space-between;
   gap: 8px;
   padding: 4px 6px 8px;
+}
+
+.font-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 0 4px 6px;
+
+  .menu-item {
+    width: auto;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+  }
 }
 
 .sync-btn {

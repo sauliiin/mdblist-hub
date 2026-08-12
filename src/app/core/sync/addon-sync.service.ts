@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, effect, inject, signal } from '@angular/core';
 import { Observable, catchError, from, map, of, switchMap, throwError } from 'rxjs';
-import { AuthService } from '../auth.service';
+import { GoogleAuthService } from '../google-auth.service';
 import { noCache } from '../http-cache.interceptor';
 import { AddonsService } from '../stremio/addons.service';
 import { InstalledAddon } from '../stremio/models';
@@ -11,9 +11,17 @@ import { InstalledAddon } from '../stremio/models';
  * SDK: two verbs on one path is all this needs, `HttpClient` already speaks
  * them, and the endpoint answers CORS — so the app gains cross-device sync
  * without gaining a dependency.
+ *
+ * This is the same `safevault-fcbdc` project and `users/$uid` tree the
+ * Android and TV apps already sync addons and list preferences under — see
+ * `database.rules.json` — so a device signed into the same Google account on
+ * any of the three shares the same list. Earlier this pointed at a different
+ * project, keyed by a hash of the mdblist key instead of a real `auth.uid`;
+ * that path had no matching rule on this project and so could never have
+ * synced anything, on top of never being reachable from the native apps
+ * either. Google sign-in fixes both at once.
  */
-const DB = 'https://alien-bruin-339920-default-rtdb.firebaseio.com';
-const ROOT = 'mdblist-hub/addons';
+const DB = 'https://safevault-fcbdc-default-rtdb.firebaseio.com';
 const STORAGE_KEY = 'mdblist-hub.sync';
 /** Collapses a burst of installs into a single write. */
 const PUSH_DELAY = 1500;
@@ -38,7 +46,7 @@ class SyncRefusal extends Error {}
 export class AddonSyncService {
   private readonly http = inject(HttpClient);
   private readonly addons = inject(AddonsService);
-  private readonly auth = inject(AuthService);
+  private readonly googleAuth = inject(GoogleAuthService);
 
   private readonly on = signal<boolean>(localStorage.getItem(STORAGE_KEY) === 'on');
   private readonly last = signal<string | null>(null);
@@ -53,14 +61,13 @@ export class AddonSyncService {
   /** Set while a pull is being applied, so it does not echo straight back. */
   private applying = false;
   private pushTimer?: ReturnType<typeof setTimeout>;
-  private token: string | null = null;
 
   constructor() {
     // Any change to the local list — installed, removed, imported from Stremio
     // — becomes a write, debounced so a bulk import is one request.
     effect(() => {
       const addons = this.addons.installed();
-      if (!this.on() || this.applying || !this.auth.key()) return;
+      if (!this.on() || this.applying || !this.googleAuth.linked()) return;
 
       clearTimeout(this.pushTimer);
       this.pushTimer = setTimeout(() => this.push(addons).subscribe(), PUSH_DELAY);
@@ -76,11 +83,11 @@ export class AddonSyncService {
     localStorage.setItem(STORAGE_KEY, 'on');
     this.on.set(true);
 
-    return this.request((token) =>
-      this.read(token).pipe(
+    return this.request((uid, idToken) =>
+      this.read(uid, idToken).pipe(
         switchMap((remote) => {
           const fresh = this.apply(() => this.addons.merge(remote));
-          return this.write(token, this.addons.installed()).pipe(map(() => fresh));
+          return this.write(uid, idToken, this.addons.installed()).pipe(map(() => fresh));
         }),
       ),
     );
@@ -102,7 +109,7 @@ export class AddonSyncService {
    * never arrive — worse, the next push would put it back.
    *
    * An empty read is the one thing never applied. It is ambiguous — a
-   * genuinely empty list is indistinguishable from a token never written to, a
+   * genuinely empty list is indistinguishable from a `uid` never written to, a
    * payload that failed to parse, or Firebase answering `null`, all of which
    * `read` flattens to `[]`. Replacing on that wipes a working set of addons
    * and leaves nothing behind, and because the effect in the constructor
@@ -111,8 +118,8 @@ export class AddonSyncService {
    * destructive reading is refused outright and the local list is kept.
    */
   pull(): Observable<number> {
-    return this.request((token) =>
-      this.read(token).pipe(
+    return this.request((uid, idToken) =>
+      this.read(uid, idToken).pipe(
         map((remote) => {
           if (!remote.length) {
             throw new SyncRefusal(
@@ -131,20 +138,25 @@ export class AddonSyncService {
 
   /** Writes the local list out, replacing whatever was there. */
   push(addons = this.addons.installed()): Observable<number> {
-    return this.request((token) => this.write(token, addons).pipe(map(() => addons.length)));
+    return this.request((uid, idToken) =>
+      this.write(uid, idToken, addons).pipe(map(() => addons.length)),
+    );
   }
 
-  private read(token: string): Observable<InstalledAddon[]> {
+  private read(uid: string, idToken: string): Observable<InstalledAddon[]> {
     return this.http
-      .get<Payload | null>(`${DB}/${ROOT}/${token}.json`, { context: noCache() })
+      .get<Payload | null>(`${DB}/users/${uid}/addons.json`, {
+        params: { auth: idToken },
+        context: noCache(),
+      })
       .pipe(map((payload) => payload?.addons ?? []));
   }
 
-  private write(token: string, addons: InstalledAddon[]): Observable<unknown> {
+  private write(uid: string, idToken: string, addons: InstalledAddon[]): Observable<unknown> {
     return this.http.put(
-      `${DB}/${ROOT}/${token}.json`,
+      `${DB}/users/${uid}/addons.json`,
       { updatedAt: new Date().toISOString(), addons } satisfies Payload,
-      { context: noCache() },
+      { params: { auth: idToken }, context: noCache() },
     );
   }
 
@@ -162,19 +174,12 @@ export class AddonSyncService {
     }
   }
 
-  private request(call: (token: string) => Observable<number>): Observable<number> {
-    if (!this.auth.key()) {
-      return throwError(() => new Error('Entre com sua chave do mdblist primeiro.'));
-    }
-
-    // `crypto.subtle` only exists in a secure context, so the token cannot be
-    // derived over plain http on a LAN address — which is exactly how a phone
-    // reaches the dev server. Worth naming: the network error this would
-    // otherwise surface as sends people looking in the wrong place.
-    if (!crypto?.subtle) {
-      const message =
-        'A sincronização precisa de https (ou localhost). Neste endereço o navegador não ' +
-        'expõe a API de criptografia usada para derivar sua chave de sincronização.';
+  private request(
+    call: (uid: string, idToken: string) => Observable<number>,
+  ): Observable<number> {
+    const uid = this.googleAuth.uid();
+    if (!uid) {
+      const message = 'Conecte sua conta Google primeiro.';
       this.failure.set(message);
       return throwError(() => new Error(message));
     }
@@ -182,8 +187,8 @@ export class AddonSyncService {
     this.working.set(true);
     this.failure.set(null);
 
-    return from(this.syncToken()).pipe(
-      switchMap(call),
+    return from(this.googleAuth.idToken()).pipe(
+      switchMap((idToken) => call(uid, idToken)),
       map((count) => {
         this.working.set(false);
         this.last.set(new Date().toISOString());
@@ -198,25 +203,5 @@ export class AddonSyncService {
         return throwError(() => (refused ? cause : new Error('sync falhou')));
       }),
     );
-  }
-
-  /**
-   * The path segment the list is stored under: SHA-256 of the mdblist API key.
-   *
-   * Keying on the key rather than on the account id means the path is itself a
-   * secret — someone who knows your mdblist username still cannot construct it.
-   * That only holds up if the database rules also refuse to list the children
-   * of `mdblist-hub/addons`; see the README.
-   */
-  private async syncToken(): Promise<string> {
-    if (this.token) return this.token;
-
-    const bytes = new TextEncoder().encode(`mdblist-hub:${this.auth.key()}`);
-    const digest = await crypto.subtle.digest('SHA-256', bytes);
-
-    this.token = [...new Uint8Array(digest)]
-      .map((b) => b.toString(16).padStart(2, '0'))
-      .join('');
-    return this.token;
   }
 }
