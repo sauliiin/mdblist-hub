@@ -33,14 +33,6 @@ export const API = {
   },
 } as const;
 
-/**
- * The site owner's mdblist username, lowercased. Signing in with this account
- * unlocks the curated home — the hand-picked lists renamed to Portuguese in
- * `list-catalog.ts`. Every other account sees all of its own lists instead,
- * in alphabetical order.
- */
-export const OWNER_USERNAME = 'mestreyodarossi';
-
 export type TmdbImageSize =
   | 'w92' | 'w154' | 'w185' | 'w200' | 'w300' | 'w342' | 'w500' | 'w780'
   | 'w1280' | 'original';

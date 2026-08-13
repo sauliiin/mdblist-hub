@@ -9,6 +9,7 @@
     class="media"
     [class.stretched]="stretch()"
     [style.--subtitle-font]="subtitleFontValue()"
+    [style.--subtitle-color]="subtitleColorValue()"
     [src]="src()"
     autoplay
     playsinline
@@ -169,6 +170,35 @@
 
       <span class="spacer"></span>
 
+      @if (sourceOptions().length > 1) {
+        <div class="sources">
+          <button
+            #sourcesButton
+            type="button"
+            class="icon"
+            data-player-control
+            (click)="toggleSourcesMenu()"
+            aria-label="Fontes"
+            title="Fontes">
+            <svg viewBox="0 0 24 24"><path d="M4 6a2 2 0 012-2h12a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm0 10a2 2 0 012-2h12a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2z" /></svg>
+          </button>
+
+          @if (sourcesMenuOpen()) {
+            <div class="menu sources-menu">
+              <p class="menu-head">Fontes</p>
+              @for (option of sourceOptions(); track option.key) {
+                <button type="button" class="menu-item" [class.on]="activeSourceKey() === option.key"
+                        (click)="pickSource(option)">
+                  {{ option.quality || option.title }}
+                  <small>· {{ option.addon }}{{ option.size ? ' · ' + option.size : '' }}</small>
+                  @if (option.warning) { <small class="menu-warning">⚠ {{ option.warning }}</small> }
+                </button>
+              }
+            </div>
+          }
+        </div>
+      }
+
       <div class="captions">
         <button
           #captionsButton
@@ -210,17 +240,25 @@
 
             @if (hasCaptions()) {
               <div class="menu-divider"></div>
-              <p class="menu-head">Sincronia</p>
-              <div class="sync-row">
-                <button type="button" class="sync-btn" (click)="adjustSync(-0.5)" aria-label="Adiantar meio segundo">
-                  −0,5s
-                </button>
+              <p class="menu-head">
+                Sincronia
                 <span class="sync-value">
                   {{ subtitleOffset() > 0 ? '+' : '' }}{{ subtitleOffset().toFixed(1) }}s
                 </span>
-                <button type="button" class="sync-btn" (click)="adjustSync(0.5)" aria-label="Atrasar meio segundo">
-                  +0,5s
-                </button>
+              </p>
+              <div class="sync-row">
+                <input
+                  #syncRange
+                  class="sync-slider"
+                  type="range"
+                  [min]="-maxSubtitleOffset"
+                  [max]="maxSubtitleOffset"
+                  step="0.1"
+                  [value]="subtitleOffset()"
+                  [style.--fill-lo]="syncFillLo()"
+                  [style.--fill-hi]="syncFillHi()"
+                  (input)="onSyncInput($event)"
+                  aria-label="Sincronia da legenda" />
               </div>
               @if (subtitleOffset()) {
                 <button type="button" class="menu-item" (click)="resetSync()">Repor sincronia</button>
@@ -236,6 +274,29 @@
                   </button>
                 }
               </div>
+
+              <div class="menu-divider"></div>
+              <p class="menu-head">Cor</p>
+              <div class="color-row">
+                @for (option of colorOptions; track option.key) {
+                  <button type="button" class="color-btn" [class.on]="subtitleColorKey() === option.key"
+                          [style.--swatch]="option.value" (click)="pickColor(option.key)"
+                          [attr.aria-label]="option.label" [attr.aria-pressed]="subtitleColorKey() === option.key">
+                    <span class="swatch"></span>
+                  </button>
+                }
+              </div>
+            }
+
+            @if (audioTrackOptions().length > 1) {
+              <div class="menu-divider"></div>
+              <p class="menu-head">Áudio</p>
+              @for (option of audioTrackOptions(); track option.index) {
+                <button type="button" class="menu-item" [class.on]="activeAudioIndex() === option.index"
+                        (click)="pickAudioTrack(option.index)">
+                  {{ option.label }}
+                </button>
+              }
             }
           </div>
         }

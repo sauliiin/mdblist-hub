@@ -2,10 +2,33 @@ import {
   ChangeDetectionStrategy, Component, DestroyRef, ElementRef, computed, effect, inject, input,
   output, signal, viewChild,
 } from '@angular/core';
-import { SubtitleOption } from '../../core/stremio/models';
-import { SUBTITLE_FONT_OPTIONS, SubtitlePrefsService } from '../../core/subtitle-prefs.service';
+import { PlayableStream, SubtitleOption } from '../../core/stremio/models';
+import {
+  SUBTITLE_COLOR_OPTIONS,
+  SUBTITLE_FONT_OPTIONS,
+  SubtitlePrefsService,
+} from '../../core/subtitle-prefs.service';
 import { TvService } from '../../core/tv/tv.service';
 import { isLikelyRemovalNotice } from './decoy-detector';
+
+/**
+ * `HTMLMediaElement.audioTracks` — real in every mainstream browser, but a
+ * WHATWG-abandoned API that never made it into TypeScript's DOM lib. Kept
+ * narrow: only the members this file actually reads.
+ */
+interface AudioTrack {
+  id: string;
+  label: string;
+  language: string;
+  enabled: boolean;
+}
+interface AudioTrackList extends EventTarget {
+  readonly length: number;
+  [index: number]: AudioTrack;
+}
+interface AudioTrackCapableElement extends HTMLMediaElement {
+  audioTracks?: AudioTrackList;
+}
 
 /** What the settings menu offers, in YouTube's own steps. */
 const SPEEDS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
@@ -13,6 +36,14 @@ const SPEEDS = [0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
 const HIDE_AFTER = 2600;
 /** How often a playing session refreshes its stored point on mdblist. */
 const HEARTBEAT = 60_000;
+
+/**
+ * Each end of the subtitle sync slider. 10s covers a subtitle matched to the
+ * wrong release; 60s covers one matched to the wrong *cut* — an extended
+ * edition, or a broadcast master with the recap trimmed — which used to be
+ * unreachable here (matches the native apps' `MAX_SUBTITLE_OFFSET_MS`).
+ */
+const MAX_SUBTITLE_OFFSET = 60;
 
 /**
  * How long `waiting` may persist, once real playback has already started,
@@ -72,6 +103,18 @@ export class VideoPlayer {
   readonly subtitleError = input<string | null>(null);
   /** `null` means "turn subtitles off", same as the sidebar's own dropdown. */
   readonly subtitleSelect = output<SubtitleOption | null>();
+
+  /**
+   * Only ever populated once something is already playing — `Player` mounts
+   * this component solely once a source is `selected()`, so there is no way
+   * for this control to appear while the automatic cascade still has an
+   * unexhausted candidate to try on its own. Swapping a source that is
+   * already playing is a later, independent decision from the race itself.
+   */
+  readonly sourceOptions = input<PlayableStream[]>([]);
+  readonly activeSourceKey = input<string | null>(null);
+  readonly sourceSelect = output<PlayableStream>();
+
   /** Shown over the top edge in fullscreen, where the page header is gone. */
   readonly mediaTitle = input<string>('');
   readonly mediaSubtitle = input<string | null>(null);
@@ -125,7 +168,9 @@ export class VideoPlayer {
   private readonly track = viewChild<ElementRef<HTMLDivElement>>('track');
   private readonly trackEl = viewChild<ElementRef<HTMLTrackElement>>('trackEl');
   private readonly captionsButton = viewChild<ElementRef<HTMLButtonElement>>('captionsButton');
+  private readonly sourcesButton = viewChild<ElementRef<HTMLButtonElement>>('sourcesButton');
   private readonly settingsButton = viewChild<ElementRef<HTMLButtonElement>>('settingsButton');
+  private readonly syncRange = viewChild<ElementRef<HTMLInputElement>>('syncRange');
 
   protected readonly playing = signal(false);
   protected readonly waiting = signal(false);
@@ -145,11 +190,28 @@ export class VideoPlayer {
   protected readonly fullscreen = signal(false);
   protected readonly settingsOpen = signal(false);
   protected readonly captionsMenuOpen = signal(false);
+  protected readonly sourcesMenuOpen = signal(false);
   protected readonly controls = signal(true);
   protected readonly stretch = signal(false);
 
   /** Seconds shifted from the addon's original timing — negative moves cues earlier. */
   protected readonly subtitleOffset = signal(0);
+  protected readonly maxSubtitleOffset = MAX_SUBTITLE_OFFSET;
+  /**
+   * The slider fills from its centre (zero) outward rather than from the left
+   * edge — zero is the meaningful origin here, and which side of it the value
+   * sits on is the first thing worth reading off the bar. Two stops instead
+   * of one because a bidirectional fill needs a low and a high edge; on the
+   * positive side both sit past 50%, on the negative side both sit before it.
+   */
+  protected readonly syncFillLo = computed(() => {
+    const ratio = (this.subtitleOffset() + MAX_SUBTITLE_OFFSET) / (MAX_SUBTITLE_OFFSET * 2);
+    return `${Math.min(50, ratio * 100)}%`;
+  });
+  protected readonly syncFillHi = computed(() => {
+    const ratio = (this.subtitleOffset() + MAX_SUBTITLE_OFFSET) / (MAX_SUBTITLE_OFFSET * 2);
+    return `${Math.max(50, ratio * 100)}%`;
+  });
 
   /** Where the pointer sits over the scrub bar, for the time bubble. */
   protected readonly hoverRatio = signal<number | null>(null);
@@ -198,11 +260,29 @@ export class VideoPlayer {
 
   protected readonly hasCaptions = computed(() => !!this.subtitleUrl());
 
+  /**
+   * Populated only when the browser actually reports more than one track —
+   * see `setupAudioTracks`. Almost never happens for this app's real sources
+   * (progressive MP4/WebM rarely ship multiple audio tracks, and MKV, which
+   * commonly does, never demuxes in a browser at all — see the README's
+   * "Containers e HLS" limitation), so the menu section this backs stays
+   * absent for the overwhelming majority of sessions, by design.
+   */
+  protected readonly audioTrackOptions = signal<{ index: number; label: string }[]>([]);
+  protected readonly activeAudioIndex = signal(0);
+
   protected readonly fontOptions = SUBTITLE_FONT_OPTIONS;
   protected readonly subtitleFontKey = this.subtitlePrefs.fontKey;
   /** The `--subtitle-font` value handed to the `<video>` element — see the `::cue` rule in the stylesheet. */
   protected readonly subtitleFontValue = computed(
     () => this.fontOptions.find((option) => option.key === this.subtitleFontKey())?.value ?? 'inherit',
+  );
+
+  protected readonly colorOptions = SUBTITLE_COLOR_OPTIONS;
+  protected readonly subtitleColorKey = this.subtitlePrefs.colorKey;
+  /** The `--subtitle-color` value handed to the `<video>` element — see the `::cue` rule in the stylesheet. */
+  protected readonly subtitleColorValue = computed(
+    () => this.colorOptions.find((option) => option.key === this.subtitleColorKey())?.value ?? '#ffeb3b',
   );
 
   protected readonly volumeIcon = computed(() => {
@@ -466,6 +546,7 @@ export class VideoPlayer {
     this.duration.set(isFinite(element.duration) ? element.duration : 0);
     element.playbackRate = this.speed();
     this.applyCaptions();
+    this.setupAudioTracks(element);
 
     // A stall failover already knows the exact second it left off at, and
     // takes priority over the percentage below — which still needs the
@@ -489,6 +570,48 @@ export class VideoPlayer {
     }
   }
 
+  /**
+   * Reads whatever `audioTracks` the browser demuxed out of this source and
+   * only surfaces a menu for it when there is an actual choice — see the doc
+   * comment on `audioTrackOptions` for why that's rare for this app's real
+   * sources. Re-reads from scratch on every load, since each new source is a
+   * different file with its own track count.
+   */
+  private setupAudioTracks(element: AudioTrackCapableElement): void {
+    const tracks = element.audioTracks;
+    if (!tracks) {
+      this.audioTrackOptions.set([]);
+      return;
+    }
+
+    const sync = () => {
+      const options: { index: number; label: string }[] = [];
+      let active = 0;
+      for (let i = 0; i < tracks.length; i++) {
+        const track = tracks[i];
+        options.push({ index: i, label: track.label || track.language || `Faixa ${i + 1}` });
+        if (track.enabled) active = i;
+      }
+      this.audioTrackOptions.set(options.length > 1 ? options : []);
+      this.activeAudioIndex.set(active);
+    };
+
+    sync();
+    tracks.addEventListener('addtrack', sync);
+    tracks.addEventListener('removetrack', sync);
+    tracks.addEventListener('change', sync);
+  }
+
+  protected pickAudioTrack(index: number): void {
+    const tracks = (this.media()?.nativeElement as AudioTrackCapableElement | undefined)?.audioTracks;
+    if (!tracks) return;
+
+    // Exactly one enabled at a time — the browser doesn't enforce that on its
+    // own, unlike a native `<select>`.
+    for (let i = 0; i < tracks.length; i++) tracks[i].enabled = i === index;
+    this.activeAudioIndex.set(index);
+  }
+
   protected onMediaError(failedSrc?: string): void {
     this.playing.set(false);
     this.waiting.set(false);
@@ -499,6 +622,11 @@ export class VideoPlayer {
     // source. Only `showFailure()` removes it after every retry is exhausted.
     const elementSrc = this.media()?.nativeElement.currentSrc;
     this.playbackError.emit(failedSrc || elementSrc || this.currentSrc || this.src());
+  }
+
+  /** Where a manual source swap should resume — see `Player.pickManually`. */
+  currentPositionSeconds(): number {
+    return this.currentTime();
   }
 
   /** Called by the page only after every source and retry has failed. */
@@ -669,12 +797,32 @@ export class VideoPlayer {
     const open = !this.captionsMenuOpen();
     this.captionsMenuOpen.set(open);
     this.settingsOpen.set(false);
+    this.sourcesMenuOpen.set(false);
     if (open && this.tv.isTv()) setTimeout(() => this.focusMenuItem('.captions-menu'));
+  }
+
+  /** Swapping the source that is already playing — see the doc comment on `sourceOptions`. */
+  protected pickSource(stream: PlayableStream): void {
+    this.sourceSelect.emit(stream);
+    this.sourcesMenuOpen.set(false);
+    if (this.tv.isTv()) setTimeout(() => this.sourcesButton()?.nativeElement.focus());
+  }
+
+  protected toggleSourcesMenu(): void {
+    const open = !this.sourcesMenuOpen();
+    this.sourcesMenuOpen.set(open);
+    this.settingsOpen.set(false);
+    this.captionsMenuOpen.set(false);
+    if (open && this.tv.isTv()) setTimeout(() => this.focusMenuItem('.sources-menu'));
   }
 
   /**
    * Shifts every cue of the loaded track by `deltaSeconds`, for a subtitle that
-   * drifts against a release the addon did not time it for.
+   * drifts against a release the addon did not time it for. Clamped to
+   * `±MAX_SUBTITLE_OFFSET`, and only the *actually-applied* delta (after
+   * clamping) ever reaches the cues — otherwise a request that overshoots the
+   * limit would still nudge them by the full, unclamped amount, and the live
+   * cues would silently drift out of step with the displayed offset.
    *
    * `TextTrackCue.startTime`/`endTime` are live and mutable — editing them
    * in place is the whole mechanism; there is no separate "apply" step. This
@@ -682,15 +830,30 @@ export class VideoPlayer {
    * subtitle starts fresh rather than inheriting the old drift.
    */
   protected adjustSync(deltaSeconds: number): void {
-    const cues = this.trackEl()?.nativeElement.track?.cues;
-    if (!cues?.length) return;
+    const current = this.subtitleOffset();
+    const target = clamp(
+      Math.round((current + deltaSeconds) * 10) / 10,
+      -MAX_SUBTITLE_OFFSET,
+      MAX_SUBTITLE_OFFSET,
+    );
+    const applied = target - current;
+    if (!applied) return;
 
-    for (let i = 0; i < cues.length; i++) {
-      cues[i].startTime += deltaSeconds;
-      cues[i].endTime += deltaSeconds;
+    const cues = this.trackEl()?.nativeElement.track?.cues;
+    if (cues?.length) {
+      for (let i = 0; i < cues.length; i++) {
+        cues[i].startTime += applied;
+        cues[i].endTime += applied;
+      }
     }
 
-    this.subtitleOffset.update((v) => Math.round((v + deltaSeconds) * 10) / 10);
+    this.subtitleOffset.set(target);
+  }
+
+  /** The slider's `(input)` handler — converts its absolute value into the delta `adjustSync` expects. */
+  protected onSyncInput(event: Event): void {
+    const value = Number((event.target as HTMLInputElement).value);
+    this.adjustSync(value - this.subtitleOffset());
   }
 
   protected resetSync(): void {
@@ -700,6 +863,10 @@ export class VideoPlayer {
 
   protected pickFont(key: string): void {
     this.subtitlePrefs.setFont(key);
+  }
+
+  protected pickColor(key: string): void {
+    this.subtitlePrefs.setColor(key);
   }
 
   /**
@@ -744,6 +911,7 @@ export class VideoPlayer {
     const open = !this.settingsOpen();
     this.settingsOpen.set(open);
     this.captionsMenuOpen.set(false);
+    this.sourcesMenuOpen.set(false);
     if (open && this.tv.isTv()) setTimeout(() => this.focusMenuItem('.settings .menu'));
   }
 
@@ -892,6 +1060,25 @@ export class VideoPlayer {
     const active = document.activeElement as HTMLButtonElement | null;
     const index = items.indexOf(active!);
 
+    // The sync slider lives in this same menu but isn't a `button`, so it's
+    // invisible to `items` above — left unhandled, arrowleft would fall into
+    // the close-menu branch below instead of nudging it, and arrowright
+    // matches nothing here at all and falls through to the outer key switch,
+    // which seeks the *video* 5s instead. Handling both directly, before
+    // either of those branches, is what keeps focus on the slider actually
+    // move the slider.
+    if (document.activeElement === this.syncRange()?.nativeElement) {
+      if (key === 'arrowleft') this.adjustSync(-0.1);
+      else if (key === 'arrowright') this.adjustSync(0.1);
+      else if (key === 'home') this.adjustSync(-this.maxSubtitleOffset);
+      else if (key === 'end') this.adjustSync(this.maxSubtitleOffset);
+      else return false;
+
+      this.consume(event);
+      this.wake();
+      return true;
+    }
+
     if (key === 'arrowdown' || key === 'arrowup') {
       const step = key === 'arrowdown' ? 1 : -1;
       const next = index < 0
@@ -903,11 +1090,18 @@ export class VideoPlayer {
       (items.includes(active!) ? active! : items[0]).click();
     } else if (key === 'arrowleft' || key === 'escape' || key === 'backspace') {
       const captions = this.captionsMenuOpen();
+      const sources = this.sourcesMenuOpen();
       this.captionsMenuOpen.set(false);
       this.settingsOpen.set(false);
-      setTimeout(() => (captions
-        ? this.captionsButton()?.nativeElement
-        : this.settingsButton()?.nativeElement)?.focus());
+      this.sourcesMenuOpen.set(false);
+      setTimeout(() => {
+        const target = captions
+          ? this.captionsButton()
+          : sources
+            ? this.sourcesButton()
+            : this.settingsButton();
+        target?.nativeElement.focus();
+      });
     } else {
       return false;
     }
@@ -936,8 +1130,9 @@ export class VideoPlayer {
     } else if (key === 'arrowup') {
       this.focusShell();
     } else if (key === 'arrowdown') {
-      // Down on CC/settings opens that menu; on other controls it remains put.
+      // Down on CC/sources/settings opens that menu; on other controls it remains put.
       if (active === this.captionsButton()?.nativeElement ||
+          active === this.sourcesButton()?.nativeElement ||
           active === this.settingsButton()?.nativeElement) active.click();
     } else {
       return false;

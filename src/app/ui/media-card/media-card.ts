@@ -1,10 +1,12 @@
 import {
-  ChangeDetectionStrategy, Component, OnDestroy, computed, inject, input,
+  ChangeDetectionStrategy, Component, ElementRef, OnDestroy, computed, effect, inject, input,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { upscalePoster } from '../../core/api.config';
+import { LandscapeArtworkService } from '../../core/landscape-artwork.service';
 import { MdbItem, formatYear, titleWithYear, toTmdbType } from '../../core/models';
 import { PrefetchService } from '../../core/prefetch.service';
+import { ThemePrefsService } from '../../core/theme-prefs.service';
 import { TvService } from '../../core/tv/tv.service';
 
 @Component({
@@ -17,6 +19,9 @@ import { TvService } from '../../core/tv/tv.service';
 export class MediaCard implements OnDestroy {
   private readonly tv = inject(TvService);
   private readonly prefetch = inject(PrefetchService);
+  private readonly landscapeArt = inject(LandscapeArtworkService);
+  private readonly host: ElementRef<HTMLElement> = inject(ElementRef);
+  protected readonly theme = inject(ThemePrefsService).themeKey;
 
   private prefetchTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -34,6 +39,17 @@ export class MediaCard implements OnDestroy {
   protected readonly poster = computed(() =>
     upscalePoster(this.item().poster, this.tv.isTv() ? 'w185' : 'w342'),
   );
+
+  /**
+   * Real landscape art on Primefly, `null` while unresolved or unavailable
+   * — the fallback tile below shows the title rather than ever falling back
+   * to a cropped portrait `poster`. Every other theme just shows the poster.
+   */
+  protected readonly artwork = computed(() => {
+    if (this.theme() !== 'primefly') return this.poster();
+    return this.landscapeArt.get(this.item().mediatype, this.item().id) ?? null;
+  });
+
   protected readonly link = computed(() => ['/title', toTmdbType(this.item().mediatype), this.item().id]);
   protected readonly label = computed(() =>
     titleWithYear(this.item().title, this.item().release_year),
@@ -45,6 +61,34 @@ export class MediaCard implements OnDestroy {
     const value = this.item().ratings?.find((r) => r.source === 'imdb')?.value;
     return typeof value === 'number' ? value : null;
   });
+
+  constructor() {
+    /*
+     * Real landscape art costs a TMDB call per title, so it is only ever
+     * requested once this exact card has scrolled into view — the closest
+     * web equivalent of Compose's LazyRow only composing what is on screen
+     * (native never pays for artwork the viewer never scrolled to either).
+     * `rootMargin` starts the fetch a little before the card is actually
+     * visible, so the swap from the poster placeholder rarely gets caught
+     * mid-scroll.
+     */
+    effect((onCleanup) => {
+      if (this.theme() !== 'primefly') return;
+
+      const item = this.item();
+      const observer = new IntersectionObserver(
+        (entries) => {
+          if (entries[0]?.isIntersecting) {
+            this.landscapeArt.request(item.mediatype, item.id);
+            observer.disconnect();
+          }
+        },
+        { rootMargin: '200px' },
+      );
+      observer.observe(this.host.nativeElement);
+      onCleanup(() => observer.disconnect());
+    });
+  }
 
   /*
    * Prefetch do detalhe: foco (D-pad na TV) e hover armam um timer curto —

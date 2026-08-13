@@ -5,7 +5,7 @@ import { AuthService } from './auth.service';
 
 /**
  * Blocks the app until a stored key has been checked against mdblist. Waiting
- * here means every component below can read `AuthService.isOwner()` straight
+ * here means every component below can read `AuthService.user()` straight
  * away, without racing the `/user` call.
  */
 export const authGuard: CanActivateFn = (_route, state) => {

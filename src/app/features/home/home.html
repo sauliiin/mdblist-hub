@@ -76,8 +76,14 @@
       <div class="results shell">
         @for (result of visibleResults(); track result.key) {
           <a class="result" [routerLink]="['/title', result.tmdbType, result.id]">
-            <div class="poster">
-              @if (result.poster) {
+            <div class="poster" [class.landscape]="theme() === 'primefly'">
+              @if (theme() === 'primefly') {
+                @if (result.backdrop) {
+                  <img [src]="result.backdrop" [alt]="result.title" loading="lazy" />
+                } @else {
+                  <div class="poster-empty landscape">{{ result.title }}</div>
+                }
+              } @else if (result.poster) {
                 <img [src]="result.poster" [alt]="result.title" loading="lazy" />
               } @else {
                 <div class="poster-empty">{{ result.title.charAt(0) }}</div>

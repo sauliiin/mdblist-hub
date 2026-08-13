@@ -38,21 +38,96 @@
   &:hover { opacity: 0.82; }
 }
 
-/* The mdblist logo itself — it already carries its own rounded blue tile. */
+/* The Open Stream mark — a neon ring on black, so a soft cyan glow reads
+   better than the old logo's flat drop shadow. */
 .mark {
   width: 32px;
   height: 32px;
   border-radius: 9px;
-  box-shadow: 0 8px 22px rgba(66, 133, 205, 0.35);
+  box-shadow: 0 8px 22px rgba(0, 243, 255, 0.28);
 }
 
+/**
+ * Same brand gradient and travel as the native apps' `AnimatedOpenStreamTitle`
+ * (Compose): five stops, mirrored so it bounces rather than snapping back,
+ * one loop every 2.8s. `background-clip: text` is the web equivalent of a
+ * Compose `Brush` painted through a text glyph mask.
+ */
 .name {
-  font-size: 16.5px;
-  font-weight: 500;
+  font-size: 17px;
+  font-weight: 800;
   letter-spacing: -0.02em;
-  color: var(--text-dim);
+  background: linear-gradient(
+    90deg,
+    #00f3ff,
+    #7c5cff,
+    #ff00aa,
+    #bfffff,
+    #00f3ff
+  );
+  background-size: 200% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  animation: brand-gradient-travel 2.8s linear infinite;
+}
 
-  strong { color: var(--text); font-weight: 800; }
+@keyframes brand-gradient-travel {
+  from { background-position: 0% 0; }
+  to { background-position: -200% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .name { animation: none; background-position: -70% 0; }
+}
+
+.theme-picker {
+  position: relative;
+}
+
+.theme-btn {
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text-dim);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.2s var(--ease), color 0.2s var(--ease);
+
+  &:hover, &:focus-visible { border-color: var(--border-strong); color: var(--text); }
+}
+
+.theme-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 5;
+  min-width: 140px;
+  padding: 6px;
+  border-radius: var(--radius-sm);
+  background: rgba(14, 15, 22, 0.96);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+}
+
+.theme-option {
+  display: block;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: var(--text-dim);
+  font-family: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover, &:focus-visible { background: var(--surface-strong); color: var(--text); }
+  &.on { color: var(--accent); font-weight: 600; }
 }
 
 .links {

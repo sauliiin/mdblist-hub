@@ -77,6 +77,44 @@ h1 {
   margin-bottom: 14px;
 }
 
+.hero-logo {
+  display: block;
+  max-width: min(560px, 78%);
+  max-height: 140px;
+  object-fit: contain;
+  object-position: left bottom;
+  margin-bottom: 14px;
+  filter: drop-shadow(0 6px 32px rgba(0, 0, 0, 0.55));
+}
+
+/*
+ * The `<img alt>` on `.hero-logo` already carries the title as its
+ * accessible name, so leaving `.title-fallback` visible alongside it would
+ * have a screen reader announce the title twice. `display: none` (not a
+ * visually-hidden clip) drops it from the accessibility tree entirely
+ * rather than just hiding it from sight.
+ */
+.hero:has(.hero-logo) .title-fallback {
+  display: none;
+}
+
+/*
+ * Short viewports — phone landscape chief among them — never have room for
+ * both the hero copy and a tall logo mark. Same call the native apps make
+ * with `logoUrl.takeUnless { isLandscape }`, translated from "is landscape"
+ * to "is short": a wide desktop window has plenty of vertical room at any
+ * aspect ratio, so height is the thing that actually matters here.
+ */
+@media (max-height: 500px) {
+  .hero:has(.hero-logo) .title-fallback {
+    display: block;
+  }
+
+  .hero-logo {
+    display: none;
+  }
+}
+
 .meta {
   display: flex;
   align-items: center;

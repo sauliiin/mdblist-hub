@@ -23,6 +23,23 @@
   --card-w: clamp(113px, 9.22vw, 178px);
 }
 
+/* Primefly: wider 16:9 cards need more width to read at the same height —
+   same number `continue-watching` already uses for its own landscape cards. */
+:host-context(body.primefly-theme) {
+  --card-w: 260px;
+}
+
+:host-context(html.tv):host-context(body.primefly-theme) {
+  --card-w: clamp(170px, 13.9vw, 268px);
+}
+
+:host-context(body.primefly-theme) {
+  .card-skeleton .poster,
+  .load-more {
+    aspect-ratio: 16 / 9;
+  }
+}
+
 .row {
   padding-block: 6px 30px;
 }

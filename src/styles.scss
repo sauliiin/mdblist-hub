@@ -463,44 +463,7 @@ body.cyberpunk-theme .topbar *:focus-within {
   text-shadow: 0 0 2px rgba(0, 243, 255, 0.5);
 }
 
-.cyberpunk-btn {
-  margin-right: 15px;
-  background: rgba(255, 0, 60, 0.1);
-  color: var(--accent);
-  border: 1px solid var(--accent);
-  box-shadow: none;
-  padding: 3px 8px;
-  font-size: 11px;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  font-weight: 700;
-  border-radius: 0;
-  clip-path: polygon(10% 0, 100% 0, 100% 70%, 90% 100%, 0 100%, 0 30%);
-  transition: all 0.3s ease;
-}
-
-body.cyberpunk-theme .cyberpunk-btn {
-  border-color: #00f3ff;
-  color: #00f3ff;
-  background: rgba(0, 243, 255, 0.1);
-  box-shadow: 0 0 10px rgba(0, 243, 255, 0.2);
-  text-shadow: 0 0 5px rgba(0, 243, 255, 0.5);
-}
-
-.cyberpunk-btn:hover {
-  background: var(--accent);
-  color: #fff;
-  box-shadow: 0 0 20px var(--accent);
-}
-
-body.cyberpunk-theme .cyberpunk-btn:hover {
-  background: #00f3ff;
-  color: #050510;
-  box-shadow: 0 0 15px #00f3ff, 0 0 30px #00f3ff;
-  text-shadow: none;
-}
-
-body.cyberpunk-theme h1, 
+body.cyberpunk-theme h1,
 body.cyberpunk-theme h2, 
 body.cyberpunk-theme h3 {
   color: #fff;
@@ -575,15 +538,70 @@ body.cyberpunk-theme .result:hover .poster::after {
   will-change: --cyberpunk-neon-angle;
 }
 
-body.cyberpunk-theme .brand .name {
-  color: #fff;
-  text-shadow: 
-    -2px 0 #00f3ff,
-    2px 0 #ff003c;
-  letter-spacing: 1px;
+/*
+ * No Cyberpunk override for `.brand .name` any more — the brand mark is now
+ * the same animated gradient wordmark on every theme (see `app.scss`), and
+ * `.topbar *` is already excluded from the blanket neon text-shadow rule
+ * above, so it already reads cleanly here without one. The old override
+ * targeted a `<strong>` split that the markup no longer has.
+ */
+
+/* ============================================================
+   Netflixy / Primefly Themes
+   ============================================================
+   Both stay deliberately plain next to Cyberpunk above: real streaming-app
+   chrome, not a glitch aesthetic — no scanlines, no monospace, no neon
+   focus rings. Re-theming the handful of tokens every surface in this
+   stylesheet already reads from (`--bg`, `--text`, `--accent`, `--surface`,
+   `--border`, `--poster-focus`) is what carries the whole site with no
+   per-component overrides, the same way the base theme itself works.
+
+   `--surface`/`--surface-strong`/`--border` stay *translucent* tints over
+   artwork here, matching the base theme's own values and Cyberpunk's cyan
+   tints just above — not the opaque flat panel colours the native apps'
+   `Color.kt` uses for the same names. Compose has real solid card surfaces;
+   this site's cards are backdrops with a tinted glass overlay, so an opaque
+   paste-in would look like a flat grey box instead. */
+
+body.netflixy-theme {
+  --bg: #080001;
+  --bg-elev: #0d0202;
+  --text: #ffffff;
+  --text-dim: #b3b3b3;
+  --text-faint: #808080;
+  --accent: #e50914;
+  --accent-2: #ff1f2d;
+  --accent-glow: rgba(229, 9, 20, 0.5);
+  --poster-focus: #e50914;
+  --poster-focus-glow: rgba(229, 9, 20, 0.55);
+  --surface: rgba(229, 9, 20, 0.05);
+  --surface-strong: rgba(229, 9, 20, 0.12);
+  --border: rgba(229, 9, 20, 0.22);
+  --border-strong: rgba(229, 9, 20, 0.4);
 }
 
-body.cyberpunk-theme .brand strong {
-  color: #fcee0a; /* Cyberpunk yellow */
-  text-shadow: 0 0 8px rgba(252, 238, 10, 0.8);
+body.primefly-theme {
+  --bg: #0f171e;
+  --bg-elev: #141e27;
+  --text: #ffffff;
+  --text-dim: #d5dbdb;
+  --text-faint: #8197a4;
+  --accent: #00a8e1;
+  --accent-2: #14b8f4;
+  --accent-glow: rgba(0, 168, 225, 0.5);
+  --poster-focus: #00a8e1;
+  --poster-focus-glow: rgba(0, 168, 225, 0.55);
+  --surface: rgba(0, 168, 225, 0.05);
+  --surface-strong: rgba(0, 168, 225, 0.12);
+  --border: rgba(0, 168, 225, 0.22);
+  --border-strong: rgba(0, 168, 225, 0.4);
+}
+
+/* The year • genre • runtime separator, themed to match — same touch the
+   native apps make with `HubColors.NetflixRed`/`Accent` bullets. `.dot`
+   appears on the hero, the detail page and the home rows alike; none of
+   them need their own override for this to reach all three. */
+body.netflixy-theme .dot,
+body.primefly-theme .dot {
+  background: var(--accent);
 }

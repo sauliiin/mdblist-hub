@@ -14,6 +14,7 @@ import {
   GenreOption, GridItem, MdbItem, MdbList, TmdbKeyword, TmdbSearchResult, formatYear,
   toTmdbType,
 } from '../../core/models';
+import { ThemePrefsService } from '../../core/theme-prefs.service';
 import { TmdbService } from '../../core/tmdb.service';
 import { TvService } from '../../core/tv/tv.service';
 import { MediaRow } from '../../ui/media-row/media-row';
@@ -49,6 +50,7 @@ export class Home {
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
   protected readonly listPrefs = inject(ListPrefsService);
+  protected readonly theme = inject(ThemePrefsService).themeKey;
 
   protected readonly lists = signal<MdbList[]>([]);
   protected readonly loading = signal(true);
@@ -267,6 +269,9 @@ function fromMdbItem(item: MdbItem): GridItem {
     tmdbType: toTmdbType(item.mediatype),
     title: item.title,
     poster: upscalePoster(item.poster, 'w342'),
+    // mdblist has no backdrop field at all — a genre-filtered result stays
+    // portrait-only; see the `backdrop` doc comment on `GridItem`.
+    backdrop: null,
     year: item.release_year ? String(item.release_year) : '',
     vote: null,
   };
@@ -279,6 +284,9 @@ function fromTmdb(result: TmdbSearchResult): GridItem {
     tmdbType: result.media_type === 'tv' ? 'tv' : 'movie',
     title: result.title || result.name || 'Sem título',
     poster: tmdbImg(result.poster_path, 'w342'),
+    // Free: TMDB's search/discover results already carry a backdrop, no
+    // extra call needed the way `LandscapeArtworkService` costs one.
+    backdrop: tmdbImg(result.backdrop_path, 'w780'),
     year: (result.release_date || result.first_air_date || '').slice(0, 4),
     vote: result.vote_average || null,
   };

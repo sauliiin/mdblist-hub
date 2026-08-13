@@ -7,9 +7,13 @@
   (mouseenter)="armPrefetch()"
   (mouseleave)="cancelPrefetch()"
   (touchstart)="prefetchNow()">
-  <div class="poster">
-    @if (poster()) {
-      <img [src]="poster()" [alt]="item().title" loading="lazy" decoding="async" />
+  <div class="poster" [class.landscape]="theme() === 'primefly'">
+    @if (artwork()) {
+      <img [src]="artwork()" [alt]="item().title" loading="lazy" decoding="async" />
+    } @else if (theme() === 'primefly') {
+      <div class="poster-fallback landscape">
+        <span>{{ item().title }}</span>
+      </div>
     } @else {
       <div class="poster-fallback">
         <span>{{ item().title.charAt(0) }}</span>

@@ -3,7 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable, catchError, forkJoin, map, of, switchMap } from 'rxjs';
 import { API } from './api.config';
 import { AuthService } from './auth.service';
-import { alphabetical, curate } from './list-catalog';
+import { alphabetical } from './list-catalog';
 import { MdbInfo, MdbItem, MdbList, MediaType } from './models';
 
 @Injectable({ providedIn: 'root' })
@@ -12,23 +12,19 @@ export class MdblistService {
   private readonly auth = inject(AuthService);
 
   /**
-   * The lists the home page renders, for whoever is signed in. The owner gets
-   * the curated set — only the catalogued lists, renamed to Portuguese; every
-   * other account gets all of its own lists, alphabetically.
-   *
-   * The route guard resolves the profile before any page loads, so `isOwner()`
-   * is already settled by the time this runs.
+   * The lists the home page renders, for whoever is signed in: every list the
+   * account owns, alphabetically. `applyPrefs()` (in `list-catalog.ts`, called
+   * from `home.ts`) is what lets each visitor then rename, hide or reorder
+   * their own view on top of this — general per-visitor curation, rather than
+   * a hardcoded set for one account.
    */
   lists(): Observable<MdbList[]> {
-    return this.allLists().pipe(
-      map((lists) => (this.auth.isOwner() ? curate(lists) : alphabetical(lists))),
-    );
+    return this.allLists().pipe(map((lists) => alphabetical(lists)));
   }
 
   /**
-   * Every non-empty list of the signed-in account, catalogued or not. The
-   * recommendations feed reads "Last Watched" through here, which `curate()`
-   * deliberately hides.
+   * Every non-empty list of the signed-in account. The recommendations feed
+   * reads "Last Watched" through here directly, unsorted.
    */
   allLists(): Observable<MdbList[]> {
     return this.http

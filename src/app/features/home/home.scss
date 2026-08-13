@@ -236,9 +236,18 @@
   animation: fade-up 0.4s var(--ease) both;
 }
 
+/* Primefly: wider 16:9 tiles — same 260px rhythm the list rows use. */
+body.primefly-theme .results {
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+}
+
 .result-skeleton {
   aspect-ratio: 2 / 3;
   border-radius: var(--radius);
+}
+
+body.primefly-theme .result-skeleton {
+  aspect-ratio: 16 / 9;
 }
 
 .result {
@@ -261,6 +270,8 @@
     transition: border-color 0.2s var(--ease), box-shadow 0.2s var(--ease);
 
     img { width: 100%; height: 100%; object-fit: cover; }
+
+    &.landscape { aspect-ratio: 16 / 9; }
   }
 
   .poster-empty {
@@ -271,6 +282,14 @@
     color: var(--text-faint);
     font-size: 38px;
     font-weight: 800;
+
+    &.landscape {
+      font-size: 14px;
+      font-weight: 700;
+      line-height: 1.3;
+      padding: 10px;
+      text-align: center;
+    }
   }
 
   .kind,

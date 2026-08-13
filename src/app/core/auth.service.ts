@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Observable, catchError, map, of, shareReplay, tap } from 'rxjs';
-import { API, OWNER_USERNAME } from './api.config';
+import { API } from './api.config';
 import { clearHttpCache } from './http-cache.interceptor';
 import { MdbUser } from './models';
 
@@ -26,11 +26,6 @@ export class AuthService {
   /** The `apikey` every mdblist request carries; empty when signed out. */
   readonly key = this.apikey.asReadonly();
   readonly user = this.account.asReadonly();
-
-  /** Only the owner gets the curated home — see `OWNER_USERNAME`. */
-  readonly isOwner = computed(
-    () => (this.account()?.username ?? '').toLowerCase() === OWNER_USERNAME,
-  );
 
   /** The signed-in account's public list page on mdblist.com. */
   readonly listsUrl = computed(() => {
@@ -58,7 +53,7 @@ export class AuthService {
   /**
    * Restores a stored session on boot, resolving to `false` when there is none
    * or the key no longer works. The route guard waits on this, which is what
-   * lets everything downstream read `isOwner()` synchronously.
+   * lets everything downstream read the signed-in account synchronously.
    */
   restore(): Observable<boolean> {
     if (this.account()) return of(true);

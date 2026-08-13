@@ -13,6 +13,7 @@ import { castCharacter, MediaDetailService } from '../../core/media-detail.servi
 import {
   MediaDetail, Review, TmdbCastMember, TmdbRecommendation, formatYear, toMediaType,
 } from '../../core/models';
+import { ThemePrefsService } from '../../core/theme-prefs.service';
 import { TvService } from '../../core/tv/tv.service';
 import { PersonModal } from '../../ui/person-modal/person-modal';
 import { RatingBadges } from '../../ui/rating-badges/rating-badges';
@@ -31,6 +32,7 @@ export class Detail {
   private readonly sanitizer = inject(DomSanitizer);
   private readonly libraryService = inject(LibraryService);
   protected readonly tv = inject(TvService);
+  protected readonly theme = inject(ThemePrefsService).themeKey;
   protected readonly formatYear = formatYear;
 
   private readonly lightbox = viewChild<ElementRef<HTMLElement>>('lightbox');
@@ -247,6 +249,11 @@ export class Detail {
 
   protected recPoster(rec: TmdbRecommendation): string | null {
     return tmdbImg(rec.poster_path, 'w342');
+  }
+
+  /** Primefly's landscape art — free, TMDB's recommendations already carry a backdrop. */
+  protected recBackdrop(rec: TmdbRecommendation): string | null {
+    return tmdbImg(rec.backdrop_path, 'w780');
   }
 
   protected recLink(rec: TmdbRecommendation): unknown[] {

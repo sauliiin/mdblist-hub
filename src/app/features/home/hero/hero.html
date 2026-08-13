@@ -9,7 +9,18 @@
   <div class="hero-inner shell">
     @if (f) {
       <span class="eyebrow">Em destaque na sua coleção</span>
-      <h1>{{ f.item.title }}</h1>
+
+      <!--
+        The `<h1>` is always in the DOM, logo or not — CSS alone decides which
+        of the two is visible (via `:has(.hero-logo)`), including the
+        short-viewport override that falls back to text regardless of theme
+        or logo availability (see `hero.scss`). Keeping it unconditional here
+        is what lets that override be pure CSS with no extra signal wiring.
+      -->
+      <h1 class="title-fallback">{{ f.item.title }}</h1>
+      @if ((theme() === 'netflixy' || theme() === 'primefly') && f.logo) {
+        <img class="hero-logo" [src]="f.logo" [alt]="f.item.title" />
+      }
 
       <div class="meta">
         @if (f.vote) { <span class="score">{{ f.vote }}%</span> }

@@ -2,7 +2,8 @@ import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/cor
 import { RouterLink } from '@angular/router';
 import { tmdbImg } from '../../../core/api.config';
 import { MdblistService } from '../../../core/mdblist.service';
-import { MdbItem, MdbList, TmdbDetail, toTmdbType } from '../../../core/models';
+import { MdbItem, MdbList, TmdbDetail, TmdbLogo, toTmdbType } from '../../../core/models';
+import { ThemePrefsService } from '../../../core/theme-prefs.service';
 import { TmdbService } from '../../../core/tmdb.service';
 
 interface Featured {
@@ -12,6 +13,26 @@ interface Featured {
   genres: string[];
   vote: number | null;
   link: unknown[];
+  /** Clearlogo art, when TMDB has one — see `pickLogo`. Only shown on Netflixy/Primefly. */
+  logo: string | null;
+}
+
+/**
+ * TMDB ranks `images.logos` by community vote already, but not by language —
+ * an English (or language-less) logo reads better here than one in the
+ * request's other fallback languages, so that goes first regardless of the
+ * incoming order; `vote_average` breaks ties within each tier.
+ */
+function pickLogo(logos: TmdbLogo[] | undefined): string | null {
+  if (!logos?.length) return null;
+
+  const ranked = [...logos].sort((a, b) => {
+    const tier = (logo: TmdbLogo) => (logo.iso_639_1 === 'en' ? 0 : logo.iso_639_1 === null ? 1 : 2);
+    const byTier = tier(a) - tier(b);
+    return byTier !== 0 ? byTier : b.vote_average - a.vote_average;
+  });
+
+  return tmdbImg(ranked[0].file_path, 'w500');
 }
 
 /** Lists that make a good hero pick, best first (matched on the raw mdblist name). */
@@ -27,6 +48,7 @@ const PREFERRED = ['trending movies', 'lastest movie releases', 'best ever'];
 export class Hero {
   private readonly mdblist = inject(MdblistService);
   private readonly tmdb = inject(TmdbService);
+  protected readonly theme = inject(ThemePrefsService).themeKey;
 
   protected readonly featured = signal<Featured | null>(null);
   private lists: MdbList[] = [];
@@ -55,6 +77,7 @@ export class Hero {
         genres: item.genre ?? [],
         vote: null,
         link: ['/title', toTmdbType(item.mediatype), item.id],
+        logo: null,
       });
 
       this.tmdb.detail(item.mediatype, item.id).subscribe((detail) => this.enrich(item, detail));
@@ -70,15 +93,17 @@ export class Hero {
         overview: detail.overview,
         genres: detail.genres?.map((g) => g.name) ?? current.genres,
         vote: detail.vote_average ? Math.round(detail.vote_average * 10) : null,
+        // Stored regardless of the active theme — it rides along in the same
+        // `detail()` call for free, and the template is what decides whether
+        // a Netflixy/Primefly hero actually draws it.
+        logo: pickLogo(detail.images?.logos),
       },
     );
   }
 
   private chooseList(): MdbList | undefined {
     for (const needle of PREFERRED) {
-      const match = this.lists.find(
-        (l) => (l.originalName ?? l.name).toLowerCase() === needle,
-      );
+      const match = this.lists.find((l) => l.name.toLowerCase() === needle);
       if (match) return match;
     }
     return this.lists[0];

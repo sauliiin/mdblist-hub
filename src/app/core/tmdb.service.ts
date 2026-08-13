@@ -11,17 +11,30 @@ import {
 export class TmdbService {
   private readonly http = inject(HttpClient);
 
-  /** Full record plus credits, external ids, trailers and recommendations. */
+  /**
+   * Full record plus credits, external ids, trailers, recommendations and
+   * `images` — the last backs two things: the Netflixy/Primefly hero's
+   * clearlogo (`images.logos`), and Primefly's landscape cards
+   * (`images.backdrops`, see `LandscapeArtworkService`), which need a
+   * *language-tagged* backdrop — one that actually carries the title's own
+   * treatment art rather than a plain scenery shot. `pt,en,null` matches the
+   * native apps' own `TmdbApi.IMAGE_LANGUAGES` exactly; without it TMDB can
+   * hand back an empty or oddly-filtered `logos`/`backdrops` array.
+   */
   detail(type: MediaType, tmdbId: number): Observable<TmdbDetail | null> {
     const tmdbType = toTmdbType(type);
     const append =
       tmdbType === 'tv'
-        ? 'aggregate_credits,external_ids,videos,recommendations'
-        : 'credits,external_ids,videos,recommendations';
+        ? 'aggregate_credits,external_ids,videos,recommendations,images'
+        : 'credits,external_ids,videos,recommendations,images';
 
     return this.http
       .get<TmdbDetail>(`${API.tmdb.base}/${tmdbType}/${tmdbId}`, {
-        params: { api_key: API.tmdb.key, append_to_response: append },
+        params: {
+          api_key: API.tmdb.key,
+          append_to_response: append,
+          include_image_language: 'pt,en,null',
+        },
       })
       .pipe(catchError(() => of(null)));
   }

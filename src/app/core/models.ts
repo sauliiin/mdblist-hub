@@ -40,10 +40,8 @@ export interface MdbUser {
 
 export interface MdbList {
   id: number;
-  /** Portuguese label once the list passes through `curate()`. */
+  /** The mdblist name, or a visitor's own override — see `applyPrefs()`. */
   name: string;
-  /** The untouched mdblist name, set by `curate()`. */
-  originalName?: string;
   slug: string;
   description: string;
   mediatype: MediaType | null;
@@ -191,6 +189,16 @@ export interface TmdbDetail {
   external_ids?: { imdb_id: string | null; tvdb_id: number | null };
   videos?: { results: TmdbVideo[] };
   recommendations?: { results: TmdbRecommendation[] };
+  /** Present when `append_to_response` asked for `images` — see `TmdbService.detail`. */
+  images?: { logos: TmdbLogo[]; backdrops: TmdbLogo[] };
+}
+
+/** One clearlogo option from `images.logos` — TMDB returns several, ranked by community vote. */
+export interface TmdbLogo {
+  file_path: string;
+  /** `null` for a logo uploaded without a language tag — still usable, often the cleanest option. */
+  iso_639_1: string | null;
+  vote_average: number;
 }
 
 /** A season as listed on the show record. */
@@ -228,6 +236,8 @@ export interface TmdbRecommendation {
   title?: string;
   name?: string;
   poster_path: string | null;
+  /** Present on TMDB's own response, just not requested via `images` — free landscape art for Primefly. */
+  backdrop_path?: string | null;
   media_type?: string;
   release_date?: string;
   first_air_date?: string;
@@ -287,6 +297,14 @@ export interface GridItem {
   tmdbType: 'movie' | 'tv';
   title: string;
   poster: string | null;
+  /**
+   * Landscape art for Primefly, when the source already carried it for free
+   * (a free-text search result's own `backdrop_path`). `null` for a
+   * genre-filtered result — those come from mdblist, which has no backdrop
+   * field at all — and the grid falls back to a title-text tile rather than
+   * cropping the portrait `poster`, the same rule `MediaCard` follows.
+   */
+  backdrop: string | null;
   year: string;
   vote: number | null;
 }

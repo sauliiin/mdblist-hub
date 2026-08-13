@@ -218,8 +218,14 @@
             <h2 class="block-title">Você também pode gostar</h2>
             <div class="recs">
               @for (rec of d.recommendations; track rec.id) {
-                <a class="rec" [routerLink]="recLink(rec)">
-                  @if (recPoster(rec)) {
+                <a class="rec" [class.landscape]="theme() === 'primefly'" [routerLink]="recLink(rec)">
+                  @if (theme() === 'primefly') {
+                    @if (recBackdrop(rec)) {
+                      <img [src]="recBackdrop(rec)" [alt]="recTitle(rec)" loading="lazy" />
+                    } @else {
+                      <div class="rec-empty landscape">{{ recTitle(rec) }}</div>
+                    }
+                  } @else if (recPoster(rec)) {
                     <img [src]="recPoster(rec)" [alt]="recTitle(rec)" loading="lazy" />
                   } @else {
                     <div class="rec-empty">{{ recTitle(rec).charAt(0) }}</div>

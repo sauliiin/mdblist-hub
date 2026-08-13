@@ -1,8 +1,10 @@
-# mdblist hub
+# Open Stream
 
-Um front-end em Angular para as suas listas do [mdblist](https://mdblist.com):
-todas as listas em fileiras horizontais e, ao clicar num título, uma página com
-elenco, notas de todos os agregadores, reviews e biografias vindas da Wikipedia.
+A versão web do Open Stream — o mesmo projeto dos apps de TV e celular, agora
+no navegador. Um front-end em Angular para as suas listas do
+[mdblist](https://mdblist.com): todas as listas em fileiras horizontais e, ao
+clicar num título, uma página com elenco, notas de todos os agregadores,
+reviews e biografias vindas da Wikipedia.
 
 Você entra com a chave da API da sua própria conta do mdblist, e o site mostra
 as **suas** listas.
@@ -39,17 +41,11 @@ A chave do mdblist **não fica no código**: cada visitante entra com a sua na
 tela de login. As do TMDB e do OMDb, que são do app e não do usuário, ficam em
 [`src/app/core/api.config.ts`](src/app/core/api.config.ts).
 
-Esse mesmo arquivo tem a constante `OWNER_USERNAME`, que decide qual das duas
-visões a home mostra (veja [Login e as duas visões](#login-e-as-duas-visões)).
-As listas curadas, seus nomes em português e a ordem estão em
-[`src/app/core/list-catalog.ts`](src/app/core/list-catalog.ts) — para incluir
-outra lista, basta adicionar uma entrada com o nome exato dela no mdblist.
-
 ---
 
 ## Funcionalidades
 
-### Login e as duas visões
+### Login e a home de cada um
 
 A primeira tela pede a chave da API do mdblist (ela está em
 [mdblist.com/preferences](https://mdblist.com/preferences/), na seção *API
@@ -58,17 +54,19 @@ no navegador, sem passar por servidor nenhum. Um guard de rota
 (`core/auth.guard.ts`) segura o app até essa checagem terminar, e leva de volta
 para a página que você tentou abrir depois de entrar.
 
-O `GET /user` também devolve o username, e é ele que escolhe a visão:
+A home mostra **todas** as listas da conta que entrou, com o nome original, em
+ordem alfabética (`core/list-catalog.ts#alphabetical`) — o site não é mais
+pré-curado para nenhuma conta específica. Cada visitante tem suas próprias
+ferramentas para chegar na home que quiser: o modo de edição (botão na home)
+deixa renomear, ocultar e reordenar as próprias listas, guardado por
+`core/list-prefs.service.ts` e aplicado por cima da lista alfabética
+(`core/list-catalog.ts#applyPrefs`). Uma vez com conta Google vinculada (veja
+[Preferências sincronizadas por conta Google](#preferências-sincronizadas-por-conta-google)),
+essas mesmas preferências acompanham a conta entre aparelhos — o celular, a TV
+e o navegador convergem para a mesma curadoria.
 
-| Quem entrou | O que a home mostra |
-| --- | --- |
-| A conta em `OWNER_USERNAME` | As listas curadas: só as catalogadas, com nome em português, em ordem alfabética |
-| Qualquer outra conta | **Todas** as listas dela, com o nome original, em ordem alfabética |
-
-Ou seja, a exclusão de listas do `list-catalog.ts` vale só para o dono do site;
-para as outras pessoas nada é escondido nem renomeado. O link "Minhas listas no
-mdblist" e as ações de watchlist/coleção/assistido seguem sempre a conta que
-está logada, e "Sair" limpa a chave e o cache HTTP.
+O link "Minhas listas no mdblist" e as ações de watchlist/coleção/assistido
+seguem sempre a conta que está logada, e "Sair" limpa a chave e o cache HTTP.
 
 ### Home
 
@@ -212,12 +210,13 @@ controles somem sozinhos durante a reprodução; **OK/Enter** os traz de volta e
 com eles já visíveis, dá play/pause — um controle remoto não gera `pointermove`,
 então sem isso não haveria como reexibi-los numa TV.
 
-A escolha de legenda e o **ajuste de sincronia** (−0,5s / +0,5s, com o desvio
-atual e "repor") ficam **dentro** do player, não só na barra lateral da página:
-em tela cheia — que é como se assiste na TV e no celular — a barra lateral não
-existe, e sem isso não haveria como trocar de legenda. A sincronia edita
-`startTime`/`endTime` das cues carregadas, que são objetos vivos; o desvio zera
-ao trocar de legenda ou de vídeo, para não herdar o ajuste anterior.
+A escolha de legenda, a **sincronia** (arraste de −60s a +60s, com "repor"),
+fonte, cor e faixa de áudio (quando o navegador reporta mais de uma) ficam
+**dentro** do player, não só na barra lateral da página: em tela cheia — que é
+como se assiste na TV e no celular — a barra lateral não existe, e sem isso não
+haveria como trocar de legenda. A sincronia edita `startTime`/`endTime` das
+cues carregadas, que são objetos vivos; o desvio zera ao trocar de legenda ou
+de vídeo, para não herdar o ajuste anterior.
 
 As sugestões na página de Addons (Torrentio, MediaFusion, Comet, AIOStreams | ElfHosted,
 OpenSubtitles) foram verificadas contra os endpoints reais. As quatro de fontes
@@ -243,6 +242,28 @@ failover automático. O player reconhece a faixa típica desses avisos (30s–2m
 mas só rejeita o arquivo quando ele também tem menos da metade da duração esperada
 do filme ou episódio. Assim um curta legítimo não é confundido com “vídeo
 removido”; sem runtime confiável, a heurística fica desligada.
+
+### Preferências sincronizadas por conta Google
+
+Além da lista de addons (acima, chaveada pela chave do mdblist), um segundo
+conjunto de preferências — hoje o rename/hide/reorder das listas
+(`core/list-prefs.service.ts`) e a fonte da legenda (`core/subtitle-prefs.service.ts`)
+— sincroniza entre aparelhos por **conta Google**, a mesma que os apps Android
+e TV já usam para entrar. `core/google-auth.service.ts` troca um ID token do
+Google Identity Services por uma sessão no projeto Firebase `safevault-fcbdc`
+(REST puro, sem o SDK completo do Firebase Auth — o mesmo raciocínio do sync de
+addons: são só algumas chamadas). O botão de vincular fica na tela de Login e
+em Addons.
+
+Cada serviço de preferência tem seu próprio serviço de sync
+(`core/sync/preferences-sync.service.ts`, `core/sync/list-prefs-sync.service.ts`),
+mas os dois seguem o mesmo desenho: gravam sob `users/{uid}/...` no mesmo banco,
+debatem uma rajada de mudanças locais num único `PUT` (1,5s), e marcam um sinal
+`applying` durante um `pull()` para a mudança que acabou de chegar de outro
+aparelho não ecoar de volta como se fosse nova. Diferente do sync de addons,
+aqui **é seguro fazer merge automático** — nenhuma dessas preferências tem uma
+operação "remover" que um merge ingênuo perderia, então ligar a conta já basta,
+sem o botão explícito de "Baixar".
 
 ## Mobile
 

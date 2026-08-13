@@ -78,7 +78,7 @@ export class Player {
     () => this.tv.isTv() || this.platform.handset(),
   );
 
-  /** The candidate currently under test. Never shown as a choice. */
+  /** The candidate currently under test. Never shown as a choice while the automatic cascade still has one to make. */
   protected readonly selected = signal<PlayableStream | null>(null);
   /** Reload token lives in the fragment, which is never sent to the stream host. */
   protected readonly playbackSrc = signal<string | null>(null);
@@ -86,6 +86,18 @@ export class Player {
   protected readonly triedEverySource = signal(false);
   /** Distinguishes "no source worked" from "the provider is refusing everything". */
   protected readonly decoyRateLimited = signal(false);
+
+  /** The post-exhaustion manual picker (entry point A) is open. */
+  protected readonly manuallyPicking = signal(false);
+  /**
+   * True once the user has picked a source by hand — either from the
+   * exhaustion picker or by swapping mid-playback. A manual pick that then
+   * fails does not fall back to blind automatic racing: `resumeRace` checks
+   * this and returns to the picker instead, the same way the native apps'
+   * `PlaybackController` treats a failed manual pick as its own outcome
+   * rather than silently resuming the cascade.
+   */
+  private manualPickMode = false;
 
   /**
    * True from the moment the cascade starts until a source actually plays.
@@ -214,6 +226,8 @@ export class Player {
         this.playbackSrc.set(null);
         this.playbackError.set(false);
         this.triedEverySource.set(false);
+        this.manuallyPicking.set(false);
+        this.manualPickMode = false;
       }),
       switchMap((key) =>
         key ? this.stremio.streams(key.type, key.id) : of(EMPTY_QUERY),
@@ -224,6 +238,8 @@ export class Player {
   );
 
   protected readonly streams = computed(() => this.query().streams);
+  /** Candidates for the manual picker (both entry points) — same de-duped set the automatic race itself consumes. */
+  protected readonly manualPickOptions = computed(() => this.playableCandidates());
 
   protected readonly subtitleOptions = toSignal(
     toObservable(this.streamKey).pipe(
@@ -422,8 +438,28 @@ export class Player {
 
   /** Runs a fresh race after every candidate in the previous one failed. */
   protected retry(): void {
+    this.manualPickMode = false;
     const first = this.streams().find((stream) => stream.playable);
     if (first) this.startAttempts(first);
+  }
+
+  /**
+   * Opens the chosen candidate directly, bypassing the race entirely — the
+   * same thing `promote()` does for an automatic winner, just called by hand.
+   * Two entry points share this: the post-exhaustion picker (`manuallyPicking`,
+   * reachable only once `finishPlaybackFailure` has run — the automatic
+   * cascade is never interrupted while it still has a candidate left to try)
+   * and the in-player "Fontes" control, reachable once something is already
+   * `selected()` and therefore only ever swapping a *finished, successful*
+   * pick for a different one, never racing against it.
+   */
+  protected pickManually(stream: PlayableStream): void {
+    this.manualPickMode = true;
+    this.manuallyPicking.set(false);
+    this.playbackError.set(false);
+    this.stallResumeSeconds.set(this.videoPlayer()?.currentPositionSeconds() ?? null);
+    this.resolving.set(true);
+    this.promote(stream);
   }
 
   /** The promoted source opened, but contained a removal notice instead of the title. */
@@ -637,12 +673,26 @@ export class Player {
     );
   }
 
-  /** If promotion itself fails, race every candidate not conclusively rejected. */
+  /**
+   * If promotion itself fails, race every candidate not conclusively
+   * rejected — unless the failed pick was a manual one, in which case this
+   * returns the user to the picker instead of silently handing them a
+   * different automatic choice. `queue`/`rejectedUrls` are left untouched
+   * either way, so re-opening the picker still shows the full candidate
+   * list rather than one that has quietly shrunk.
+   */
   private resumeRace(): void {
     clearTimeout(this.playbackTimer);
     this.playbackTimer = undefined;
     this.selected.set(null);
     this.playbackSrc.set(null);
+
+    if (this.manualPickMode) {
+      this.resolving.set(false);
+      this.playbackError.set(true);
+      this.manuallyPicking.set(true);
+      return;
+    }
 
     const remaining = this.playableCandidates().filter(
       (stream) => !!stream.url && !this.rejectedUrls.has(stream.url),

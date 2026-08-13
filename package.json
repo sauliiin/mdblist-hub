@@ -1,5 +1,5 @@
 {
-  "name": "mdblist-hub",
+  "name": "open-stream-web",
   "version": "1.0.0",
   "scripts": {
     "ng": "node node_modules/@angular/cli/bin/ng.js",
@@ -31,6 +31,6 @@
     "prettier": "^3.8.1",
     "typescript": "~6.0.2"
   },
-  "description": "Front-end em Angular para listas do mdblist, com elenco, notas, reviews e biografias.",
+  "description": "Open Stream (web) — front-end em Angular para listas do mdblist, com elenco, notas, reviews e biografias.",
   "license": "MIT"
 }

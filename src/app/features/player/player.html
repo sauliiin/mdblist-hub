@@ -26,6 +26,9 @@
             [subtitleActiveKey]="subtitle()?.key ?? null"
             [subtitleLoading]="subtitleBusy()"
             [subtitleError]="subtitleError()"
+            [sourceOptions]="manualPickOptions()"
+            [activeSourceKey]="stream.key"
+            (sourceSelect)="pickManually($event)"
             [mediaTitle]="d.title"
             [mediaSubtitle]="episodeLabel()"
             [mediaBackdrop]="d.backdrop"
@@ -70,28 +73,55 @@
 
         @if (playbackError()) {
           <div class="overlay" role="alert">
-            @if (decoyRateLimited()) {
-              <p class="headline">Seu provedor debrid está limitando as requisições.</p>
-              <p>
-                Várias fontes responderam com um aviso no lugar do filme. Todas as demais também
-                foram testadas antes de encerrar.
-              </p>
+            @if (manuallyPicking()) {
+              <p class="headline">Escolha uma fonte</p>
+              <ul class="manual-sources">
+                @for (option of manualPickOptions(); track option.key) {
+                  <li>
+                    <button type="button" class="source-option" (click)="pickManually(option)">
+                      <span class="source-main">{{ option.quality || option.title }}</span>
+                      <span class="source-meta">
+                        {{ option.addon }}{{ option.size ? ' · ' + option.size : '' }}
+                      </span>
+                      @if (option.warning) {
+                        <span class="source-warning">⚠ {{ option.warning }}</span>
+                      }
+                    </button>
+                  </li>
+                }
+              </ul>
+              <div class="overlay-actions">
+                <button type="button" class="ghost" (click)="manuallyPicking.set(false)">Voltar</button>
+              </div>
             } @else {
-              <p class="headline">Nenhuma fonte conseguiu reproduzir.</p>
-              @if (triedEverySource()) {
+              @if (decoyRateLimited()) {
+                <p class="headline">Seu provedor debrid está limitando as requisições.</p>
                 <p>
-                  Testei os {{ candidateCount() }} links disponíveis, até 16 por vez. Costuma ser
-                  o addon com links vencidos — reconfigurar o debrid dele resolve na maioria das
-                  vezes.
+                  Várias fontes responderam com um aviso no lugar do filme. Todas as demais também
+                  foram testadas antes de encerrar.
                 </p>
               } @else {
-                <p>O link disponível não abriu. Tente de novo, ou verifique seus addons.</p>
+                <p class="headline">Nenhuma fonte conseguiu reproduzir.</p>
+                @if (triedEverySource()) {
+                  <p>
+                    Testei os {{ candidateCount() }} links disponíveis, até 16 por vez. Costuma ser
+                    o addon com links vencidos — reconfigurar o debrid dele resolve na maioria das
+                    vezes.
+                  </p>
+                } @else {
+                  <p>O link disponível não abriu. Tente de novo, ou verifique seus addons.</p>
+                }
               }
+              <div class="overlay-actions">
+                <button type="button" class="cta" (click)="retry()">Tentar de novo</button>
+                @if (manualPickOptions().length) {
+                  <button type="button" class="ghost" (click)="manuallyPicking.set(true)">
+                    Escolher fonte manualmente
+                  </button>
+                }
+                <a class="ghost" routerLink="/addons">Ver addons</a>
+              </div>
             }
-            <div class="overlay-actions">
-              <button type="button" class="cta" (click)="retry()">Tentar de novo</button>
-              <a class="ghost" routerLink="/addons">Ver addons</a>
-            </div>
           </div>
         }
 

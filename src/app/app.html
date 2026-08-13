@@ -1,11 +1,23 @@
 <header class="topbar" [class.solid]="scrolled()">
   <div class="topbar-inner shell">
-    <button class="cyberpunk-btn" (click)="toggleCyberpunk()" aria-label="Toggle Cyberpunk Mode">
-      {{ isCyberpunk() ? 'Normal' : 'Cyberpunk' }}
-    </button>
+    <div class="theme-picker">
+      <button type="button" class="theme-btn" (click)="toggleThemeMenu()" aria-label="Aparência">
+        {{ activeThemeLabel() }}
+      </button>
+      @if (themeMenuOpen()) {
+        <div class="theme-menu">
+          @for (option of themeOptions; track option.key) {
+            <button type="button" class="theme-option" [class.on]="theme() === option.key"
+                    (click)="pickTheme(option.key)">
+              {{ option.label }}
+            </button>
+          }
+        </div>
+      }
+    </div>
     <a class="brand" routerLink="/">
-      <img class="mark" src="mdblist.png" alt="" width="32" height="32" />
-      <span class="name">mdblist<strong>hub</strong></span>
+      <img class="mark" src="open-stream.png" alt="" width="32" height="32" />
+      <span class="name">Open Stream</span>
     </a>
 
     <nav class="links">

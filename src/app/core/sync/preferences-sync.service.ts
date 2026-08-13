@@ -4,6 +4,7 @@ import { Observable, catchError, from, map, switchMap, throwError } from 'rxjs';
 import { GoogleAuthService } from '../google-auth.service';
 import { noCache } from '../http-cache.interceptor';
 import { SubtitlePrefsService } from '../subtitle-prefs.service';
+import { ThemePrefsService } from '../theme-prefs.service';
 
 /**
  * Same Realtime Database as `addon-sync.service.ts`, but the `safevault-fcbdc`
@@ -18,6 +19,8 @@ const PUSH_DELAY = 1500;
 interface Payload {
   updatedAt: string;
   subtitleFont: string;
+  subtitleColor?: string;
+  theme?: string;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -25,6 +28,7 @@ export class PreferencesSyncService {
   private readonly http = inject(HttpClient);
   private readonly googleAuth = inject(GoogleAuthService);
   private readonly subtitlePrefs = inject(SubtitlePrefsService);
+  private readonly themePrefs = inject(ThemePrefsService);
 
   private readonly failure = signal<string | null>(null);
   private readonly working = signal(false);
@@ -38,13 +42,18 @@ export class PreferencesSyncService {
 
   constructor() {
     // Any local preference change becomes a write, once an account is linked
-    // — debounced so flipping through fonts is one request, not several.
+    // — debounced so flipping through fonts/colors/themes is one request, not several.
     effect(() => {
+      // Read every synced signal unconditionally, so the effect re-runs on a
+      // change to any one of them — an `if` inside would skip the read and
+      // silently un-track that signal instead.
       const font = this.subtitlePrefs.fontKey();
+      const color = this.subtitlePrefs.colorKey();
+      const theme = this.themePrefs.themeKey();
       if (!this.googleAuth.linked() || this.applying) return;
 
       clearTimeout(this.pushTimer);
-      this.pushTimer = setTimeout(() => this.push(font).subscribe(), PUSH_DELAY);
+      this.pushTimer = setTimeout(() => this.push().subscribe(), PUSH_DELAY);
     });
   }
 
@@ -53,21 +62,28 @@ export class PreferencesSyncService {
     return this.request((uid, idToken) =>
       this.read(uid, idToken).pipe(
         map((payload) => {
-          if (payload?.subtitleFont) {
-            this.applying = true;
-            try {
-              this.subtitlePrefs.setFont(payload.subtitleFont);
-            } finally {
-              this.applying = false;
-            }
+          if (!payload) return;
+
+          // Both setters run inside the same `applying` window: splitting
+          // them into separate try/finally pairs would flip `applying` back
+          // to `false` between the two, and the push-effect above — which
+          // now watches both signals — could fire a spurious write off the
+          // half-applied state in that gap.
+          this.applying = true;
+          try {
+            if (payload.subtitleFont) this.subtitlePrefs.setFont(payload.subtitleFont);
+            if (payload.subtitleColor) this.subtitlePrefs.setColor(payload.subtitleColor);
+            if (payload.theme) this.themePrefs.setTheme(payload.theme);
+          } finally {
+            this.applying = false;
           }
         }),
       ),
     );
   }
 
-  push(subtitleFont = this.subtitlePrefs.fontKey()): Observable<void> {
-    return this.request((uid, idToken) => this.write(uid, idToken, subtitleFont));
+  push(): Observable<void> {
+    return this.request((uid, idToken) => this.write(uid, idToken));
   }
 
   private read(uid: string, idToken: string): Observable<Payload | null> {
@@ -77,13 +93,19 @@ export class PreferencesSyncService {
     });
   }
 
-  private write(uid: string, idToken: string, subtitleFont: string): Observable<void> {
+  private write(uid: string, idToken: string): Observable<void> {
+    const payload: Payload = {
+      updatedAt: new Date().toISOString(),
+      subtitleFont: this.subtitlePrefs.fontKey(),
+      subtitleColor: this.subtitlePrefs.colorKey(),
+      theme: this.themePrefs.themeKey(),
+    };
+
     return this.http
-      .put<unknown>(
-        `${DB}/users/${uid}/preferences.json`,
-        { updatedAt: new Date().toISOString(), subtitleFont } satisfies Payload,
-        { params: { auth: idToken }, context: noCache() },
-      )
+      .put<unknown>(`${DB}/users/${uid}/preferences.json`, payload, {
+        params: { auth: idToken },
+        context: noCache(),
+      })
       .pipe(map(() => undefined));
   }
 
