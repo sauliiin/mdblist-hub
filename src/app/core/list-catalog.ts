@@ -13,22 +13,18 @@ export function alphabetical(lists: MdbList[]): MdbList[] {
 
 /**
  * Layers a visitor's own rename/hide/reorder on top of `alphabetical()`:
- * hidden ones drop out (unless `includeHidden`, used by the home page's edit
- * mode so a hidden list stays reachable to un-hide), then names are
- * overridden, then anything with an explicit `position` moves to the front in
- * that order — everything else keeps arriving in whatever order
- * `alphabetical()` already gave it. This is what makes list curation general
- * — every visitor gets the same tools to shape their own home, rather than
- * one hardcoded account getting a pre-curated set.
+ * hidden ones drop out entirely (there is no undo UI for a deleted row yet —
+ * see `MediaRow`'s trash button), then names are overridden, then anything
+ * with an explicit `position` moves to the front in that order — everything
+ * else keeps arriving in whatever order `alphabetical()` already gave it.
+ * This is what makes list curation general — every visitor gets the same
+ * tools to shape their own home, rather than one hardcoded account getting a
+ * pre-curated set.
  */
-export function applyPrefs(
-  lists: MdbList[],
-  prefs: ListPref[],
-  options: { includeHidden?: boolean } = {},
-): MdbList[] {
+export function applyPrefs(lists: MdbList[], prefs: ListPref[]): MdbList[] {
   const byId = new Map(prefs.map((p) => [p.id, p]));
 
-  const visible = options.includeHidden ? lists : lists.filter((l) => !byId.get(l.id)?.hidden);
+  const visible = lists.filter((l) => !byId.get(l.id)?.hidden);
   const named = visible.map((list) => {
     const name = byId.get(list.id)?.name;
     return name ? { ...list, name } : list;

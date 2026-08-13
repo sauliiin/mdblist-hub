@@ -1,0 +1,40 @@
+@if (state(); as s) {
+  <div
+    class="hover-preview"
+    [style.left.px]="s.left"
+    [style.top.px]="s.top"
+    [style.width.px]="s.width"
+    (mouseenter)="onEnter()"
+    (mouseleave)="onLeave()">
+    <!-- Always present once a trailer key resolves — the YouTube IFrame API
+         (see the constructor effect) replaces this exact div with its own
+         iframe, so it can't be an `@if`-gated element the API might target
+         after Angular has already removed it. -->
+    @if (trailerKey()) {
+      <div class="trailer">
+        <div #trailerHost></div>
+      </div>
+    }
+
+    @if (poster()) {
+      <img class="hover-preview-art" [class.hide]="playing()" [src]="poster()" [alt]="s.item.title" />
+    } @else if (!playing()) {
+      <div class="hover-preview-fallback">{{ s.item.title }}</div>
+    }
+
+    <div class="hover-preview-panel">
+      <p class="hover-preview-title">{{ s.item.title }}</p>
+      <div class="hover-preview-actions">
+        <button type="button" class="preview-btn play" [routerLink]="watchLink()" aria-label="Assistir">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+        </button>
+        <button type="button" class="preview-btn info" [routerLink]="link()" aria-label="Mais detalhes">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="1.6"/>
+            <path d="M12 11v5.5M12 7.5v.01" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </div>
+}

@@ -31,24 +31,29 @@ export class ListPrefsService {
 
   /**
    * Swaps `id` with its neighbour in `currentOrder` — the ids exactly as
-   * they are displayed right now, hidden ones included. A list that never
-   * had an explicit `position` is given its current display index as one
-   * before the swap, so there is always a real number to exchange.
+   * they are displayed right now, hidden ones included.
+   *
+   * Every list in `currentOrder` gets an explicit `position` here, not just
+   * the pair changing places: `applyPrefs()` sorts every list carrying a
+   * `position` *before* every list that still lacks one, so writing a
+   * position on only the two being swapped used to yank both of them ahead
+   * of every other untouched, unpositioned list in one move — not just past
+   * their immediate neighbour. A list sitting between the moved one and the
+   * top that had never been touched would silently get skipped over (or
+   * shoved back down) instead of stepped past one at a time, which is what
+   * made climbing to the top row by row not actually work.
    */
   move(id: number, direction: -1 | 1, currentOrder: readonly number[]): void {
     const index = currentOrder.indexOf(id);
     const neighborIndex = index + direction;
     if (index < 0 || neighborIndex < 0 || neighborIndex >= currentOrder.length) return;
 
-    const neighborId = currentOrder[neighborIndex];
-    const positionOf = (listId: number, displayIndex: number) =>
-      this.prefs().find((p) => p.id === listId)?.position ?? displayIndex;
+    const next = [...currentOrder];
+    [next[index], next[neighborIndex]] = [next[neighborIndex], next[index]];
 
-    const selfPos = positionOf(id, index);
-    const neighborPos = positionOf(neighborId, neighborIndex);
-
-    this.upsert(id, { position: neighborPos });
-    this.upsert(neighborId, { position: selfPos });
+    const byId = new Map(this.prefs().map((p) => [p.id, p]));
+    this.prefs.set(next.map((listId, position) => ({ ...(byId.get(listId) ?? { id: listId }), position })));
+    this.persist();
   }
 
   /** Makes the stored set exactly `next` — backs the sync pull, removals included. */

@@ -55,6 +55,12 @@
 <app-bottom-nav />
 
 <!--
+  Mounted here, not inside any row, so it lands outside every
+  `content-visibility: auto` boundary — see `HoverPreviewService`.
+-->
+<app-hover-preview-card />
+
+<!--
   Plain text, not links: this is a credit line, not navigation, and following
   one used to strand a TV remote in a browser tab the device has no way back
   from. `data-nav-skip` and the `.foot` styles below keep it that way on every

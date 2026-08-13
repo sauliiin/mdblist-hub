@@ -46,7 +46,7 @@
     @if (browseMode()) {
       <button type="button" class="clear-all" (click)="clearAll()">Limpar</button>
     } @else {
-      <button type="button" class="clear-all" [class.on]="editMode()" (click)="toggleEditMode()">
+      <button type="button" class="clear-all edit-toggle" [class.on]="editMode()" (click)="toggleEditMode()">
         {{ editMode() ? 'Concluir' : 'Editar listas' }}
       </button>
     }
@@ -133,11 +133,10 @@
         <app-media-row
           [list]="list"
           [editMode]="editMode()"
-          [hidden]="hiddenIds().has(list.id)"
           [atTop]="i === 0"
           [atBottom]="i === visible().length - 1"
           (rename)="renameList(list.id, $event)"
-          (toggleHidden)="toggleListHidden(list.id)"
+          (delete)="deleteList(list.id)"
           (moveUp)="moveList(list.id, -1)"
           (moveDown)="moveList(list.id, 1)" />
       } @placeholder (minimum 100ms) {
@@ -169,6 +168,12 @@
           </p>
         }
       </div>
+    }
+
+    @defer (on viewport; prefetch on idle) {
+      <app-recently-watched />
+    } @placeholder {
+      <div class="feed-anchor"></div>
     }
 
     @defer (on viewport; prefetch on idle) {

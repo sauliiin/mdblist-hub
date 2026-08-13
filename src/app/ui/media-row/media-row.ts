@@ -23,21 +23,22 @@ export class MediaRow implements OnInit {
   readonly list = input.required<MdbList>();
   /** Show a numbered rank chip on each card (used for ranked lists). */
   readonly ranked = input(false);
-  /** Reveals the rename/hide/reorder controls next to the heading. */
+  /** Reveals the rename/reorder/delete controls next to the heading. */
   readonly editMode = input(false);
-  /** Whether this list is currently hidden from the plain (non-edit) home view. */
-  readonly hidden = input(false);
   /** Disables the respective reorder arrow when the list is at that edge. */
   readonly atTop = input(false);
   readonly atBottom = input(false);
 
   readonly rename = output<string>();
-  readonly toggleHidden = output<void>();
+  /** Confirmed via the trash button's own popover — see `confirmDelete`. */
+  readonly delete = output<void>();
   readonly moveUp = output<void>();
   readonly moveDown = output<void>();
 
   protected readonly renaming = signal(false);
   protected readonly draftName = signal('');
+  /** The trash button's own confirm step — see `askDelete`. */
+  protected readonly confirmingDelete = signal(false);
 
   private readonly track = viewChild<ElementRef<HTMLElement>>('track');
 
@@ -97,6 +98,25 @@ export class MediaRow implements OnInit {
 
   protected onDraftName(event: Event): void {
     this.draftName.set((event.target as HTMLInputElement).value);
+  }
+
+  /**
+   * The trash icon doesn't hide the list right away — "excluir" reads as
+   * permanent, and `toggleHidden` is really just a reversible local
+   * preference (nothing is touched on mdblist itself), so a stray click
+   * deserves a chance to back out before it fires.
+   */
+  protected askDelete(): void {
+    this.confirmingDelete.set(true);
+  }
+
+  protected cancelDelete(): void {
+    this.confirmingDelete.set(false);
+  }
+
+  protected confirmDelete(): void {
+    this.confirmingDelete.set(false);
+    this.delete.emit();
   }
 
   protected scrollBy(direction: -1 | 1): void {

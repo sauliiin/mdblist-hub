@@ -2,10 +2,10 @@
   class="card"
   [routerLink]="link()"
   [attr.aria-label]="label()"
-  (focus)="armPrefetch()"
-  (blur)="cancelPrefetch()"
-  (mouseenter)="armPrefetch()"
-  (mouseleave)="cancelPrefetch()"
+  (focus)="armPrefetch(); armHoverPreview()"
+  (blur)="cancelPrefetch(); disarmHoverPreview()"
+  (mouseenter)="armPrefetch(); armHoverPreview()"
+  (mouseleave)="cancelPrefetch(); disarmHoverPreview()"
   (touchstart)="prefetchNow()">
   <div class="poster" [class.landscape]="theme() === 'primefly'">
     @if (artwork()) {

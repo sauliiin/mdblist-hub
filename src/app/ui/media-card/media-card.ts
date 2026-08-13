@@ -3,6 +3,7 @@ import {
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { upscalePoster } from '../../core/api.config';
+import { HoverPreviewService } from '../../core/hover-preview.service';
 import { LandscapeArtworkService } from '../../core/landscape-artwork.service';
 import { MdbItem, formatYear, titleWithYear, toTmdbType } from '../../core/models';
 import { PrefetchService } from '../../core/prefetch.service';
@@ -20,6 +21,7 @@ export class MediaCard implements OnDestroy {
   private readonly tv = inject(TvService);
   private readonly prefetch = inject(PrefetchService);
   private readonly landscapeArt = inject(LandscapeArtworkService);
+  private readonly hoverPreview = inject(HoverPreviewService);
   private readonly host: ElementRef<HTMLElement> = inject(ElementRef);
   protected readonly theme = inject(ThemePrefsService).themeKey;
 
@@ -112,6 +114,23 @@ export class MediaCard implements OnDestroy {
   protected prefetchNow(): void {
     this.cancelPrefetch();
     this.prefetch.detailFor(this.item().mediatype, this.item().id);
+  }
+
+  /**
+   * Netflix-style preview — the actual floating card lives in
+   * `HoverPreviewCard`, mounted once at the app root; see the doc comment on
+   * `HoverPreviewService` for why it can't be rendered from here. This just
+   * arms/disarms it. TV focus moves the same way a scan does, so it is
+   * excluded outright rather than by timing; `(hover: hover)` catches the
+   * touch case a plain `pointerType` check would miss on a hybrid device.
+   */
+  protected armHoverPreview(): void {
+    if (this.tv.isTv() || !matchMedia('(hover: hover)').matches) return;
+    this.hoverPreview.arm(this.item(), this.host.nativeElement);
+  }
+
+  protected disarmHoverPreview(): void {
+    this.hoverPreview.disarm();
   }
 
   ngOnDestroy(): void {

@@ -8,6 +8,7 @@ import { THEME_OPTIONS, ThemePrefsService } from './core/theme-prefs.service';
 import { SpatialNavigation } from './core/tv/spatial-navigation';
 import { TvService } from './core/tv/tv.service';
 import { BottomNav } from './ui/bottom-nav/bottom-nav';
+import { HoverPreviewCard } from './ui/hover-preview-card/hover-preview-card';
 
 const THEME_CLASSES = THEME_OPTIONS.map((option) => `${option.key}-theme`).filter(
   (cls) => cls !== 'normal-theme',
@@ -15,7 +16,7 @@ const THEME_CLASSES = THEME_OPTIONS.map((option) => `${option.key}-theme`).filte
 
 @Component({
   selector: 'app-root',
-  imports: [BottomNav, RouterLink, RouterLinkActive, RouterOutlet],
+  imports: [BottomNav, HoverPreviewCard, RouterLink, RouterLinkActive, RouterOutlet],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './app.html',
   styleUrl: './app.scss',

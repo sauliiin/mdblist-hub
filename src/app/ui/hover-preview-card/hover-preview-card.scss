@@ -1,0 +1,135 @@
+/* No box of its own — `.hover-preview` below is positioned straight off the
+   viewport via inline styles, and a styled `:host` would only get in the way. */
+:host {
+  display: contents;
+}
+
+.hover-preview {
+  position: fixed;
+  z-index: 200;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--bg-elev);
+  border: none;
+  box-shadow: var(--shadow-lift), 0 26px 54px rgba(0, 0, 0, 0.65);
+  animation: hover-preview-in 0.3s ease-out both;
+}
+
+@keyframes hover-preview-in {
+  from { opacity: 0; transform: scale(0.9); filter: blur(10px); }
+  to { opacity: 1; transform: scale(1); filter: blur(0); }
+}
+
+.hover-preview-art {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: opacity 0.35s var(--ease);
+
+  /* Faded rather than removed once the trailer confirms playback, so the
+     swap reads as a crossfade instead of a cut. */
+  &.hide { opacity: 0; }
+}
+
+.hover-preview-fallback {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  padding: 14px;
+  background: linear-gradient(150deg, #1a1d2b, #0f111a);
+  color: var(--text-faint);
+  font-size: 15px;
+  font-weight: 700;
+  text-align: center;
+}
+
+/*
+ * A separate browsing context — `pointer-events: none` keeps the mouse
+ * "inside" `.hover-preview` as far as its own `mouseenter`/`mouseleave` are
+ * concerned, rather than the iframe silently swallowing them. Nothing in the
+ * embed needs a click anyway: no controls, no pause button.
+ *
+ * `#trailerHost` (the inner div, plain in the template) is what the YouTube
+ * IFrame Player API replaces with its own `<iframe>` — see
+ * `HoverPreviewCard`'s constructor. That replacement iframe doesn't inherit
+ * this wrapper's own class, so its sizing is targeted through the
+ * descendant selector below rather than a class on the iframe itself.
+ */
+.trailer {
+  position: absolute;
+  inset: -20%;
+  width: 140%;
+  height: 140%;
+  pointer-events: none;
+
+  iframe {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border: none;
+  }
+}
+
+.hover-preview-panel {
+  position: absolute;
+  inset: auto 0 0 0;
+  padding: 34px 14px 12px;
+  background: linear-gradient(to top, rgba(4, 5, 8, 0.94) 15%, rgba(4, 5, 8, 0.6) 60%, transparent);
+}
+
+.hover-preview-title {
+  margin: 0 0 9px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.hover-preview-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.preview-btn {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.7);
+  background: rgba(20, 22, 30, 0.55);
+  color: #fff;
+  cursor: pointer;
+  transition: transform 0.15s var(--ease), background 0.15s var(--ease), border-color 0.15s var(--ease);
+
+  svg { width: 16px; height: 16px; fill: currentColor; }
+
+  &:hover, &:focus-visible {
+    transform: scale(1.1);
+    border-color: #fff;
+  }
+
+  &.play {
+    background: #fff;
+    color: #0a0b10;
+    border-color: #fff;
+    svg { margin-left: 1px; }
+
+    &:hover, &:focus-visible { background: rgba(255, 255, 255, 0.85); }
+  }
+}
+
+/* `MediaCard.armHoverPreview`'s `(hover: hover)` check already keeps this
+   from ever opening on a touch pointer — this is only the defensive
+   fallback for a hybrid device where that check and this query disagree. */
+@media (pointer: coarse) {
+  .hover-preview {
+    display: none;
+  }
+}

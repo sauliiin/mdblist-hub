@@ -1,0 +1,80 @@
+:host {
+  display: block;
+  --card-w: 172px;
+
+  /* Mesma poupança de paint das linhas — ver comentário em media-row.scss. */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 340px;
+}
+
+/* Matches `media-row`'s TV sizing — every row on this page reads as one grid. */
+:host-context(html.tv) {
+  --card-w: clamp(113px, 9.22vw, 178px);
+}
+
+/* Matches `media-row`'s Primefly sizing — see the comment there. */
+:host-context(body.primefly-theme) {
+  --card-w: 260px;
+}
+
+:host-context(html.tv):host-context(body.primefly-theme) {
+  --card-w: clamp(170px, 13.9vw, 268px);
+}
+
+:host-context(body.primefly-theme) .skeleton.poster {
+  aspect-ratio: 16 / 9;
+}
+
+.feed {
+  padding-top: 22px;
+  margin-top: 18px;
+  border-top: 1px solid var(--border);
+  animation: fade-up 0.5s var(--ease) both;
+}
+
+.feed-head {
+  margin-bottom: 22px;
+
+  h2 {
+    font-size: clamp(19px, 2vw, 26px);
+    margin-bottom: 5px;
+  }
+
+  p {
+    margin: 0;
+    font-size: 13.5px;
+    color: var(--text-dim);
+  }
+}
+
+.track {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  scroll-padding-inline: clamp(16px, 3.6vw, 56px);
+  padding: 6px clamp(16px, 3.6vw, 56px) 28px;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar { display: none; }
+}
+
+/* See the notes on the identical rule in `media-row.scss`, including the
+   fixed-focus fix (`padding-inline-end`) for why the far end needs room. */
+:host-context(html.tv) .track {
+  padding-top: 28px;
+  margin-top: -18px;
+  padding-inline: max(var(--overscan), clamp(16px, 3.6vw, 56px));
+  scroll-padding-inline: max(var(--overscan), clamp(16px, 3.6vw, 56px));
+  padding-inline-end: calc(
+    100% - var(--card-w) - max(var(--overscan), clamp(16px, 3.6vw, 56px))
+  );
+  scroll-snap-type: x mandatory;
+}
+
+.skeleton.poster {
+  width: var(--card-w);
+  flex-shrink: 0;
+  aspect-ratio: 2 / 3;
+  border-radius: var(--radius);
+}

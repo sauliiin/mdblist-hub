@@ -21,6 +21,7 @@ import { MediaRow } from '../../ui/media-row/media-row';
 import { BecauseYouWatched } from './because-you-watched/because-you-watched';
 import { ContinueWatching } from './continue-watching/continue-watching';
 import { Hero } from './hero/hero';
+import { RecentlyWatched } from './recently-watched/recently-watched';
 
 type Filter = 'all' | 'movie' | 'show';
 
@@ -38,7 +39,7 @@ interface SearchOutcome {
 
 @Component({
   selector: 'app-home',
-  imports: [DecimalPipe, RouterLink, BecauseYouWatched, ContinueWatching, Hero, MediaRow],
+  imports: [DecimalPipe, RouterLink, BecauseYouWatched, ContinueWatching, Hero, MediaRow, RecentlyWatched],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './home.html',
   styleUrl: './home.scss',
@@ -65,18 +66,8 @@ export class Home {
   /** Toggles the rename/hide/reorder controls on each row's heading. */
   protected readonly editMode = signal(false);
 
-  /** Rename/hide/reorder applied on top of the fetched lists, hidden ones dropped. */
+  /** Rename/hide/reorder applied on top of the fetched lists, hidden ones dropped — edit mode included, there is no undo UI for a deleted row yet. */
   protected readonly curated = computed(() => applyPrefs(this.lists(), this.listPrefs.all()));
-  /**
-   * Same, but keeping hidden rows in — otherwise edit mode would have no way
-   * to reach a hidden list to un-hide it again.
-   */
-  protected readonly curatedForEditing = computed(() =>
-    applyPrefs(this.lists(), this.listPrefs.all(), { includeHidden: true }),
-  );
-  protected readonly hiddenIds = computed(
-    () => new Set(this.listPrefs.all().filter((p) => p.hidden).map((p) => p.id)),
-  );
 
   protected readonly genres = toSignal(this.tmdb.genres(), {
     initialValue: [] as GenreOption[],
@@ -128,8 +119,7 @@ export class Home {
 
   protected readonly visible = computed(() => {
     const kind = this.filter();
-    const source = this.editMode() ? this.curatedForEditing() : this.curated();
-    return source.filter((l) => kind === 'all' || l.mediatype === kind || l.mediatype === null);
+    return this.curated().filter((l) => kind === 'all' || l.mediatype === kind || l.mediatype === null);
   });
 
   protected readonly totalItems = computed(() =>
@@ -230,14 +220,14 @@ export class Home {
     this.listPrefs.rename(id, name);
   }
 
-  protected toggleListHidden(id: number): void {
-    if (this.hiddenIds().has(id)) this.listPrefs.show(id);
-    else this.listPrefs.hide(id);
+  /** The trash button's confirm step — see `MediaRow.confirmDelete`. No undo UI yet: a hidden row just stops rendering. */
+  protected deleteList(id: number): void {
+    this.listPrefs.hide(id);
   }
 
-  /** The neighbour swap needs the ids exactly as edit mode is showing them, hidden ones included. */
+  /** The neighbour swap needs the ids exactly as they're currently displayed. */
   protected moveList(id: number, direction: -1 | 1): void {
-    this.listPrefs.move(id, direction, this.curatedForEditing().map((l) => l.id));
+    this.listPrefs.move(id, direction, this.curated().map((l) => l.id));
   }
 }
 

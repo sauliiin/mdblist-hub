@@ -4,7 +4,7 @@ import { Observable, catchError, forkJoin, map, of, tap } from 'rxjs';
 import { Capacitor } from '@capacitor/core';
 import { API } from './api.config';
 import { AuthService } from './auth.service';
-import { MediaType } from './models';
+import { MdbItem, MediaType } from './models';
 
 /** The three mdblist buckets a title can belong to. */
 export type Bucket = 'watchlist' | 'watched' | 'collection';
@@ -104,6 +104,36 @@ export class LibraryService {
       );
   }
 
+  /**
+   * Movies mdblist has marked watched, most recent first — the same
+   * `sync/watched` bucket `ids()` reads for membership below, just with the
+   * `append_to_response` extras a real row needs (poster, title, year).
+   *
+   * Deliberately not the "Last Watched" list `RecommendationsService`
+   * already seeds "Porque você assistiu" from: the native apps' own doc
+   * comments flag that list as only existing for accounts with Trakt/Simkl
+   * synced through mdblist, and switch to this exact bucket instead for
+   * that reason — same call made here, for the same reason.
+   */
+  recentlyWatchedMovies(limit = 30): Observable<MdbItem[]> {
+    return this.http
+      .get<BucketResponse>(`${API.mdblist.base}${ROUTES.watched.read}`, {
+        params: { apikey: this.auth.key(), limit, append_to_response: 'poster,ratings' },
+      })
+      .pipe(
+        map((res) =>
+          (res.movies ?? [])
+            // mdblist's own ordering here isn't guaranteed — sorted explicitly,
+            // the same defensive call the native apps' repository makes.
+            .slice()
+            .sort((a, b) => (b.last_watched_at ?? '').localeCompare(a.last_watched_at ?? ''))
+            .map(fromBucketEntry)
+            .filter((item): item is MdbItem => item !== null),
+        ),
+        catchError(() => of([])),
+      );
+  }
+
   private ids(bucket: Bucket): Observable<Set<number>> {
     const cached = this.members.get(bucket);
     if (cached) return of(cached);
@@ -123,6 +153,15 @@ export class LibraryService {
   }
 }
 
+/** The nested title object `/sync/*` wraps a movie or show entry in. */
+interface BucketTitle {
+  title?: string;
+  year?: number;
+  ids?: { imdb?: string; tmdb?: number };
+  poster?: string;
+  runtime?: number;
+}
+
 /**
  * `/watchlist/items` returns items directly, while the `/sync/*` reads wrap
  * each one in `{movie: {...}}` / `{show: {...}}` alongside a timestamp.
@@ -130,8 +169,10 @@ export class LibraryService {
 interface BucketEntry {
   id?: number;
   ids?: { tmdb?: number };
-  movie?: { ids?: { tmdb?: number } };
-  show?: { ids?: { tmdb?: number } };
+  movie?: BucketTitle;
+  show?: BucketTitle;
+  /** `sync/watched` only — what `recentlyWatchedMovies()` sorts by. */
+  last_watched_at?: string | null;
 }
 
 interface BucketResponse {
@@ -143,4 +184,28 @@ function collectTmdbIds(res: BucketResponse): number[] {
   return [...(res?.movies ?? []), ...(res?.shows ?? [])]
     .map((entry) => entry.movie?.ids?.tmdb ?? entry.show?.ids?.tmdb ?? entry.ids?.tmdb ?? entry.id)
     .filter((id): id is number => typeof id === 'number');
+}
+
+function fromBucketEntry(entry: BucketEntry): MdbItem | null {
+  const title = entry.movie;
+  const tmdbId = title?.ids?.tmdb;
+  if (!title || !tmdbId) return null;
+
+  return {
+    id: tmdbId,
+    mediatype: 'movie',
+    imdb_id: title.ids?.imdb ?? null,
+    ids: title.ids ?? {},
+    title: title.title || 'Sem título',
+    language: '',
+    country: '',
+    release_year: title.year ?? null,
+    release_date: null,
+    runtime: title.runtime ?? null,
+    // Raw mdblist URL, same convention as every other `MdbItem` source —
+    // `MediaCard` is what upscales it for the size it actually needs.
+    poster: title.poster ?? null,
+    genre: null,
+    rank: null,
+  };
 }

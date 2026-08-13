@@ -155,6 +155,16 @@
   }
 }
 
+/* Resting "Editar listas" needs its own outline — sharing `.clear-all`'s
+   plain `var(--border)` left it reading as just another neutral control
+   next to "Limpar" and the Filmes/Séries segmented buttons. */
+.edit-toggle:not(.on) {
+  color: #cbbcff;
+  border-color: rgba(124, 92, 255, 0.55);
+
+  &:hover { border-color: rgba(124, 92, 255, 0.85); }
+}
+
 .segmented {
   display: flex;
   padding: 4px;
