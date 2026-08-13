@@ -475,9 +475,10 @@ body.cyberpunk-theme h3 {
 }
 
 body.cyberpunk-theme .card .poster,
-body.cyberpunk-theme .result .poster {
+body.cyberpunk-theme .result .poster,
+body.cyberpunk-theme .card .art {
   border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
+  border-radius: 0;
   box-shadow: 0 0 12px rgba(0, 243, 255, 0.16);
 }
 
@@ -487,7 +488,8 @@ body.cyberpunk-theme .result .poster {
  * rotating or distorting the artwork itself.
  */
 body.cyberpunk-theme .card .poster::after,
-body.cyberpunk-theme .result .poster::after {
+body.cyberpunk-theme .result .poster::after,
+body.cyberpunk-theme .card .art::after {
   content: '';
   position: absolute;
   inset: 0;
@@ -516,6 +518,9 @@ body.cyberpunk-theme .result .poster::after {
 body.cyberpunk-theme .card:focus .poster,
 body.cyberpunk-theme .card:focus-within .poster,
 body.cyberpunk-theme .card:hover .poster,
+body.cyberpunk-theme .card:focus .art,
+body.cyberpunk-theme .card:focus-within .art,
+body.cyberpunk-theme .card:hover .art,
 body.cyberpunk-theme .result:focus .poster,
 body.cyberpunk-theme .result:focus-visible .poster,
 body.cyberpunk-theme .result:hover .poster {
@@ -530,6 +535,9 @@ body.cyberpunk-theme .result:hover .poster {
 body.cyberpunk-theme .card:focus .poster::after,
 body.cyberpunk-theme .card:focus-within .poster::after,
 body.cyberpunk-theme .card:hover .poster::after,
+body.cyberpunk-theme .card:focus .art::after,
+body.cyberpunk-theme .card:focus-within .art::after,
+body.cyberpunk-theme .card:hover .art::after,
 body.cyberpunk-theme .result:focus .poster::after,
 body.cyberpunk-theme .result:focus-visible .poster::after,
 body.cyberpunk-theme .result:hover .poster::after {

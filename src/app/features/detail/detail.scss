@@ -521,7 +521,8 @@ h1 {
 }
 
 /* Primefly: wider 16:9 tiles — proportionate to this grid's smaller 132px base. */
-body.primefly-theme .recs {
+body.primefly-theme .recs,
+body.netflixy-theme .recs {
   grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
 }
 

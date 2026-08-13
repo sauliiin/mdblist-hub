@@ -247,7 +247,8 @@
 }
 
 /* Primefly: wider 16:9 tiles — same 260px rhythm the list rows use. */
-body.primefly-theme .results {
+body.primefly-theme .results,
+body.netflixy-theme .results {
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
 }
 
@@ -256,7 +257,8 @@ body.primefly-theme .results {
   border-radius: var(--radius);
 }
 
-body.primefly-theme .result-skeleton {
+body.primefly-theme .result-skeleton,
+body.netflixy-theme .result-skeleton {
   aspect-ratio: 16 / 9;
 }
 

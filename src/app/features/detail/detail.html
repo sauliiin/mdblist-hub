@@ -218,8 +218,8 @@
             <h2 class="block-title">Você também pode gostar</h2>
             <div class="recs">
               @for (rec of d.recommendations; track rec.id) {
-                <a class="rec" [class.landscape]="theme() === 'primefly'" [routerLink]="recLink(rec)">
-                  @if (theme() === 'primefly') {
+                <a class="rec" [class.landscape]="theme() === 'primefly' || theme() === 'netflixy'" [routerLink]="recLink(rec)">
+                  @if (theme() === 'primefly' || theme() === 'netflixy') {
                     @if (recBackdrop(rec)) {
                       <img [src]="recBackdrop(rec)" [alt]="recTitle(rec)" loading="lazy" />
                     } @else {

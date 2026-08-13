@@ -21,6 +21,7 @@ import { MediaRow } from '../../ui/media-row/media-row';
 import { BecauseYouWatched } from './because-you-watched/because-you-watched';
 import { ContinueWatching } from './continue-watching/continue-watching';
 import { Hero } from './hero/hero';
+import { LibraryRow } from './library-row/library-row';
 import { RecentlyWatched } from './recently-watched/recently-watched';
 
 type Filter = 'all' | 'movie' | 'show';
@@ -39,7 +40,9 @@ interface SearchOutcome {
 
 @Component({
   selector: 'app-home',
-  imports: [DecimalPipe, RouterLink, BecauseYouWatched, ContinueWatching, Hero, MediaRow, RecentlyWatched],
+  imports: [
+    DecimalPipe, RouterLink, BecauseYouWatched, ContinueWatching, Hero, LibraryRow, MediaRow, RecentlyWatched,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './home.html',
   styleUrl: './home.scss',

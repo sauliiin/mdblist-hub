@@ -31,6 +31,11 @@ export const API = {
     base: 'https://sub.wyzie.io',
     key: 'wyzie-s9qb8pabb1bllkptwqe0z19ufdnpa5sa',
   },
+  /** Same key the native apps ship — see `LandscapeArtworkService` for how it's used. */
+  fanart: {
+    base: 'https://webservice.fanart.tv/v3.2',
+    key: 'a7ad21743fd710fccb738232f2fbdcfc',
+  },
 } as const;
 
 export type TmdbImageSize =

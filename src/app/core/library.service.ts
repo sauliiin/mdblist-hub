@@ -116,20 +116,42 @@ export class LibraryService {
    * that reason — same call made here, for the same reason.
    */
   recentlyWatchedMovies(limit = 30): Observable<MdbItem[]> {
+    return this.entries('watched', limit).pipe(
+      map((entries) =>
+        entries
+          // mdblist's own ordering here isn't guaranteed — sorted explicitly,
+          // the same defensive call the native apps' repository makes.
+          .slice()
+          .sort((a, b) => (b.last_watched_at ?? '').localeCompare(a.last_watched_at ?? ''))
+          .map(fromBucketEntry)
+          .filter((item): item is MdbItem => item !== null),
+      ),
+    );
+  }
+
+  /** Movies on the account's watchlist, in mdblist's own order. */
+  watchlistMovies(limit = 30): Observable<MdbItem[]> {
+    return this.bucketMovies('watchlist', limit);
+  }
+
+  /** Movies in the account's collection, in mdblist's own order. */
+  collectionMovies(limit = 30): Observable<MdbItem[]> {
+    return this.bucketMovies('collection', limit);
+  }
+
+  private bucketMovies(bucket: Bucket, limit: number): Observable<MdbItem[]> {
+    return this.entries(bucket, limit).pipe(
+      map((entries) => entries.map(fromBucketEntry).filter((item): item is MdbItem => item !== null)),
+    );
+  }
+
+  private entries(bucket: Bucket, limit: number): Observable<BucketEntry[]> {
     return this.http
-      .get<BucketResponse>(`${API.mdblist.base}${ROUTES.watched.read}`, {
+      .get<BucketResponse>(`${API.mdblist.base}${ROUTES[bucket].read}`, {
         params: { apikey: this.auth.key(), limit, append_to_response: 'poster,ratings' },
       })
       .pipe(
-        map((res) =>
-          (res.movies ?? [])
-            // mdblist's own ordering here isn't guaranteed — sorted explicitly,
-            // the same defensive call the native apps' repository makes.
-            .slice()
-            .sort((a, b) => (b.last_watched_at ?? '').localeCompare(a.last_watched_at ?? ''))
-            .map(fromBucketEntry)
-            .filter((item): item is MdbItem => item !== null),
-        ),
+        map((res) => res.movies ?? []),
         catchError(() => of([])),
       );
   }

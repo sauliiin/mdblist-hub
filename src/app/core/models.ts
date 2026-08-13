@@ -201,6 +201,23 @@ export interface TmdbLogo {
   vote_average: number;
 }
 
+/** One Fanart.tv artwork entry — see `LandscapeArtworkService`. */
+export interface FanartImage {
+  url: string;
+  likes: string;
+}
+
+/**
+ * `GET /v3.2/{movies|tv}/{id}` — `*thumb` is 16:9 art authored for shelf
+ * cards, `*background` is a generic scene backdrop.
+ */
+export interface FanartResponse {
+  moviethumb?: FanartImage[];
+  tvthumb?: FanartImage[];
+  moviebackground?: FanartImage[];
+  showbackground?: FanartImage[];
+}
+
 /** A season as listed on the show record. */
 export interface TmdbSeasonSummary {
   id: number;

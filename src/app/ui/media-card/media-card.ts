@@ -48,7 +48,7 @@ export class MediaCard implements OnDestroy {
    * to a cropped portrait `poster`. Every other theme just shows the poster.
    */
   protected readonly artwork = computed(() => {
-    if (this.theme() !== 'primefly') return this.poster();
+    if (this.theme() !== 'primefly' && this.theme() !== 'netflixy') return this.poster();
     return this.landscapeArt.get(this.item().mediatype, this.item().id) ?? null;
   });
 
@@ -75,7 +75,7 @@ export class MediaCard implements OnDestroy {
      * mid-scroll.
      */
     effect((onCleanup) => {
-      if (this.theme() !== 'primefly') return;
+      if (this.theme() !== 'primefly' && this.theme() !== 'netflixy') return;
 
       const item = this.item();
       const observer = new IntersectionObserver(

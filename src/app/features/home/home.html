@@ -76,8 +76,8 @@
       <div class="results shell">
         @for (result of visibleResults(); track result.key) {
           <a class="result" [routerLink]="['/title', result.tmdbType, result.id]">
-            <div class="poster" [class.landscape]="theme() === 'primefly'">
-              @if (theme() === 'primefly') {
+            <div class="poster" [class.landscape]="theme() === 'primefly' || theme() === 'netflixy'">
+              @if (theme() === 'primefly' || theme() === 'netflixy') {
                 @if (result.backdrop) {
                   <img [src]="result.backdrop" [alt]="result.title" loading="lazy" />
                 } @else {
@@ -127,6 +127,11 @@
     <!-- Above the lists, not below: it is the row someone coming back wants
          first, and it is what "down" from the hero should reach. -->
     <app-continue-watching />
+
+    <!-- mdblist's own watchlist/collection buckets, not custom lists — same
+         reasoning as continue-watching for sitting above the @for below. -->
+    <app-library-row bucket="watchlist" heading="Watchlist" subheading="Direto da sua watchlist no mdblist." />
+    <app-library-row bucket="collection" heading="Coleção" subheading="Direto da sua coleção no mdblist." />
 
     @for (list of visible(); track list.id; let i = $index) {
       @defer (on viewport; prefetch on idle) {

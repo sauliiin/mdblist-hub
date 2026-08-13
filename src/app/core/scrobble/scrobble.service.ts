@@ -1,6 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject, signal } from '@angular/core';
 import { Observable, catchError, map, of } from 'rxjs';
+import { Capacitor } from '@capacitor/core';
 import { API } from '../api.config';
 import { AuthService } from '../auth.service';
 import { noCache } from '../http-cache.interceptor';
@@ -17,8 +18,13 @@ import { scrobbleBody } from './payload';
  *
  * The API's current schema expects nested JSON. Browser writes use the
  * same-origin proxy in [ApiConfig], because mdblist does not answer the CORS
- * preflight a direct JSON POST would trigger.
+ * preflight a direct JSON POST would trigger — same reasoning as
+ * `library.service.ts`'s `WRITE_BASE`, and the same fix: the packaged app has
+ * no dev-server proxy behind `/mdblist-api` to answer that path, so it writes
+ * straight to mdblist instead.
  */
+const WRITE_BASE = Capacitor.isNativePlatform() ? API.mdblist.base : API.mdblist.writeProxy;
+
 @Injectable({ providedIn: 'root' })
 export class ScrobbleService {
   private readonly http = inject(HttpClient);
@@ -53,7 +59,7 @@ export class ScrobbleService {
   beaconStop(target: ScrobbleTarget, progress: number): void {
     if (!this.auth.key() || (!target.imdbId && !target.tmdbId)) return;
 
-    const url = `${API.mdblist.writeProxy}/scrobble/stop?apikey=${encodeURIComponent(this.auth.key())}`;
+    const url = `${WRITE_BASE}/scrobble/stop?apikey=${encodeURIComponent(this.auth.key())}`;
     const payload = scrobbleBody(target, progress);
 
     navigator.sendBeacon?.(
@@ -103,7 +109,7 @@ export class ScrobbleService {
     if (!this.auth.key() || (!target.imdbId && !target.tmdbId)) return of(false);
 
     return this.http
-      .post(`${API.mdblist.writeProxy}/scrobble/${action}`, scrobbleBody(target, progress), {
+      .post(`${WRITE_BASE}/scrobble/${action}`, scrobbleBody(target, progress), {
         params: { apikey: this.auth.key() },
         context: noCache(),
       })
