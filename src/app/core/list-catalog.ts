@@ -20,20 +20,24 @@ export function alphabetical(lists: MdbList[]): MdbList[] {
  * This is what makes list curation general — every visitor gets the same
  * tools to shape their own home, rather than one hardcoded account getting a
  * pre-curated set.
+ *
+ * Generic rather than `MdbList`-specific so `Home` can run the built-in
+ * "Watchlist"/"Coleção" rows through the exact same rename/hide/reorder
+ * machinery as a custom list, interleaved with them in one shared order.
  */
-export function applyPrefs(lists: MdbList[], prefs: ListPref[]): MdbList[] {
+export function applyPrefs<T extends { id: number; name: string }>(items: T[], prefs: ListPref[]): T[] {
   const byId = new Map(prefs.map((p) => [p.id, p]));
 
-  const visible = lists.filter((l) => !byId.get(l.id)?.hidden);
-  const named = visible.map((list) => {
-    const name = byId.get(list.id)?.name;
-    return name ? { ...list, name } : list;
+  const visible = items.filter((item) => !byId.get(item.id)?.hidden);
+  const named = visible.map((item) => {
+    const name = byId.get(item.id)?.name;
+    return name ? ({ ...item, name } as T) : item;
   });
 
   const positioned = named
-    .filter((l) => byId.get(l.id)?.position !== undefined)
+    .filter((item) => byId.get(item.id)?.position !== undefined)
     .sort((a, b) => byId.get(a.id)!.position! - byId.get(b.id)!.position!);
-  const rest = named.filter((l) => byId.get(l.id)?.position === undefined);
+  const rest = named.filter((item) => byId.get(item.id)?.position === undefined);
 
   return [...positioned, ...rest];
 }

@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, OnInit, inject, input, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, inject, input, output, signal } from '@angular/core';
 import { LibraryService } from '../../../core/library.service';
 import { MdbItem } from '../../../core/models';
 import { MediaCard } from '../../../ui/media-card/media-card';
@@ -8,6 +8,10 @@ import { MediaCard } from '../../../ui/media-card/media-card';
  * from the account's custom lists, so `MediaRow`'s list-fetch path does not
  * apply here. Same shelf shape as `RecentlyWatched`, parameterised by bucket
  * so both rows share one component instead of two near-duplicates.
+ *
+ * `editMode`/`rename`/`delete`/`moveUp`/`moveDown` mirror `MediaRow`'s own
+ * exactly — `Home` now runs both kinds of row through the same shared,
+ * interleaved order (see `HomeRow` there), so they need the same controls.
  */
 @Component({
   selector: 'app-library-row',
@@ -22,9 +26,23 @@ export class LibraryRow implements OnInit {
   readonly bucket = input.required<'watchlist' | 'collection'>();
   readonly heading = input.required<string>();
   readonly subheading = input.required<string>();
+  readonly editMode = input(false);
+  /** Disables the respective reorder arrow when this row is at that edge. */
+  readonly atTop = input(false);
+  readonly atBottom = input(false);
+
+  readonly rename = output<string>();
+  /** Confirmed via the trash button's own popover — see `confirmDelete`. */
+  readonly delete = output<void>();
+  readonly moveUp = output<void>();
+  readonly moveDown = output<void>();
 
   protected readonly items = signal<MdbItem[]>([]);
   protected readonly loading = signal(true);
+  protected readonly renaming = signal(false);
+  protected readonly draftName = signal('');
+  /** The trash button's own confirm step — see `askDelete`. */
+  protected readonly confirmingDelete = signal(false);
 
   ngOnInit(): void {
     const movies$ =
@@ -34,5 +52,37 @@ export class LibraryRow implements OnInit {
       this.items.set(items);
       this.loading.set(false);
     });
+  }
+
+  protected startRename(): void {
+    this.draftName.set(this.heading());
+    this.renaming.set(true);
+  }
+
+  protected confirmRename(): void {
+    const name = this.draftName().trim();
+    this.renaming.set(false);
+    if (name && name !== this.heading()) this.rename.emit(name);
+  }
+
+  protected cancelRename(): void {
+    this.renaming.set(false);
+  }
+
+  protected onDraftName(event: Event): void {
+    this.draftName.set((event.target as HTMLInputElement).value);
+  }
+
+  protected askDelete(): void {
+    this.confirmingDelete.set(true);
+  }
+
+  protected cancelDelete(): void {
+    this.confirmingDelete.set(false);
+  }
+
+  protected confirmDelete(): void {
+    this.confirmingDelete.set(false);
+    this.delete.emit();
   }
 }

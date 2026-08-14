@@ -11,8 +11,8 @@ import { applyPrefs } from '../../core/list-catalog';
 import { ListPrefsService } from '../../core/list-prefs.service';
 import { MdblistService } from '../../core/mdblist.service';
 import {
-  GenreOption, GridItem, MdbItem, MdbList, TmdbKeyword, TmdbSearchResult, formatYear,
-  toTmdbType,
+  COLLECTION_PREF_ID, GenreOption, GridItem, MdbItem, MdbList, TmdbKeyword, TmdbSearchResult,
+  WATCHLIST_PREF_ID, formatYear, toTmdbType,
 } from '../../core/models';
 import { ThemePrefsService } from '../../core/theme-prefs.service';
 import { TmdbService } from '../../core/tmdb.service';
@@ -25,6 +25,16 @@ import { LibraryRow } from './library-row/library-row';
 import { RecentlyWatched } from './recently-watched/recently-watched';
 
 type Filter = 'all' | 'movie' | 'show';
+
+/**
+ * One row on the home page, whatever backs it — a custom mdblist list or one
+ * of the two built-in buckets. `id`/`name` are what `applyPrefs()` needs to
+ * hide/rename/reorder every row through the same mechanism, `MediaRow` and
+ * `LibraryRow` included.
+ */
+type HomeRow =
+  | { kind: 'watchlist' | 'collection'; id: number; name: string }
+  | { kind: 'list'; id: number; name: string; list: MdbList };
 
 interface Criteria {
   query: string;
@@ -69,8 +79,22 @@ export class Home {
   /** Toggles the rename/hide/reorder controls on each row's heading. */
   protected readonly editMode = signal(false);
 
-  /** Rename/hide/reorder applied on top of the fetched lists, hidden ones dropped — edit mode included, there is no undo UI for a deleted row yet. */
-  protected readonly curated = computed(() => applyPrefs(this.lists(), this.listPrefs.all()));
+  /** The two built-in rows, before rename/hide/reorder — see `HomeRow`. */
+  private readonly libraryRows = computed<HomeRow[]>(() => [
+    { kind: 'watchlist', id: WATCHLIST_PREF_ID, name: 'Watchlist' },
+    { kind: 'collection', id: COLLECTION_PREF_ID, name: 'Coleção' },
+  ]);
+
+  /** Rename/hide/reorder applied across every row — custom lists and the two built-in ones alike, one shared order. */
+  protected readonly curated = computed(() =>
+    applyPrefs<HomeRow>(
+      [
+        ...this.libraryRows(),
+        ...this.lists().map((list): HomeRow => ({ kind: 'list', id: list.id, name: list.name, list })),
+      ],
+      this.listPrefs.all(),
+    ),
+  );
 
   protected readonly genres = toSignal(this.tmdb.genres(), {
     initialValue: [] as GenreOption[],
@@ -120,13 +144,17 @@ export class Home {
     return `“${query}” no catálogo do TMDB`;
   });
 
+  /** The Filmes/Séries toggle only means anything for a custom list — the built-in rows are always shown. */
   protected readonly visible = computed(() => {
     const kind = this.filter();
-    return this.curated().filter((l) => kind === 'all' || l.mediatype === kind || l.mediatype === null);
+    return this.curated().filter(
+      (row) => row.kind !== 'list' || kind === 'all' || row.list.mediatype === kind || row.list.mediatype === null,
+    );
   });
 
+  /** Custom-list items only — the built-in rows were never part of this count. */
   protected readonly totalItems = computed(() =>
-    this.curated().reduce((sum, l) => sum + l.items, 0),
+    this.curated().reduce((sum, row) => sum + (row.kind === 'list' ? row.list.items : 0), 0),
   );
 
   constructor() {

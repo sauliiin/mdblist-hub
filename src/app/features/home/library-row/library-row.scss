@@ -36,18 +36,142 @@
 }
 
 .feed-head {
+  // Matches `.row-head`'s raw edge padding (`media-row.scss`) instead of the
+  // `.shell` utility's 1680px-capped, centered box — `.shell` put this
+  // header out of line with the custom-list rows on anything wider than
+  // that cap, since those rows are never width-limited.
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding-inline: clamp(16px, 3.6vw, 56px);
   margin-bottom: 22px;
   text-align: left;
+}
+
+.feed-heading {
+  min-width: 0;
 
   h2 {
     font-size: clamp(19px, 2vw, 26px);
     margin-bottom: 5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   p {
     margin: 0;
     font-size: 13.5px;
     color: var(--text-dim);
+  }
+}
+
+/* Same rename affordance as `media-row.scss`'s `.rename-input`/`.edit-controls`. */
+.rename-input {
+  min-width: 0;
+  max-width: 260px;
+  padding: 3px 8px;
+  margin-bottom: 5px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--accent);
+  background: var(--surface);
+  color: var(--text);
+  font-size: clamp(19px, 2vw, 26px);
+}
+
+.edit-controls {
+  display: flex;
+  gap: 6px;
+  flex: none;
+}
+
+/* Same trash-with-confirm affordance as `media-row.scss`'s `.icon-btn`/`.delete-wrap`. */
+.icon-btn {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  flex: none;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-dim);
+  transition: border-color 0.2s var(--ease), color 0.2s var(--ease);
+
+  svg {
+    width: 15px;
+    height: 15px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  &:hover:not(:disabled) { border-color: var(--border-strong); color: var(--text); }
+  &.danger:hover:not(:disabled) { border-color: rgba(239, 68, 68, 0.5); color: #fca5a5; }
+}
+
+.delete-wrap {
+  position: relative;
+  flex: none;
+}
+
+.delete-confirm {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 10;
+  width: max(220px, 22vw);
+  max-width: 280px;
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  background: rgba(14, 15, 22, 0.97);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+
+  p {
+    margin: 0 0 8px;
+    font-size: 13px;
+    color: var(--text);
+    line-height: 1.4;
+  }
+
+  .hint {
+    font-size: 11.5px;
+    color: var(--text-faint);
+    margin-bottom: 12px;
+  }
+}
+
+.delete-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+
+  button {
+    padding: 6px 12px;
+    border-radius: 99px;
+    font-size: 12.5px;
+    font-weight: 600;
+    transition: background 0.2s var(--ease), border-color 0.2s var(--ease), color 0.2s var(--ease);
+  }
+
+  .ghost {
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+    background: transparent;
+
+    &:hover { color: var(--text); border-color: var(--border-strong); }
+  }
+
+  .danger {
+    color: #fff;
+    background: #dc2626;
+    border: 1px solid transparent;
+
+    &:hover { background: #ef4444; }
   }
 }
 

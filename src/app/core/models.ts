@@ -58,7 +58,7 @@ export interface MdbList {
  * hiding here has no effect on the list itself at mdblist.com.
  */
 export interface ListPref {
-  /** `MdbList.id`. */
+  /** `MdbList.id`, or one of the reserved negative ids below — mdblist's own ids are always positive. */
   id: number;
   /** Overrides the shown name; unset falls back to the curated/original name. */
   name?: string;
@@ -67,6 +67,15 @@ export interface ListPref {
   /** Explicit sort position; unset sorts after every positioned list, alphabetically among themselves. */
   position?: number;
 }
+
+/**
+ * `ListPref.id` for the built-in "Watchlist"/"Coleção" rows (`LibraryRow`) —
+ * reserved so they can be hidden the same way a custom list is, through the
+ * same `ListPrefsService`/`ListPrefsSyncService` plumbing, without a real
+ * mdblist list id to key on.
+ */
+export const WATCHLIST_PREF_ID = -1;
+export const COLLECTION_PREF_ID = -2;
 
 export interface MdbItem {
   id: number; // tmdb id

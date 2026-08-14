@@ -128,36 +128,48 @@
          first, and it is what "down" from the hero should reach. -->
     <app-continue-watching />
 
-    <!-- mdblist's own watchlist/collection buckets, not custom lists — same
-         reasoning as continue-watching for sitting above the @for below. -->
-    <app-library-row bucket="watchlist" heading="Watchlist" subheading="Direto da sua watchlist no mdblist." />
-    <app-library-row bucket="collection" heading="Coleção" subheading="Direto da sua coleção no mdblist." />
-
-    @for (list of visible(); track list.id; let i = $index) {
-      @defer (on viewport; prefetch on idle) {
-        <app-media-row
-          [list]="list"
+    <!-- mdblist's own watchlist/collection buckets share the same
+         rename/hide/reorder machinery as a custom list, so they're mixed
+         into the same loop below rather than pinned above it. -->
+    @for (row of visible(); track row.id; let i = $index) {
+      @if (row.kind === 'list') {
+        @defer (on viewport; prefetch on idle) {
+          <app-media-row
+            [list]="row.list"
+            [editMode]="editMode()"
+            [atTop]="i === 0"
+            [atBottom]="i === visible().length - 1"
+            (rename)="renameList(row.id, $event)"
+            (delete)="deleteList(row.id)"
+            (moveUp)="moveList(row.id, -1)"
+            (moveDown)="moveList(row.id, 1)" />
+        } @placeholder (minimum 100ms) {
+          <!--
+            On TV, a loading row has to be a stop the D-pad can actually land on
+            — otherwise spatial navigation finds nothing focusable here and jumps
+            straight past it to whatever loads next. Landing here also scrolls
+            the placeholder into view, which is what `@defer (on viewport)`
+            itself is waiting on to start the fetch.
+          -->
+          <div class="row-placeholder" data-row [attr.tabindex]="tv.isTv() ? 0 : null">
+            <div class="skeleton head"></div>
+            <div class="posters">
+              @for (p of [1,2,3,4,5,6,7,8]; track $index) { <div class="skeleton poster"></div> }
+            </div>
+          </div>
+        }
+      } @else {
+        <app-library-row
+          [bucket]="row.kind"
+          [heading]="row.name"
+          [subheading]="row.kind === 'watchlist' ? 'Direto da sua watchlist no mdblist.' : 'Direto da sua coleção no mdblist.'"
           [editMode]="editMode()"
           [atTop]="i === 0"
           [atBottom]="i === visible().length - 1"
-          (rename)="renameList(list.id, $event)"
-          (delete)="deleteList(list.id)"
-          (moveUp)="moveList(list.id, -1)"
-          (moveDown)="moveList(list.id, 1)" />
-      } @placeholder (minimum 100ms) {
-        <!--
-          On TV, a loading row has to be a stop the D-pad can actually land on
-          — otherwise spatial navigation finds nothing focusable here and jumps
-          straight past it to whatever loads next. Landing here also scrolls
-          the placeholder into view, which is what `@defer (on viewport)`
-          itself is waiting on to start the fetch.
-        -->
-        <div class="row-placeholder" data-row [attr.tabindex]="tv.isTv() ? 0 : null">
-          <div class="skeleton head"></div>
-          <div class="posters">
-            @for (p of [1,2,3,4,5,6,7,8]; track $index) { <div class="skeleton poster"></div> }
-          </div>
-        </div>
+          (rename)="renameList(row.id, $event)"
+          (delete)="deleteList(row.id)"
+          (moveUp)="moveList(row.id, -1)"
+          (moveDown)="moveList(row.id, 1)" />
       }
     } @empty {
       <div class="state shell">

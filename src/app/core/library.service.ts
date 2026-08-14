@@ -185,12 +185,13 @@ interface BucketTitle {
 }
 
 /**
- * `/watchlist/items` returns items directly, while the `/sync/*` reads wrap
- * each one in `{movie: {...}}` / `{show: {...}}` alongside a timestamp.
+ * `/watchlist/items` returns items directly (the title fields sit on the
+ * entry itself), while the `/sync/*` reads wrap each one in `{movie: {...}}`
+ * / `{show: {...}}` alongside a timestamp — `BucketEntry` extends
+ * `BucketTitle` so a flat entry can be read as its own title.
  */
-interface BucketEntry {
+interface BucketEntry extends BucketTitle {
   id?: number;
-  ids?: { tmdb?: number };
   movie?: BucketTitle;
   show?: BucketTitle;
   /** `sync/watched` only — what `recentlyWatchedMovies()` sorts by. */
@@ -209,9 +210,9 @@ function collectTmdbIds(res: BucketResponse): number[] {
 }
 
 function fromBucketEntry(entry: BucketEntry): MdbItem | null {
-  const title = entry.movie;
-  const tmdbId = title?.ids?.tmdb;
-  if (!title || !tmdbId) return null;
+  const title = entry.movie ?? entry;
+  const tmdbId = title.ids?.tmdb ?? entry.id;
+  if (!tmdbId) return null;
 
   return {
     id: tmdbId,

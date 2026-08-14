@@ -2,7 +2,12 @@
   display: block;
   /* Wider than the poster rows: a 16:9 card needs more width to read at the
      same height, since the poster scale (172px) was tuned for 2:3. */
-  --card-w: 260px;
+  --card-w: 320px;
+  --shell-pad: clamp(16px, 3.6vw, 56px);
+  --row-inset: max(
+    var(--shell-pad),
+    calc((100vw - 1680px) / 2 + var(--shell-pad))
+  );
 
   /* Mesma poupança de paint das linhas — ver comentário em media-row.scss. */
   content-visibility: auto;
@@ -10,7 +15,8 @@
 }
 
 :host-context(html.tv) {
-  --card-w: clamp(170px, 13.9vw, 268px);
+  --card-w: clamp(210px, 16.5vw, 318px);
+  --shell-pad: max(var(--overscan), clamp(16px, 3.6vw, 56px));
 }
 
 .feed {
@@ -45,7 +51,7 @@
   display: flex;
   justify-content: flex-start;
   gap: 16px;
-  padding: 24px max(16px, calc((100vw - 1360px) / 2)) 8px;
+  padding: 24px var(--row-inset) 8px;
   margin-top: -20px;
   overflow-x: auto;
   scroll-snap-type: x proximity;
@@ -58,12 +64,11 @@
 /* See the notes on the identical rules in `media-row.scss`, including the
    fixed-focus fix (`padding-inline-end`) for why the far end needs room. */
 :host-context(html.tv) .track {
-  --track-inset: max(var(--overscan), clamp(16px, 3.6vw, 56px));
   padding-top: 36px;
   margin-top: -26px;
-  padding-inline-start: var(--track-inset);
-  padding-inline-end: calc(100% - var(--card-w) - var(--track-inset));
-  scroll-padding-inline: var(--track-inset);
+  padding-inline-start: var(--row-inset);
+  padding-inline-end: calc(100% - var(--card-w) - var(--row-inset));
+  scroll-padding-inline: var(--row-inset);
   scroll-snap-type: x mandatory;
 }
 
