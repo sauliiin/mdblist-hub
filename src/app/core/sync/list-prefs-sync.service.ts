@@ -4,8 +4,9 @@ import { Observable, catchError, from, map, switchMap, throwError } from 'rxjs';
 import { AuthService } from '../auth.service';
 import { GoogleAuthService } from '../google-auth.service';
 import { noCache } from '../http-cache.interceptor';
+import { CatalogPrefsService } from '../catalog-prefs.service';
 import { ListPrefsService } from '../list-prefs.service';
-import { ListPref } from '../models';
+import { CatalogPref, ListPref } from '../models';
 
 /**
  * Same `safevault-fcbdc` Realtime Database project as `addon-sync.service.ts`,
@@ -16,11 +17,14 @@ import { ListPref } from '../models';
  * nothing in the schema recognised that key.
  *
  * The native shape nests custom lists under `lists` (index-keyed, `id > 0`)
- * alongside a `catalogs` node this app doesn't populate — Stremio addon
- * catalogs, ordered on the native home screen the same way a list is, which
- * has no equivalent here yet. Writes go through PATCH rather than PUT so a
- * push from here never wipes out whatever `catalogs` (or anything else) a
- * native client already wrote at that same path.
+ * alongside `catalogs` (index-keyed, `key` a string) — Stremio addon
+ * catalogs, ordered/renamed/hidden the same way a list is. Both ride the
+ * same toggle and the same push/pull here, one PATCH apiece, because that is
+ * how the native apps write them: one `FirebaseListPreferencesDto` with
+ * `lists` and `catalogs` as siblings — see the native repo's `SyncDto.kt`.
+ * PATCH rather than PUT is still what matters most: it is what stops a push
+ * from here ever wiping out whichever of the two a native client wrote most
+ * recently, on the same path, for the other kind.
  *
  * The two built-in "Watchlist"/"Coleção" rows (see `Home`'s `HomeRow`) use
  * reserved negative ids the native schema has no room for (`lists.$index.id`
@@ -43,11 +47,22 @@ interface RemoteListEntry {
   deleted?: boolean;
 }
 
+/** One entry of `listPreferences/catalogs` — mirrors `FirebaseCatalogPreferenceDto` exactly. */
+interface RemoteCatalogEntry {
+  key: string;
+  name?: string;
+  position?: number;
+  hidden?: boolean;
+  /** Native-only concept, never set here — treated as `hidden` on read, see `fromRemoteCatalogEntry`. */
+  deleted?: boolean;
+}
+
 interface Payload {
   updatedAt: string;
   /** Required by the deployed rules; whose lists a `listPreferences` node holds. */
   mdblistUserId: number;
   lists?: Record<string, RemoteListEntry>;
+  catalogs?: Record<string, RemoteCatalogEntry>;
 }
 
 /** Mirrors `AddonSyncService`'s `SyncRefusal` — see that file for the reasoning. */
@@ -57,6 +72,7 @@ class SyncRefusal extends Error {}
 export class ListPrefsSyncService {
   private readonly http = inject(HttpClient);
   private readonly listPrefs = inject(ListPrefsService);
+  private readonly catalogPrefs = inject(CatalogPrefsService);
   private readonly googleAuth = inject(GoogleAuthService);
   private readonly auth = inject(AuthService);
 
@@ -76,11 +92,12 @@ export class ListPrefsSyncService {
 
   constructor() {
     effect(() => {
-      const prefs = this.listPrefs.all();
+      const lists = this.listPrefs.all();
+      const catalogs = this.catalogPrefs.all();
       if (!this.on() || this.applying || !this.googleAuth.linked()) return;
 
       clearTimeout(this.pushTimer);
-      this.pushTimer = setTimeout(() => this.push(prefs).subscribe(), PUSH_DELAY);
+      this.pushTimer = setTimeout(() => this.push(lists, catalogs).subscribe(), PUSH_DELAY);
     });
   }
 
@@ -91,10 +108,16 @@ export class ListPrefsSyncService {
 
     return this.request((uid, idToken) =>
       this.read(uid, idToken).pipe(
-        switchMap((remote) => {
-          const merged = mergePrefs(this.listPrefs.all(), remote);
-          this.apply(() => this.listPrefs.replaceAll(merged));
-          return this.write(uid, idToken, merged).pipe(map(() => merged.length));
+        switchMap(({ lists, catalogs }) => {
+          const mergedLists = mergePrefs(this.listPrefs.all(), lists);
+          const mergedCatalogs = mergePrefs(this.catalogPrefs.all(), catalogs);
+          this.apply(() => {
+            this.listPrefs.replaceAll(mergedLists);
+            this.catalogPrefs.replaceAll(mergedCatalogs);
+          });
+          return this.write(uid, idToken, mergedLists, mergedCatalogs).pipe(
+            map(() => mergedLists.length + mergedCatalogs.length),
+          );
         }),
       ),
     );
@@ -116,50 +139,66 @@ export class ListPrefsSyncService {
   pull(): Observable<number> {
     return this.request((uid, idToken) =>
       this.read(uid, idToken).pipe(
-        map((remote) => {
-          if (!remote.length) {
+        map(({ lists, catalogs }) => {
+          if (!lists.length && !catalogs.length) {
             throw new SyncRefusal(
               'A nuvem não devolveu nenhuma preferência de lista, então não mexi nas daqui. ' +
                 'Use "Enviar" no aparelho que tem as listas certas primeiro.',
             );
           }
 
-          const localOnly = this.listPrefs.all().filter((p) => p.id < 0);
-          const next = [...remote, ...localOnly];
-          const before = this.listPrefs.all().length;
-          this.apply(() => this.listPrefs.replaceAll(next));
-          return Math.abs(next.length - before);
+          const localOnlyLists = this.listPrefs.all().filter((p) => p.id < 0);
+          const nextLists = [...lists, ...localOnlyLists];
+          const before = this.listPrefs.all().length + this.catalogPrefs.all().length;
+          this.apply(() => {
+            this.listPrefs.replaceAll(nextLists);
+            this.catalogPrefs.replaceAll(catalogs);
+          });
+          return Math.abs(nextLists.length + catalogs.length - before);
         }),
       ),
     );
   }
 
-  push(prefs = this.listPrefs.all()): Observable<number> {
-    return this.request((uid, idToken) => this.write(uid, idToken, prefs).pipe(map(() => prefs.length)));
+  push(lists = this.listPrefs.all(), catalogs = this.catalogPrefs.all()): Observable<number> {
+    return this.request((uid, idToken) =>
+      this.write(uid, idToken, lists, catalogs).pipe(map(() => lists.length + catalogs.length)),
+    );
   }
 
-  private read(uid: string, idToken: string): Observable<ListPref[]> {
+  private read(uid: string, idToken: string): Observable<{ lists: ListPref[]; catalogs: CatalogPref[] }> {
     return this.http
       .get<Payload | null>(`${DB}/users/${uid}/listPreferences.json`, {
         params: { auth: idToken },
         context: noCache(),
       })
-      .pipe(map((payload) => Object.values(payload?.lists ?? {}).map(fromRemoteEntry)));
+      .pipe(
+        map((payload) => ({
+          lists: Object.values(payload?.lists ?? {}).map(fromRemoteEntry),
+          catalogs: Object.values(payload?.catalogs ?? {}).map(fromRemoteCatalogEntry),
+        })),
+      );
   }
 
   /**
-   * PATCH, not PUT: a `listPreferences` node can carry a native-only
-   * `catalogs` sibling this app never reads — overwriting the whole node
-   * would silently delete it out from under a phone or TV signed into the
-   * same account.
+   * PATCH, not PUT: a `listPreferences` node's two children are each written
+   * whole here, but PATCH is what stops this call from wiping out whichever
+   * *other* top-level field (today, just the other of `lists`/`catalogs`,
+   * but the schema is shared with two native apps and does not promise to
+   * stay that short) a phone or TV last wrote at this same path.
    */
-  private write(uid: string, idToken: string, prefs: ListPref[]): Observable<unknown> {
-    const entries = prefs.filter((p) => p.id > 0);
-    const lists = Object.fromEntries(entries.map((p, i) => [String(i), toRemoteEntry(p)]));
+  private write(
+    uid: string,
+    idToken: string,
+    lists: ListPref[],
+    catalogs: CatalogPref[],
+  ): Observable<unknown> {
+    const listEntries = lists.filter((p) => p.id > 0);
     const payload: Payload = {
       updatedAt: new Date().toISOString(),
       mdblistUserId: this.auth.user()?.user_id ?? 0,
-      lists,
+      lists: Object.fromEntries(listEntries.map((p, i) => [String(i), toRemoteEntry(p)])),
+      catalogs: Object.fromEntries(catalogs.map((p, i) => [String(i), toRemoteCatalogEntry(p)])),
     };
 
     return this.http.patch(`${DB}/users/${uid}/listPreferences.json`, payload, {
@@ -210,7 +249,7 @@ export class ListPrefsSyncService {
 }
 
 /** Local wins on a conflicting id — enabling sync should never silently discard an unsynced local edit. */
-function mergePrefs(local: ListPref[], remote: ListPref[]): ListPref[] {
+function mergePrefs<T extends { id: number | string }>(local: T[], remote: T[]): T[] {
   const localIds = new Set(local.map((p) => p.id));
   return [...local, ...remote.filter((p) => !localIds.has(p.id))];
 }
@@ -222,6 +261,19 @@ function toRemoteEntry(pref: ListPref): RemoteListEntry {
 function fromRemoteEntry(entry: RemoteListEntry): ListPref {
   return {
     id: entry.id,
+    name: entry.name,
+    position: entry.position,
+    hidden: entry.hidden || entry.deleted || undefined,
+  };
+}
+
+function toRemoteCatalogEntry(pref: CatalogPref): RemoteCatalogEntry {
+  return { key: pref.id, name: pref.name, position: pref.position, hidden: pref.hidden };
+}
+
+function fromRemoteCatalogEntry(entry: RemoteCatalogEntry): CatalogPref {
+  return {
+    id: entry.key,
     name: entry.name,
     position: entry.position,
     hidden: entry.hidden || entry.deleted || undefined,

@@ -3,9 +3,10 @@ import { Injectable, inject } from '@angular/core';
 import { Observable, catchError, forkJoin, map, of, switchMap } from 'rxjs';
 import { Capacitor } from '@capacitor/core';
 import { noCache } from '../http-cache.interceptor';
+import { RawAddonCatalog } from '../models';
 import {
-  InstalledAddon, PlayableStream, StreamQuery, StremioStream, StremioSubtitle, StremioType,
-  SubtitleOption,
+  CatalogItem, InstalledAddon, PlayableStream, StreamQuery, StremioStream, StremioSubtitle,
+  StremioType, SubtitleOption,
 } from './models';
 import { AddonsService } from './addons.service';
 import { SubtitleSourcesService } from './subtitle-sources.service';
@@ -52,6 +53,24 @@ export class StremioService {
         queried: providers.length,
         failed: results.filter((r) => r.failed).length,
       })),
+    );
+  }
+
+  /**
+   * The items one addon catalog offers, previews only — see `CatalogItem`.
+   *
+   * Same shape of guard as `streams()`/`subtitles()`: a catalog with a bad id
+   * (blank, or neither a `tmdb:` nor a `tt…` prefix) is dropped rather than
+   * shown as an unopenable card, and a request that fails outright is an
+   * empty row, not a broken one.
+   */
+  catalog(catalog: RawAddonCatalog): Observable<CatalogItem[]> {
+    const url =
+      `${catalog.addonBase}/catalog/${encodeURIComponent(catalog.type)}/${encodeURIComponent(catalog.id)}.json`;
+
+    return this.http.get<{ metas?: RawCatalogMeta[] }>(url, { context: noCache() }).pipe(
+      map((res) => (res?.metas ?? []).map(toCatalogItem).filter((item): item is CatalogItem => item !== null)),
+      catchError(() => of([] as CatalogItem[])),
     );
   }
 
@@ -259,4 +278,48 @@ function lines(value: string | null | undefined): string[] {
     .split('\n')
     .map((l) => l.trim())
     .filter(Boolean);
+}
+
+/** One entry of a `/catalog/…` response's `metas` — only the fields `toCatalogItem()` reads. */
+interface RawCatalogMeta {
+  id?: string;
+  type?: string;
+  name?: string;
+  poster?: string | null;
+  background?: string | null;
+  releaseInfo?: string | null;
+  imdbRating?: string | null;
+}
+
+/**
+ * `null` for a meta this app cannot open at all — blank id/name, or an id
+ * that is neither a `tmdb:…` nor an IMDb `tt…` one. Mirrors the native apps'
+ * own `AddonsRepository.catalogItems()` filter exactly, including the
+ * `tmdb:`-prefix parse: some addons key their catalog by a compound id like
+ * `tmdb:12345:1:2` (a season/episode suffix meaningless for a poster row),
+ * hence `substringAfterLast`-equivalent — the last colon-segment, not the
+ * whole remainder — is what gets parsed as the id.
+ */
+function toCatalogItem(meta: RawCatalogMeta): CatalogItem | null {
+  const id = meta.id?.trim();
+  const name = meta.name?.trim();
+  if (!id || !name) return null;
+
+  const tmdbId = id.startsWith('tmdb:') ? Number(id.split(':').pop()) || null : null;
+  const imdbId = /^tt\d+/i.test(id) ? id : null;
+  if (!tmdbId && !imdbId) return null;
+
+  const rating = meta.imdbRating ? Number(meta.imdbRating) : null;
+
+  return {
+    key: id,
+    title: name,
+    poster: meta.poster || null,
+    backdrop: meta.background || null,
+    year: /^\d{4}/.test(meta.releaseInfo ?? '') ? (meta.releaseInfo as string).slice(0, 4) : null,
+    vote: rating !== null && !Number.isNaN(rating) ? rating : null,
+    tmdbType: meta.type === 'series' ? 'tv' : 'movie',
+    tmdbId,
+    imdbId,
+  };
 }

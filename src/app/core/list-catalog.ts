@@ -1,4 +1,12 @@
-import { ListPref, MdbList } from './models';
+import { MdbList } from './models';
+
+/** What `applyPrefs()` needs from a preference row — `ListPref` and `CatalogPref` both already satisfy this. */
+interface RowPref {
+  id: number | string;
+  name?: string;
+  hidden?: boolean;
+  position?: number;
+}
 
 const collator = new Intl.Collator('pt-BR', { sensitivity: 'base' });
 
@@ -22,10 +30,17 @@ export function alphabetical(lists: MdbList[]): MdbList[] {
  * pre-curated set.
  *
  * Generic rather than `MdbList`-specific so `Home` can run the built-in
- * "Watchlist"/"Coleção" rows through the exact same rename/hide/reorder
- * machinery as a custom list, interleaved with them in one shared order.
+ * "Watchlist"/"Coleção" rows and addon catalog rows through the exact same
+ * rename/hide/reorder machinery as a custom list. `id` is `number | string`
+ * for the same reason: a custom list's id comes from mdblist, an addon
+ * catalog's from `catalogKey()`, and nothing here needs to tell them apart —
+ * only `Home.curated()` decides which groups get their own call (so a
+ * position saved in one never reorders into another) versus which share one.
  */
-export function applyPrefs<T extends { id: number; name: string }>(items: T[], prefs: ListPref[]): T[] {
+export function applyPrefs<T extends { id: number | string; name: string }>(
+  items: T[],
+  prefs: RowPref[],
+): T[] {
   const byId = new Map(prefs.map((p) => [p.id, p]));
 
   const visible = items.filter((item) => !byId.get(item.id)?.hidden);

@@ -1,0 +1,110 @@
+@if (loading() || items().length || editMode()) {
+  <section class="feed" data-row>
+    <header class="feed-head">
+      <div class="feed-heading">
+        @if (renaming()) {
+          <input
+            class="rename-input"
+            type="text"
+            [value]="draftName()"
+            (input)="onDraftName($event)"
+            (keydown.enter)="confirmRename()"
+            (keydown.escape)="cancelRename()"
+            (blur)="confirmRename()"
+            aria-label="Nome da linha" />
+        } @else {
+          <h2>{{ heading() }}</h2>
+        }
+        <p>Catálogo de addon.</p>
+      </div>
+
+      @if (editMode()) {
+        <div class="edit-controls">
+          <button
+            type="button"
+            class="icon-btn"
+            [disabled]="atTop()"
+            (click)="moveUp.emit()"
+            aria-label="Mover para cima">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 15l6-6 6 6" /></svg>
+          </button>
+          <button
+            type="button"
+            class="icon-btn"
+            [disabled]="atBottom()"
+            (click)="moveDown.emit()"
+            aria-label="Mover para baixo">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
+          </button>
+          <button type="button" class="icon-btn" (click)="startRename()" aria-label="Renomear">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
+            </svg>
+          </button>
+          <div class="delete-wrap">
+            <button
+              type="button"
+              class="icon-btn danger"
+              (click)="askDelete()"
+              [attr.aria-label]="'Excluir ' + heading() + ' da home'">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M3 6h18" />
+                <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" />
+              </svg>
+            </button>
+            @if (confirmingDelete()) {
+              <div class="delete-confirm" role="dialog" aria-label="Confirmar exclusão">
+                <p>Excluir <strong>{{ heading() }}</strong> da home?</p>
+                <p class="hint">Só remove esta linha daqui — o addon continua instalado.</p>
+                <div class="delete-confirm-actions">
+                  <button type="button" class="ghost" (click)="cancelDelete()">Cancelar</button>
+                  <button type="button" class="danger" (click)="confirmDelete()">Excluir</button>
+                </div>
+              </div>
+            }
+          </div>
+        </div>
+      }
+    </header>
+
+    <div class="track">
+      @if (loading()) {
+        @for (s of [1,2,3,4,5,6,7,8]; track $index) {
+          <div class="skeleton poster"></div>
+        }
+      } @else {
+        @for (item of items(); track item.key) {
+          <button
+            type="button"
+            class="card"
+            [class.busy]="resolving() === item.key"
+            (click)="open(item)"
+            [attr.aria-label]="item.title">
+            <div class="poster">
+              @if (item.poster) {
+                <img [src]="item.poster" [alt]="item.title" loading="lazy" decoding="async" />
+              } @else {
+                <div class="poster-fallback"><span>{{ item.title.charAt(0) }}</span></div>
+              }
+              <span class="type" [class.is-show]="item.tmdbType === 'tv'">
+                {{ item.tmdbType === 'tv' ? 'Série' : 'Filme' }}
+              </span>
+              @if (item.vote) {
+                <span class="vote">{{ item.vote.toFixed(1) }}</span>
+              }
+            </div>
+            <p class="title">
+              <span class="caption-name">{{ item.title }}</span>
+              @if (item.year) {
+                <span class="caption-year">({{ item.year }})</span>
+              }
+            </p>
+          </button>
+        } @empty {
+          <p class="empty">Este catálogo não devolveu nenhum título.</p>
+        }
+      }
+    </div>
+  </section>
+}

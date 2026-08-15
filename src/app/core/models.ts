@@ -77,6 +77,67 @@ export interface ListPref {
 export const WATCHLIST_PREF_ID = -1;
 export const COLLECTION_PREF_ID = -2;
 
+// ------------------------------------------------------- addon catalog rows
+
+/**
+ * A catalog a Stremio addon's manifest declares — not fetched yet, just the
+ * pointer. Mirrors the native apps' `AddonCatalog` (`core/model/Addon.kt`).
+ */
+export interface RawAddonCatalog {
+  addonBase: string;
+  addonId: string;
+  id: string;
+  type: string;
+  originalName: string;
+}
+
+/**
+ * A visitor's own customization of one addon catalog's row — same shape and
+ * purpose as `ListPref`, keyed by a string (`catalogKey()`) instead of a
+ * numeric id because a catalog has no id of its own, only a position inside
+ * a manifest that can change shape on every install. Called `key`, not `id`,
+ * wherever this crosses into `CatalogSyncEntry`/Firebase — see
+ * `list-prefs-sync.service.ts` — but `id` here so it satisfies the same
+ * `applyPrefs()` that `ListPref` does, unmodified.
+ */
+export interface CatalogPref {
+  id: string;
+  name?: string;
+  hidden?: boolean;
+  position?: number;
+}
+
+/**
+ * Reimplements Java's `String.hashCode()` bit for bit — 32-bit signed
+ * overflow via `Math.imul`, then reinterpreted unsigned. Has to, not just
+ * happens to: `catalogKey()` below feeds the same Firebase node the native
+ * apps write (`listPreferences/catalogs`, see `FirebaseCatalogPreferenceDto`
+ * in the native repo's `SyncDto.kt`), so the same addon has to hash to the
+ * same key on both sides or a rename/reorder made on one device silently
+ * never reaches the other — no error, just two preference rows that never
+ * meet.
+ */
+function javaStringHashCode(value: string): number {
+  let hash = 0;
+  for (let i = 0; i < value.length; i++) hash = (Math.imul(hash, 31) + value.charCodeAt(i)) | 0;
+  return hash;
+}
+
+/**
+ * Stable identity for one addon catalog — matches `AddonCatalog.key` in the
+ * native apps exactly (`$addonId:$type:$id@$hash`), so rename/hide/reorder
+ * done here and on a phone or TV signed into the same account land on the
+ * same row. The addon's base URL is folded into a hash rather than kept
+ * verbatim: it commonly carries a private per-user token, and that must not
+ * end up copied into a synced Firebase document.
+ */
+export function catalogKey(catalog: Pick<RawAddonCatalog, 'addonId' | 'type' | 'id' | 'addonBase'>): string {
+  const legacy = `${catalog.addonId}:${catalog.type}:${catalog.id}`;
+  const base = catalog.addonBase.replace(/\/+$/, '').toLowerCase();
+  const hash = (javaStringHashCode(base) >>> 0).toString(36);
+  return `${legacy}@${hash}`;
+}
+
 export interface MdbItem {
   id: number; // tmdb id
   mediatype: MediaType;

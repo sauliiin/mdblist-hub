@@ -183,6 +183,33 @@ export class TmdbService {
       );
   }
 
+  /**
+   * Resolves an IMDb id (`tt1234567`) to a TMDB id — what an addon catalog
+   * row needs before it can route anywhere, since a Stremio meta gives an
+   * IMDb id and every route in this app is TMDB-keyed. Called once, on
+   * click, rather than bulk-resolved when a catalog row loads: the native
+   * apps resolve the same way at the same moment (`resolveImdb`, called from
+   * `HomeScreen`'s `openCatalogItem`), and doing it eagerly for an entire
+   * row would mean a TMDB request per poster just to draw a row nobody may
+   * ever open.
+   */
+  findByImdb(imdbId: string): Observable<{ tmdbId: number; type: MediaType } | null> {
+    return this.http
+      .get<{ movie_results: TmdbSearchResult[]; tv_results: TmdbSearchResult[] }>(
+        `${API.tmdb.base}/find/${imdbId}`,
+        { params: { api_key: API.tmdb.key, external_source: 'imdb_id' } },
+      )
+      .pipe(
+        map((res) => {
+          const movie = res.movie_results?.[0];
+          if (movie) return { tmdbId: movie.id, type: 'movie' as const };
+          const tv = res.tv_results?.[0];
+          return tv ? { tmdbId: tv.id, type: 'show' as const } : null;
+        }),
+        catchError(() => of(null)),
+      );
+  }
+
   /** Free-text search across movies and shows. */
   search(query: string): Observable<TmdbSearchResult[]> {
     return this.http

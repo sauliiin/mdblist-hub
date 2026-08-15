@@ -1,0 +1,335 @@
+// Row chrome (`.feed`, `.feed-head`, `.rename-input`, `.edit-controls`,
+// `.icon-btn`, `.delete-wrap`/`.delete-confirm`, `.track`) is copied from
+// `library-row.scss` verbatim — same row, same controls, different card.
+:host {
+  display: block;
+  --card-w: 172px;
+
+  content-visibility: auto;
+  contain-intrinsic-size: auto 340px;
+}
+
+:host-context(html.tv) {
+  --card-w: clamp(113px, 9.22vw, 178px);
+}
+
+:host-context(body.primefly-theme),
+:host-context(body.netflixy-theme) {
+  --card-w: 260px;
+}
+
+:host-context(html.tv):host-context(body.primefly-theme),
+:host-context(html.tv):host-context(body.netflixy-theme) {
+  --card-w: clamp(170px, 13.9vw, 268px);
+}
+
+.feed {
+  padding-top: 22px;
+  margin-top: 18px;
+  border-top: 1px solid var(--border);
+  animation: fade-up 0.5s var(--ease) both;
+}
+
+.feed-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  padding-inline: clamp(16px, 3.6vw, 56px);
+  margin-bottom: 22px;
+  text-align: left;
+}
+
+.feed-heading {
+  min-width: 0;
+
+  h2 {
+    font-size: clamp(19px, 2vw, 26px);
+    margin-bottom: 5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  p {
+    margin: 0;
+    font-size: 13.5px;
+    color: var(--text-dim);
+  }
+}
+
+.rename-input {
+  min-width: 0;
+  max-width: 260px;
+  padding: 3px 8px;
+  margin-bottom: 5px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--accent);
+  background: var(--surface);
+  color: var(--text);
+  font-size: clamp(19px, 2vw, 26px);
+}
+
+.edit-controls {
+  display: flex;
+  gap: 6px;
+  flex: none;
+}
+
+.icon-btn {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  flex: none;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-dim);
+  transition: border-color 0.2s var(--ease), color 0.2s var(--ease);
+
+  svg {
+    width: 15px;
+    height: 15px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  &:hover:not(:disabled) { border-color: var(--border-strong); color: var(--text); }
+  &.danger:hover:not(:disabled) { border-color: rgba(239, 68, 68, 0.5); color: #fca5a5; }
+}
+
+.delete-wrap {
+  position: relative;
+  flex: none;
+}
+
+.delete-confirm {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 10;
+  width: max(220px, 22vw);
+  max-width: 280px;
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  background: rgba(14, 15, 22, 0.97);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+
+  p {
+    margin: 0 0 8px;
+    font-size: 13px;
+    color: var(--text);
+    line-height: 1.4;
+  }
+
+  .hint {
+    font-size: 11.5px;
+    color: var(--text-faint);
+    margin-bottom: 12px;
+  }
+}
+
+.delete-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+
+  button {
+    padding: 6px 12px;
+    border-radius: 99px;
+    font-size: 12.5px;
+    font-weight: 600;
+    transition: background 0.2s var(--ease), border-color 0.2s var(--ease), color 0.2s var(--ease);
+  }
+
+  .ghost {
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+    background: transparent;
+
+    &:hover { color: var(--text); border-color: var(--border-strong); }
+  }
+
+  .danger {
+    color: #fff;
+    background: #dc2626;
+    border: 1px solid transparent;
+
+    &:hover { background: #ef4444; }
+  }
+}
+
+.track {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  scroll-padding-inline: clamp(16px, 3.6vw, 56px);
+  padding: 6px clamp(16px, 3.6vw, 56px) 28px;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar { display: none; }
+}
+
+:host-context(html.tv) .track {
+  padding-top: 28px;
+  margin-top: -18px;
+  padding-inline: max(var(--overscan), clamp(16px, 3.6vw, 56px));
+  scroll-padding-inline: max(var(--overscan), clamp(16px, 3.6vw, 56px));
+  padding-inline-end: calc(
+    100% - var(--card-w) - max(var(--overscan), clamp(16px, 3.6vw, 56px))
+  );
+  scroll-snap-type: x mandatory;
+}
+
+.skeleton.poster {
+  width: var(--card-w);
+  flex-shrink: 0;
+  aspect-ratio: 2 / 3;
+  border-radius: var(--radius);
+}
+
+.empty {
+  color: var(--text-faint);
+  font-size: 13px;
+}
+
+// ------------------------------------------------------------- the card
+//
+// A trimmed `media-card.scss`: no landscape-art/hover-preview/rank chip —
+// this row's items are unresolved TMDB-wise, so those all depend on a real
+// id `CatalogItem` may not have yet. What is kept (poster, fallback tile,
+// type chip, title/year caption) is copied close to identical so the row
+// reads as the same family of card as every other one on the page.
+.card {
+  display: block;
+  width: var(--card-w);
+  flex-shrink: 0;
+  scroll-snap-align: start;
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: transform 0.2s var(--ease), opacity 0.2s var(--ease);
+
+  &:focus,
+  &:focus-visible { outline: none; }
+
+  &:hover, &:focus-visible {
+    transform: translateY(-6px);
+
+    .poster {
+      border-color: var(--poster-focus);
+      box-shadow: var(--shadow-lift), 0 0 0 3px var(--poster-focus), 0 0 18px 4px var(--poster-focus-glow);
+    }
+    img { transform: scale(1.035); }
+    .title { color: #fff; }
+  }
+
+  &.busy { opacity: 0.6; pointer-events: none; }
+}
+
+.poster {
+  position: relative;
+  aspect-ratio: 2 / 3;
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.45);
+  transition: box-shadow 0.2s var(--ease), border-color 0.2s var(--ease);
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: transform 0.55s var(--ease);
+  }
+}
+
+.poster-fallback {
+  display: grid;
+  place-items: center;
+  height: 100%;
+  background: linear-gradient(150deg, #1a1d2b, #0f111a);
+  color: var(--text-faint);
+  font-size: 38px;
+  font-weight: 800;
+}
+
+.type,
+.vote {
+  position: absolute;
+  z-index: 2;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 3px 8px;
+  border-radius: 99px;
+  backdrop-filter: blur(10px);
+  background: rgba(6, 7, 12, 0.66);
+  border: 1px solid var(--border);
+}
+
+.type {
+  top: 8px;
+  right: 8px;
+  color: #cfd3e0;
+  &.is-show { color: #9fe8ff; border-color: rgba(1, 180, 228, 0.4); }
+}
+
+.vote {
+  left: 8px;
+  bottom: 8px;
+  color: var(--gold);
+  font-variant-numeric: tabular-nums;
+}
+
+.title {
+  display: flex;
+  align-items: baseline;
+  gap: 0.3em;
+  margin: 9px 2px 0;
+  color: #d7dae4;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: color 0.25s var(--ease);
+}
+
+.caption-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.caption-year {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (pointer: coarse) {
+  .card {
+    &:hover, &:focus-visible {
+      transform: none;
+      img { transform: none; }
+    }
+    &:active {
+      transform: scale(0.955);
+      .poster { border-color: rgba(124, 92, 255, 0.45); box-shadow: var(--shadow-lift); }
+    }
+  }
+}
+
+@media (max-width: 860px) {
+  .card { width: var(--card-w, 132px); }
+  .title { font-size: 12px; }
+  .type { font-size: 9.5px; padding: 3px 7px; }
+}

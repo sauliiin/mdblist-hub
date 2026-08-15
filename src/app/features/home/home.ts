@@ -7,18 +7,21 @@ import {
 } from 'rxjs';
 import { tmdbImg, upscalePoster } from '../../core/api.config';
 import { AuthService } from '../../core/auth.service';
+import { CatalogPrefsService } from '../../core/catalog-prefs.service';
 import { applyPrefs } from '../../core/list-catalog';
 import { ListPrefsService } from '../../core/list-prefs.service';
 import { MdblistService } from '../../core/mdblist.service';
 import {
-  COLLECTION_PREF_ID, GenreOption, GridItem, MdbItem, MdbList, TmdbKeyword, TmdbSearchResult,
-  WATCHLIST_PREF_ID, formatYear, toTmdbType,
+  COLLECTION_PREF_ID, GenreOption, GridItem, MdbItem, MdbList, RawAddonCatalog, TmdbKeyword,
+  TmdbSearchResult, WATCHLIST_PREF_ID, catalogKey, formatYear, toTmdbType,
 } from '../../core/models';
+import { AddonsService } from '../../core/stremio/addons.service';
 import { ThemePrefsService } from '../../core/theme-prefs.service';
 import { TmdbService } from '../../core/tmdb.service';
 import { TvService } from '../../core/tv/tv.service';
 import { MediaRow } from '../../ui/media-row/media-row';
 import { BecauseYouWatched } from './because-you-watched/because-you-watched';
+import { CatalogRow } from './catalog-row/catalog-row';
 import { ContinueWatching } from './continue-watching/continue-watching';
 import { Hero } from './hero/hero';
 import { LibraryRow } from './library-row/library-row';
@@ -26,15 +29,36 @@ import { RecentlyWatched } from './recently-watched/recently-watched';
 
 type Filter = 'all' | 'movie' | 'show';
 
+/** `MDBLIST_CATALOG_HOST` — mirrors the constant of the same name in the native repo's `HomeScreen.kt`. */
+const MDBLIST_CATALOG_HOST = 'stremio-mdblist.baby-beamup.club';
+
 /**
- * One row on the home page, whatever backs it — a custom mdblist list or one
- * of the two built-in buckets. `id`/`name` are what `applyPrefs()` needs to
- * hide/rename/reorder every row through the same mechanism, `MediaRow` and
- * `LibraryRow` included.
+ * One row on the home page, whatever backs it — a custom mdblist list, one
+ * of the two built-in buckets, or one catalog a Stremio addon declares.
+ * `id`/`name` are what `applyPrefs()` needs to hide/rename/reorder every row
+ * through the same mechanism, `MediaRow`/`LibraryRow`/`CatalogRow` included.
+ * A catalog's `id` is a string (`catalogKey()`) rather than `MdbList.id`'s
+ * number — it has no id of its own, only a position inside a manifest.
+ *
+ * `atTop`/`atBottom` are relative to the row's own reorder group (built-ins,
+ * custom lists, addon catalogs — see `curated()`), not to its position in
+ * the page overall: a custom list's up-arrow has to disable exactly when
+ * `moveList()`'s own neighbour swap, scoped to that same group, would have
+ * nowhere to go, and that stopped being "first/last in `visible()`" the
+ * moment the three groups stopped sharing one order.
  */
-type HomeRow =
+type HomeRowBase =
   | { kind: 'watchlist' | 'collection'; id: number; name: string }
-  | { kind: 'list'; id: number; name: string; list: MdbList };
+  | { kind: 'list'; id: number; name: string; list: MdbList }
+  | { kind: 'catalog'; id: string; name: string; catalog: RawAddonCatalog };
+
+/** `HomeRowBase`, plus each row's position within its own reorder group — see the doc comment above. */
+type HomeRow = HomeRowBase & { atTop: boolean; atBottom: boolean };
+
+/** Tags each row with its position within its own array — see `HomeRow`'s `atTop`/`atBottom`. */
+function withEdges<T extends HomeRowBase>(rows: T[]): (T & { atTop: boolean; atBottom: boolean })[] {
+  return rows.map((row, i) => ({ ...row, atTop: i === 0, atBottom: i === rows.length - 1 }));
+}
 
 interface Criteria {
   query: string;
@@ -51,7 +75,8 @@ interface SearchOutcome {
 @Component({
   selector: 'app-home',
   imports: [
-    DecimalPipe, RouterLink, BecauseYouWatched, ContinueWatching, Hero, LibraryRow, MediaRow, RecentlyWatched,
+    DecimalPipe, RouterLink, BecauseYouWatched, CatalogRow, ContinueWatching, Hero, LibraryRow, MediaRow,
+    RecentlyWatched,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './home.html',
@@ -64,6 +89,8 @@ export class Home {
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
   protected readonly listPrefs = inject(ListPrefsService);
+  protected readonly catalogPrefs = inject(CatalogPrefsService);
+  private readonly addons = inject(AddonsService);
   protected readonly theme = inject(ThemePrefsService).themeKey;
 
   protected readonly lists = signal<MdbList[]>([]);
@@ -80,21 +107,60 @@ export class Home {
   protected readonly editMode = signal(false);
 
   /** The two built-in rows, before rename/hide/reorder — see `HomeRow`. */
-  private readonly libraryRows = computed<HomeRow[]>(() => [
+  private readonly libraryRows = computed<HomeRowBase[]>(() => [
     { kind: 'watchlist', id: WATCHLIST_PREF_ID, name: 'Watchlist' },
     { kind: 'collection', id: COLLECTION_PREF_ID, name: 'Coleção' },
   ]);
 
-  /** Rename/hide/reorder applied across every row — custom lists and the two built-in ones alike, one shared order. */
-  protected readonly curated = computed(() =>
-    applyPrefs<HomeRow>(
-      [
-        ...this.libraryRows(),
-        ...this.lists().map((list): HomeRow => ({ kind: 'list', id: list.id, name: list.name, list })),
-      ],
-      this.listPrefs.all(),
-    ),
-  );
+  /**
+   * Every catalog an installed addon declares, minus the ones this same
+   * account's mdblist lists already cover. Some addons — mdblist's own
+   * Stremio catalog bridge chief among them — exist purely to mirror an
+   * mdblist list into the Stremio protocol for clients with no native
+   * mdblist integration; this app already shows that same list directly
+   * (`this.lists()`), so showing the bridge's copy too would be the same row
+   * twice. Mirrors the native apps' `HomeScreen.extraCatalogs`/
+   * `mdblistMirrorListId()` exactly, including the URL shape it parses.
+   */
+  private readonly addonCatalogRows = computed<HomeRowBase[]>(() => {
+    const mirroredListIds = new Set(this.lists().map((list) => list.id));
+    return this.addons
+      .catalogs()
+      .filter((catalog) => {
+        const listId = mdblistMirrorListId(catalog.addonBase);
+        return listId === null || !mirroredListIds.has(listId);
+      })
+      .map((catalog): HomeRowBase => {
+        const id = catalogKey(catalog);
+        return { kind: 'catalog', id, name: catalog.originalName, catalog };
+      });
+  });
+
+  /**
+   * Rename/hide/reorder applied within each group — three separate
+   * `applyPrefs()` calls, concatenated built-ins, then custom lists, then
+   * addon catalogs, rather than one shared order. Watchlist and Coleção are
+   * the rows someone coming back wants right after Continuar assistindo; a
+   * single shared order let a custom list's saved `position` (from moving it
+   * up in edit mode) sort it ahead of them, which is what running everything
+   * through one `applyPrefs()` used to allow. Addon catalogs get their own
+   * group for the same reason, one level down — a catalog reordered against
+   * other catalogs never bleeds into where a custom list sits.
+   */
+  protected readonly curated = computed<HomeRow[]>(() => {
+    const listPrefs = this.listPrefs.all();
+    const library = withEdges(applyPrefs<HomeRowBase>(this.libraryRows(), listPrefs));
+    const custom = withEdges(
+      applyPrefs<HomeRowBase>(
+        this.lists().map((list): HomeRowBase => ({ kind: 'list', id: list.id, name: list.name, list })),
+        listPrefs,
+      ),
+    );
+    const catalogs = withEdges(
+      applyPrefs<HomeRowBase>(this.addonCatalogRows(), this.catalogPrefs.all()),
+    );
+    return [...library, ...custom, ...catalogs];
+  });
 
   protected readonly genres = toSignal(this.tmdb.genres(), {
     initialValue: [] as GenreOption[],
@@ -144,12 +210,20 @@ export class Home {
     return `“${query}” no catálogo do TMDB`;
   });
 
-  /** The Filmes/Séries toggle only means anything for a custom list — the built-in rows are always shown. */
+  /**
+   * The Filmes/Séries toggle means something for a custom list or an addon
+   * catalog — each declares its own kind — but not for the built-in rows,
+   * always shown regardless.
+   */
   protected readonly visible = computed(() => {
     const kind = this.filter();
-    return this.curated().filter(
-      (row) => row.kind !== 'list' || kind === 'all' || row.list.mediatype === kind || row.list.mediatype === null,
-    );
+    if (kind === 'all') return this.curated();
+
+    return this.curated().filter((row) => {
+      if (row.kind === 'list') return row.list.mediatype === kind || row.list.mediatype === null;
+      if (row.kind === 'catalog') return (row.catalog.type === 'series' ? 'show' : 'movie') === kind;
+      return true;
+    });
   });
 
   /** Custom-list items only — the built-in rows were never part of this count. */
@@ -256,10 +330,60 @@ export class Home {
     this.listPrefs.hide(id);
   }
 
-  /** The neighbour swap needs the ids exactly as they're currently displayed. */
+  /**
+   * The neighbour swap needs the ids exactly as they're currently displayed
+   * — filtered to the built-in/custom-list group specifically, not the whole
+   * `curated()` array: an addon catalog's id is a string, `ListPrefsService`
+   * only ever deals in numbers, and the two groups are separately positioned
+   * anyway (see `curated()`), so a catalog id in this order would be both a
+   * type error and meaningless to `ListPrefsService.move()`.
+   */
   protected moveList(id: number, direction: -1 | 1): void {
-    this.listPrefs.move(id, direction, this.curated().map((l) => l.id));
+    const order = this.curated()
+      .filter((row): row is Extract<HomeRow, { id: number }> => row.kind !== 'catalog')
+      .map((row) => row.id);
+    this.listPrefs.move(id, direction, order);
   }
+
+  protected renameCatalog(id: string, name: string): void {
+    this.catalogPrefs.rename(id, name);
+  }
+
+  /** Only ever removes the row — see `deleteList`. The addon itself stays installed. */
+  protected deleteCatalog(id: string): void {
+    this.catalogPrefs.hide(id);
+  }
+
+  /** Same restriction as `moveList()`, mirrored: only the catalog group's own order. */
+  protected moveCatalog(id: string, direction: -1 | 1): void {
+    const order = this.curated()
+      .filter((row): row is Extract<HomeRow, { kind: 'catalog' }> => row.kind === 'catalog')
+      .map((row) => row.id);
+    this.catalogPrefs.move(id, direction, order);
+  }
+}
+
+/**
+ * The source mdblist list id, only for manifests generated by mdblist's own
+ * catalog bridge — see `addonCatalogRows()`. Its transport URL shape is
+ * `…/unified/{listId}/{apiKey}/mdblist/manifest.json`; the id sits two
+ * segments before the literal `mdblist` marker.
+ */
+function mdblistMirrorListId(addonBase: string): number | null {
+  let url: URL;
+  try {
+    url = new URL(addonBase);
+  } catch {
+    return null;
+  }
+  if (!url.host.toLowerCase().includes(MDBLIST_CATALOG_HOST)) return null;
+
+  const segments = url.pathname.split('/').filter(Boolean);
+  const marker = segments.lastIndexOf('mdblist');
+  if (marker < 2) return null;
+
+  const id = Number(segments[marker - 2]);
+  return Number.isInteger(id) ? id : null;
 }
 
 /** Prefers an exact (case-insensitive) tag name over TMDB's fuzzy top hit. */

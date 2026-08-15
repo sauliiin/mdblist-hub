@@ -1,6 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Observable, catchError, map, throwError } from 'rxjs';
+import { RawAddonCatalog } from '../models';
 import {
   ImportReport, InstalledAddon, StremioManifest, StremioType, normaliseAddonUrl, serves,
 } from './models';
@@ -22,6 +23,26 @@ export class AddonsService {
 
   readonly installed = this.addons.asReadonly();
   readonly count = computed(() => this.addons().length);
+
+  /**
+   * Every catalog every installed addon declares, flattened — the raw
+   * pointers `Home` turns into rows. Mirrors the native apps' own
+   * `AddonsRepository.observeCatalogs()` (minus its own decoration, applied
+   * here by `applyPrefs()` in `Home.curated()` instead).
+   */
+  readonly catalogs = computed<RawAddonCatalog[]>(() =>
+    this.addons().flatMap((addon) =>
+      (addon.manifest.catalogs ?? [])
+        .filter((catalog) => catalog.id && catalog.type)
+        .map((catalog): RawAddonCatalog => ({
+          addonBase: addon.base,
+          addonId: addon.manifest.id,
+          id: catalog.id,
+          type: catalog.type,
+          originalName: catalog.name || addon.manifest.name,
+        })),
+    ),
+  );
 
   /** Addons that advertise `stream` for this type and id shape. */
   streamProviders(type: StremioType, id: string): InstalledAddon[] {

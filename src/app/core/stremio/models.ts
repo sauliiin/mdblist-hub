@@ -177,6 +177,25 @@ export interface SubtitleOption {
   popularity: number;
 }
 
+/**
+ * One card in an addon-catalog row — a Stremio meta preview, not yet
+ * resolved to a TMDB id. `tmdbId`/`imdbId` are what `CatalogRow` has to work
+ * with on click: a catalog typically gives only an IMDb id, and the route
+ * every title in this app opens through is TMDB-keyed. See
+ * `TmdbService.findByImdb()`.
+ */
+export interface CatalogItem {
+  key: string;
+  title: string;
+  poster: string | null;
+  backdrop: string | null;
+  year: string | null;
+  vote: number | null;
+  tmdbType: 'movie' | 'tv';
+  tmdbId: number | null;
+  imdbId: string | null;
+}
+
 /** Reads `resources` + `types` + `idPrefixes` to see if an addon can answer. */
 export function serves(
   manifest: StremioManifest,

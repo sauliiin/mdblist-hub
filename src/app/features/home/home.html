@@ -128,17 +128,21 @@
          first, and it is what "down" from the hero should reach. -->
     <app-continue-watching />
 
-    <!-- mdblist's own watchlist/collection buckets share the same
-         rename/hide/reorder machinery as a custom list, so they're mixed
-         into the same loop below rather than pinned above it. -->
-    @for (row of visible(); track row.id; let i = $index) {
+    <!-- mdblist's own watchlist/collection buckets, and addon-catalog rows,
+         share the same rename/hide/reorder machinery as a custom list and
+         render through this same loop, but `Home.curated()` always sorts
+         built-ins first, then custom lists, then addon catalogs — so
+         Watchlist/Coleção stay pinned right after Continuar assistindo no
+         matter how the groups below are reordered. `atTop`/`atBottom` come
+         from the row itself, not this loop's index — see `HomeRow`. -->
+    @for (row of visible(); track row.id) {
       @if (row.kind === 'list') {
         @defer (on viewport; prefetch on idle) {
           <app-media-row
             [list]="row.list"
             [editMode]="editMode()"
-            [atTop]="i === 0"
-            [atBottom]="i === visible().length - 1"
+            [atTop]="row.atTop"
+            [atBottom]="row.atBottom"
             (rename)="renameList(row.id, $event)"
             (delete)="deleteList(row.id)"
             (moveUp)="moveList(row.id, -1)"
@@ -158,14 +162,34 @@
             </div>
           </div>
         }
+      } @else if (row.kind === 'catalog') {
+        @defer (on viewport; prefetch on idle) {
+          <app-catalog-row
+            [catalog]="row.catalog"
+            [heading]="row.name"
+            [editMode]="editMode()"
+            [atTop]="row.atTop"
+            [atBottom]="row.atBottom"
+            (rename)="renameCatalog(row.id, $event)"
+            (delete)="deleteCatalog(row.id)"
+            (moveUp)="moveCatalog(row.id, -1)"
+            (moveDown)="moveCatalog(row.id, 1)" />
+        } @placeholder (minimum 100ms) {
+          <div class="row-placeholder" data-row [attr.tabindex]="tv.isTv() ? 0 : null">
+            <div class="skeleton head"></div>
+            <div class="posters">
+              @for (p of [1,2,3,4,5,6,7,8]; track $index) { <div class="skeleton poster"></div> }
+            </div>
+          </div>
+        }
       } @else {
         <app-library-row
           [bucket]="row.kind"
           [heading]="row.name"
           [subheading]="row.kind === 'watchlist' ? 'Direto da sua watchlist no mdblist.' : 'Direto da sua coleção no mdblist.'"
           [editMode]="editMode()"
-          [atTop]="i === 0"
-          [atBottom]="i === visible().length - 1"
+          [atTop]="row.atTop"
+          [atBottom]="row.atBottom"
           (rename)="renameList(row.id, $event)"
           (delete)="deleteList(row.id)"
           (moveUp)="moveList(row.id, -1)"
