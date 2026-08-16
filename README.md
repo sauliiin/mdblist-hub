@@ -13,6 +13,7 @@ Roda inteiramente no navegador — não há backend, banco de dados nem build de
 servidor. As quatro APIs usadas respondem com `Access-Control-Allow-Origin: *`.
 
 **Demo:** [mdblisthub.netlify.app](https://mdblisthub.netlify.app/)
+**Demo:** [https://openstream-orcin.vercel.app](https://openstream-orcin.vercel.app)
 
 **Stack:** Angular 22 (standalone, zoneless, signals), TypeScript, SCSS.
 
