@@ -3,6 +3,7 @@ import {
 } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { AuthService } from './core/auth.service';
+import { AppLanguage, I18nPipe, I18nService } from './core/i18n.service';
 import { PlatformService } from './core/platform.service';
 import { THEME_OPTIONS, ThemePrefsService } from './core/theme-prefs.service';
 import { SpatialNavigation } from './core/tv/spatial-navigation';
@@ -16,7 +17,7 @@ const THEME_CLASSES = THEME_OPTIONS.map((option) => `${option.key}-theme`).filte
 
 @Component({
   selector: 'app-root',
-  imports: [BottomNav, HoverPreviewCard, RouterLink, RouterLinkActive, RouterOutlet],
+  imports: [BottomNav, HoverPreviewCard, I18nPipe, RouterLink, RouterLinkActive, RouterOutlet],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './app.html',
   styleUrl: './app.scss',
@@ -27,6 +28,7 @@ export class App {
   protected readonly platform = inject(PlatformService);
   protected readonly tv = inject(TvService);
   private readonly themePrefs = inject(ThemePrefsService);
+  protected readonly i18n = inject(I18nService);
 
   constructor() {
     // Harmless off a television: the handler returns immediately unless the
@@ -44,6 +46,13 @@ export class App {
       document.body.classList.remove(...THEME_CLASSES);
       if (value !== 'normal') document.body.classList.add(`${value}-theme`);
     });
+
+    document
+      .querySelector('meta[name="description"]')
+      ?.setAttribute(
+        'content',
+        this.i18n.t('Your mdblist lists in rows, with cast, ratings and reviews.'),
+      );
   }
 
   /** Drives the frosted background that fades in once the page scrolls. */
@@ -60,7 +69,7 @@ export class App {
   protected readonly themeMenuOpen = signal(false);
   /** The active option's own label — same convention as a native `<select>`. */
   protected readonly activeThemeLabel = computed(
-    () => this.themeOptions.find((option) => option.key === this.theme())?.label ?? 'Aparência',
+    () => this.themeOptions.find((option) => option.key === this.theme())?.label ?? 'Appearance',
   );
 
   @HostListener('window:scroll')
@@ -80,5 +89,9 @@ export class App {
 
   protected toggleThemeMenu(): void {
     this.themeMenuOpen.update((v) => !v);
+  }
+
+  protected pickLanguage(event: Event): void {
+    this.i18n.setLanguage((event.target as HTMLSelectElement).value as AppLanguage);
   }
 }

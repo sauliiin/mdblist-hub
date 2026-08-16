@@ -1,10 +1,11 @@
 import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
 import { RecommendationRow, RecommendationsService } from '../../../core/recommendations.service';
+import { I18nPipe } from '../../../core/i18n.service';
 import { MediaCard } from '../../../ui/media-card/media-card';
 
 @Component({
   selector: 'app-because-you-watched',
-  imports: [MediaCard],
+  imports: [I18nPipe, MediaCard],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './because-you-watched.html',
   styleUrl: './because-you-watched.scss',

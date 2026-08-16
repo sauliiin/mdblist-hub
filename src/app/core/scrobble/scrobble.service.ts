@@ -5,6 +5,7 @@ import { Capacitor } from '@capacitor/core';
 import { API } from '../api.config';
 import { AuthService } from '../auth.service';
 import { noCache } from '../http-cache.interceptor';
+import { translate } from '../i18n.service';
 import { PlaybackSession, ResumeItem, ScrobbleAction, ScrobbleTarget, toResumeItem } from './models';
 import { scrobbleBody } from './payload';
 
@@ -119,9 +120,11 @@ export class ScrobbleService {
           return true;
         }),
         catchError((err: { status?: number; error?: unknown }) => {
-          this.failure.set(
-            `scrobble/${action} respondeu ${err?.status ?? '?'}: ${describe(err?.error)}`,
-          );
+          this.failure.set(translate('scrobble/{action} returned {status}: {detail}', {
+            action,
+            status: err?.status ?? '?',
+            detail: describe(err?.error),
+          }));
           return of(false);
         }),
       );
@@ -143,6 +146,6 @@ function describe(payload: unknown): string {
   try {
     return JSON.stringify(payload).slice(0, 200);
   } catch {
-    return 'sem corpo';
+    return translate('no response body');
   }
 }

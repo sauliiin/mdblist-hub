@@ -2,8 +2,8 @@
   <section class="feed" data-row>
     <header class="feed-head shell">
       <div>
-        <h2>Continuar assistindo</h2>
-        <p>De onde você parou — o ponto vem do mdblist, então vale em qualquer aparelho.</p>
+        <h2>{{ 'Continue watching' | i18n }}</h2>
+        <p>{{ 'Pick up where you left off — the position comes from mdblist, so it works on every device.' | i18n }}</p>
       </div>
     </header>
 
@@ -25,7 +25,7 @@
               type="button"
               class="dismiss"
               (click)="dismiss(item, $event)"
-              [attr.aria-label]="'Remover ' + item.title + ' de continuar assistindo'">✕</button>
+              [attr.aria-label]="'Remove {title} from continue watching' | i18n: { title: item.title }">✕</button>
 
             <span class="bar"><span class="fill" [style.width.%]="item.progress"></span></span>
           </div>
@@ -39,7 +39,7 @@
           @if (item.subtitle) {
             <p class="meta">{{ item.subtitle }}</p>
           }
-          <p class="meta">{{ item.progress }}% assistido</p>
+          <p class="meta">{{ '{progress}% watched' | i18n: { progress: item.progress } }}</p>
         </a>
       }
     </div>

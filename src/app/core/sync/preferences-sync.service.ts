@@ -3,6 +3,7 @@ import { Injectable, effect, inject, signal } from '@angular/core';
 import { Observable, catchError, from, map, switchMap, throwError } from 'rxjs';
 import { GoogleAuthService } from '../google-auth.service';
 import { noCache } from '../http-cache.interceptor';
+import { translate } from '../i18n.service';
 import { SubtitlePrefsService } from '../subtitle-prefs.service';
 import { ThemePrefsService } from '../theme-prefs.service';
 
@@ -112,7 +113,7 @@ export class PreferencesSyncService {
   private request(call: (uid: string, idToken: string) => Observable<void>): Observable<void> {
     const uid = this.googleAuth.uid();
     if (!uid) {
-      const message = 'Conecte sua conta Google primeiro.';
+      const message = translate('Connect your Google account first.');
       this.failure.set(message);
       return throwError(() => new Error(message));
     }
@@ -128,7 +129,7 @@ export class PreferencesSyncService {
       }),
       catchError((cause: unknown) => {
         this.working.set(false);
-        this.failure.set('Não foi possível falar com o Firebase. Verifique sua conexão.');
+        this.failure.set(translate('Could not reach Firebase. Check your connection.'));
         return throwError(() => cause);
       }),
     );

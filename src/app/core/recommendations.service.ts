@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, forkJoin, map, of, switchMap } from 'rxjs';
 import { API, tmdbImg } from './api.config';
+import { tmdbLanguage, translate } from './i18n.service';
 import { MdblistService } from './mdblist.service';
 import { MdbItem, MediaType, TmdbRecommendation, toTmdbType } from './models';
 
@@ -69,7 +70,7 @@ export class RecommendationsService {
     return this.http
       .get<{ results: TmdbRecommendation[] }>(
         `${API.tmdb.base}/${tmdbType}/${seed.id}/recommendations`,
-        { params: { api_key: API.tmdb.key, language: 'pt-BR' } },
+        { params: { api_key: API.tmdb.key, language: tmdbLanguage() } },
       )
       .pipe(
         map((res) => {
@@ -101,7 +102,7 @@ function toItem(rec: TmdbRecommendation, fallbackType: MediaType): MdbItem {
     mediatype: type,
     imdb_id: null,
     ids: { tmdb: rec.id },
-    title: rec.title || rec.name || 'Sem título',
+    title: rec.title || rec.name || translate('Untitled'),
     language: '',
     country: '',
     release_year: date ? Number(date.slice(0, 4)) : null,

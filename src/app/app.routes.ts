@@ -1,23 +1,24 @@
 import { Routes } from '@angular/router';
 import { authGuard, guestGuard } from './core/auth.guard';
+import { translate } from './core/i18n.service';
 
 export const routes: Routes = [
   {
     path: 'login',
-    title: 'Entrar — Open Stream',
+    title: translate('Sign in — Open Stream'),
     canActivate: [guestGuard],
     loadComponent: () => import('./features/login/login').then((m) => m.Login),
   },
   {
     path: '',
-    title: 'Open Stream — suas listas',
+    title: translate('Open Stream — your lists'),
     canActivate: [authGuard],
     loadComponent: () => import('./features/home/home').then((m) => m.Home),
   },
   {
     // `:type` uses TMDB vocabulary (`movie` | `tv`).
     path: 'title/:type/:id',
-    title: 'Detalhes — Open Stream',
+    title: translate('Details — Open Stream'),
     canActivate: [authGuard],
     loadComponent: () => import('./features/detail/detail').then((m) => m.Detail),
   },
@@ -25,7 +26,7 @@ export const routes: Routes = [
     // Same `:type`/`:id` pair as the detail page; `?season=&episode=` picks the
     // episode for a show, so a given episode is a shareable URL.
     path: 'watch/:type/:id',
-    title: 'Assistir — Open Stream',
+    title: translate('Watch — Open Stream'),
     canActivate: [authGuard],
     loadComponent: () => import('./features/player/player').then((m) => m.Player),
   },

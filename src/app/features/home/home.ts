@@ -8,6 +8,7 @@ import {
 import { tmdbImg, upscalePoster } from '../../core/api.config';
 import { AuthService } from '../../core/auth.service';
 import { CatalogPrefsService } from '../../core/catalog-prefs.service';
+import { I18nPipe, I18nService } from '../../core/i18n.service';
 import { applyPrefs } from '../../core/list-catalog';
 import { ListPrefsService } from '../../core/list-prefs.service';
 import { MdblistService } from '../../core/mdblist.service';
@@ -75,7 +76,7 @@ interface SearchOutcome {
 @Component({
   selector: 'app-home',
   imports: [
-    DecimalPipe, RouterLink, BecauseYouWatched, CatalogRow, ContinueWatching, Hero, LibraryRow, MediaRow,
+    DecimalPipe, I18nPipe, RouterLink, BecauseYouWatched, CatalogRow, ContinueWatching, Hero, LibraryRow, MediaRow,
     RecentlyWatched,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -92,6 +93,7 @@ export class Home {
   protected readonly catalogPrefs = inject(CatalogPrefsService);
   private readonly addons = inject(AddonsService);
   protected readonly theme = inject(ThemePrefsService).themeKey;
+  protected readonly i18n = inject(I18nService);
 
   protected readonly lists = signal<MdbList[]>([]);
   protected readonly loading = signal(true);
@@ -108,8 +110,8 @@ export class Home {
 
   /** The two built-in rows, before rename/hide/reorder — see `HomeRow`. */
   private readonly libraryRows = computed<HomeRowBase[]>(() => [
-    { kind: 'watchlist', id: WATCHLIST_PREF_ID, name: 'Watchlist' },
-    { kind: 'collection', id: COLLECTION_PREF_ID, name: 'Coleção' },
+    { kind: 'watchlist', id: WATCHLIST_PREF_ID, name: this.i18n.t('Watchlist') },
+    { kind: 'collection', id: COLLECTION_PREF_ID, name: this.i18n.t('Collection') },
   ]);
 
   /**
@@ -205,9 +207,9 @@ export class Home {
   protected readonly resultsLabel = computed(() => {
     const query = this.query().trim();
     const genre = this.genre();
-    if (query && genre) return `“${query}” em ${genre}, nas suas listas`;
-    if (genre) return `${genre}, nas suas listas`;
-    return `“${query}” no catálogo do TMDB`;
+    if (query && genre) return this.i18n.t('“{query}” in {genre}, in your lists', { query, genre });
+    if (genre) return this.i18n.t('{genre}, in your lists', { genre });
+    return this.i18n.t('“{query}” in the TMDB catalog', { query });
   });
 
   /**
@@ -289,7 +291,7 @@ export class Home {
           );
         }),
         map(({ titles, keyword }) => ({
-          items: dedupeResults(titles).map(fromTmdb),
+          items: dedupeResults(titles).map((result) => fromTmdb(result, this.i18n.t('Untitled'))),
           keyword: keyword?.name ?? null,
         })),
       );
@@ -422,12 +424,12 @@ function fromMdbItem(item: MdbItem): GridItem {
   };
 }
 
-function fromTmdb(result: TmdbSearchResult): GridItem {
+function fromTmdb(result: TmdbSearchResult, untitled: string): GridItem {
   return {
     key: `${result.media_type}:${result.id}`,
     id: result.id,
     tmdbType: result.media_type === 'tv' ? 'tv' : 'movie',
-    title: result.title || result.name || 'Sem título',
+    title: result.title || result.name || untitled,
     poster: tmdbImg(result.poster_path, 'w342'),
     // Free: TMDB's search/discover results already carry a backdrop, no
     // extra call needed the way `LandscapeArtworkService` costs one.

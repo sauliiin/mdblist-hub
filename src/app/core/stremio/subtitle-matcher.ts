@@ -1,4 +1,5 @@
 import type { SubtitleOption } from './models';
+import { currentLanguage } from '../i18n.service';
 
 /**
  * Picks the subtitle most likely to be synchronized with the playing release.
@@ -10,16 +11,10 @@ export function bestSubtitleMatch(
   playingRelease: string | null,
 ): SubtitleOption | null {
   const releaseTokens = tokens(playingRelease ?? '');
-  return (
-    bestOf(
-      options.filter((option) => looksPortuguese(option.lang)),
-      releaseTokens,
-    ) ??
-    bestOf(
-      options.filter((option) => looksEnglish(option.lang)),
-      releaseTokens,
-    )
-  );
+  const preferred = currentLanguage() === 'pt' ? looksPortuguese : looksEnglish;
+  const fallback = currentLanguage() === 'pt' ? looksEnglish : looksPortuguese;
+  return bestOf(options.filter((option) => preferred(option.lang)), releaseTokens) ??
+    bestOf(options.filter((option) => fallback(option.lang)), releaseTokens);
 }
 
 function bestOf(candidates: SubtitleOption[], releaseTokens: Set<string>): SubtitleOption | null {

@@ -2,12 +2,12 @@
   <section class="feed">
     <header class="feed-head shell">
       <div>
-        <h2>Porque você assistiu</h2>
+        <h2>{{ 'Because you watched' | i18n }}</h2>
         <p>
           @if (shuffled()) {
-            Um sorteio no seu histórico dos últimos 45 títulos.
+            {{ 'A random selection from your last 45 watched titles.' | i18n }}
           } @else {
-            A partir dos 5 últimos títulos que você marcou como vistos.
+            {{ 'Based on the last 5 titles you marked as watched.' | i18n }}
           }
         </p>
       </div>
@@ -15,7 +15,7 @@
         <svg viewBox="0 0 24 24" aria-hidden="true">
           <path d="M17 3l4 4-4 4V8h-5a5 5 0 00-5 5H4a8 8 0 018-8h5V3zM7 21l-4-4 4-4v3h5a5 5 0 005-5h3a8 8 0 01-8 8H7v2z" />
         </svg>
-        {{ shuffled() ? 'Voltar aos mais recentes' : 'Outras sugestões' }}
+        {{ (shuffled() ? 'Back to most recent' : 'More suggestions') | i18n }}
       </button>
     </header>
 
@@ -32,7 +32,7 @@
       @for (row of rows(); track row.seed.mediatype + row.seed.id) {
         <section class="row" data-row>
           <h3 class="shell">
-            Porque você assistiu <strong>{{ row.seed.title }}</strong>
+            {{ 'Because you watched' | i18n }} <strong>{{ row.seed.title }}</strong>
           </h3>
           <div class="track">
             @for (item of row.items; track item.mediatype + item.id) {

@@ -1,4 +1,5 @@
 import { MdbList } from './models';
+import { activeLocale } from './i18n.service';
 
 /** What `applyPrefs()` needs from a preference row — `ListPref` and `CatalogPref` both already satisfy this. */
 interface RowPref {
@@ -8,7 +9,7 @@ interface RowPref {
   position?: number;
 }
 
-const collator = new Intl.Collator('pt-BR', { sensitivity: 'base' });
+const collator = new Intl.Collator(activeLocale(), { sensitivity: 'base' });
 
 /**
  * The base view for every visitor: nothing hidden, nothing renamed — just

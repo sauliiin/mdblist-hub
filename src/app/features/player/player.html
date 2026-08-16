@@ -1,7 +1,7 @@
 @if (detail(); as d) {
   <main class="player-page">
     <header class="bar shell">
-      <button type="button" class="back" (click)="back()" aria-label="Voltar">←</button>
+      <button type="button" class="back" (click)="back()" [attr.aria-label]="'Back' | i18n">←</button>
       <div class="what">
         <h1>{{ d.title }}</h1>
         @if (episodeLabel(); as label) {
@@ -10,7 +10,7 @@
           <p class="sub">{{ d.year }}</p>
         }
       </div>
-      <a class="ghost" [routerLink]="detailLink()">Ficha</a>
+      <a class="ghost" [routerLink]="detailLink()">{{ 'Info' | i18n }}</a>
     </header>
 
     <div class="stage shell" [class.theater]="theater()" [class.solo]="!hasPanel()">
@@ -20,8 +20,8 @@
           <app-video-player
             [src]="playbackSrc()!"
             [subtitleUrl]="subtitleUrl()"
-            [subtitleLabel]="subtitle()?.label ?? 'Legenda'"
-            [subtitleLang]="subtitle()?.srclang ?? 'pt'"
+            [subtitleLabel]="subtitle()?.label ?? ('Subtitle' | i18n)"
+            [subtitleLang]="subtitle()?.srclang ?? defaultSubtitleLanguage"
             [subtitleOptions]="subtitleOptions()"
             [subtitleActiveKey]="subtitle()?.key ?? null"
             [subtitleLoading]="subtitleBusy()"
@@ -44,7 +44,7 @@
             (decoyDetected)="onDecoyDetected($event)" />
 
           @if (resumeAt(); as point) {
-            <p class="resumed">Retomado de {{ point }}% — o ponto veio do mdblist.</p>
+            <p class="resumed">{{ 'Resumed from {point}% — the position came from mdblist.' | i18n: { point } }}</p>
           }
           @if (scrobbleError(); as err) {
             <p class="warning">{{ err }}</p>
@@ -61,10 +61,10 @@
             [style.background-image]="d.backdrop ? 'url(' + d.backdrop + ')' : null">
             <div class="veil-inner">
               <span class="spinner" aria-hidden="true"></span>
-              <p class="headline">Preparando a reprodução…</p>
+              <p class="headline">{{ 'Preparing playback…' | i18n }}</p>
               @if (candidateCount() > 1) {
                 <p class="veil-sub">
-                  Até 16 fontes ao mesmo tempo · {{ attemptAt() }} de {{ candidateCount() }} iniciadas
+                  {{ 'Up to 16 sources at once · {attempt} of {count} started' | i18n: { attempt: attemptAt(), count: candidateCount() } }}
                 </p>
               }
             </div>
@@ -74,7 +74,7 @@
         @if (playbackError()) {
           <div class="overlay" role="alert">
             @if (manuallyPicking()) {
-              <p class="headline">Escolha uma fonte</p>
+              <p class="headline">{{ 'Choose a source' | i18n }}</p>
               <ul class="manual-sources">
                 @for (option of manualPickOptions(); track option.key) {
                   <li>
@@ -91,35 +91,32 @@
                 }
               </ul>
               <div class="overlay-actions">
-                <button type="button" class="ghost" (click)="manuallyPicking.set(false)">Voltar</button>
+                <button type="button" class="ghost" (click)="manuallyPicking.set(false)">{{ 'Back' | i18n }}</button>
               </div>
             } @else {
               @if (decoyRateLimited()) {
-                <p class="headline">Seu provedor debrid está limitando as requisições.</p>
+                <p class="headline">{{ 'Your debrid provider is rate-limiting requests.' | i18n }}</p>
                 <p>
-                  Várias fontes responderam com um aviso no lugar do filme. Todas as demais também
-                  foram testadas antes de encerrar.
+                  {{ 'Several sources returned a warning instead of the movie. Every other source was also tested before stopping.' | i18n }}
                 </p>
               } @else {
-                <p class="headline">Nenhuma fonte conseguiu reproduzir.</p>
+                <p class="headline">{{ 'No source could play this title.' | i18n }}</p>
                 @if (triedEverySource()) {
                   <p>
-                    Testei os {{ candidateCount() }} links disponíveis, até 16 por vez. Costuma ser
-                    o addon com links vencidos — reconfigurar o debrid dele resolve na maioria das
-                    vezes.
+                    {{ 'I tested all {count} available links, up to 16 at a time. The addon usually has expired links — reconfiguring its debrid setup fixes it in most cases.' | i18n: { count: candidateCount() } }}
                   </p>
                 } @else {
-                  <p>O link disponível não abriu. Tente de novo, ou verifique seus addons.</p>
+                  <p>{{ 'The available link did not open. Try again or check your addons.' | i18n }}</p>
                 }
               }
               <div class="overlay-actions">
-                <button type="button" class="cta" (click)="retry()">Tentar de novo</button>
+                <button type="button" class="cta" (click)="retry()">{{ 'Try again' | i18n }}</button>
                 @if (manualPickOptions().length) {
                   <button type="button" class="ghost" (click)="manuallyPicking.set(true)">
-                    Escolher fonte manualmente
+                    {{ 'Choose a source manually' | i18n }}
                   </button>
                 }
-                <a class="ghost" routerLink="/addons">Ver addons</a>
+                <a class="ghost" routerLink="/addons">{{ 'View addons' | i18n }}</a>
               </div>
             }
           </div>
@@ -129,47 +126,47 @@
           <div class="idle">
             @if (loadingStreams()) {
               <span class="spinner" aria-hidden="true"></span>
-              <p>Procurando fontes…</p>
+              <p>{{ 'Looking for sources…' | i18n }}</p>
             } @else if (missingImdbId()) {
-              <p class="headline">Este título não tem IMDb ID.</p>
-              <p>Os addons são indexados por IMDb, então não há como consultá-los aqui.</p>
+              <p class="headline">{{ 'This title has no IMDb ID.' | i18n }}</p>
+              <p>{{ 'Addons are indexed by IMDb, so they cannot be queried here.' | i18n }}</p>
             } @else {
               @switch (emptyCase()) {
                 @case ('no-addons') {
-                  <p class="headline">Nenhum addon instalado.</p>
-                  <p>É de um addon que saem as fontes e as legendas.</p>
-                  <a class="cta" routerLink="/addons">Instalar addons</a>
+                  <p class="headline">{{ 'No addons installed.' | i18n }}</p>
+                  <p>{{ 'Streams and subtitles come from addons.' | i18n }}</p>
+                  <a class="cta" routerLink="/addons">{{ 'Install addons' | i18n }}</a>
                 }
                 @case ('none-serve') {
-                  <p class="headline">Nenhum addon instalado serve fontes.</p>
+                  <p class="headline">{{ 'None of the installed addons provides streams.' | i18n }}</p>
                   <p>
-                    Instalado hoje: <strong>{{ installedNames() }}</strong> — nenhum deles
-                    declara o recurso <code>stream</code> para
-                    {{ isShow() ? 'séries' : 'filmes' }}. Um addon de legendas, por exemplo,
-                    só responde legenda.
+                    {{ 'Installed now:' | i18n }} <strong>{{ installedNames() }}</strong> —
+                    {{ 'none declares the stream resource for' | i18n }}
+                    {{ (isShow() ? 'shows' : 'movies') | i18n }}.
+                    {{ 'A subtitle addon, for example, only returns subtitles.' | i18n }}
                   </p>
-                  <a class="cta" routerLink="/addons">Adicionar um addon de fontes</a>
+                  <a class="cta" routerLink="/addons">{{ 'Add a stream addon' | i18n }}</a>
                 }
                 @case ('all-failed') {
                   <p class="headline">
-                    {{ queried() === 1 ? 'O addon consultado falhou' : 'Todos os addons falharam' }}.
+                    {{ (queried() === 1 ? 'The queried addon failed' : 'All addons failed') | i18n }}.
                   </p>
                   <p>
-                    Consultei {{ queried() }}, e {{ queried() === 1 ? 'ele não respondeu' : 'nenhum respondeu' }}.
-                    Pode ser o addon fora do ar, ou uma URL configurada que expirou — reinstale
-                    a partir da página de configuração dele.
+                    {{ (queried() === 1
+                      ? 'I queried one addon and it did not respond. The addon may be offline, or a configured URL may have expired — reinstall it from its configuration page.'
+                      : 'I queried {count} addons and none responded. An addon may be offline, or a configured URL may have expired — reinstall it from its configuration page.')
+                      | i18n: { count: queried() } }}
                   </p>
-                  <a class="cta" routerLink="/addons">Ver addons</a>
+                  <a class="cta" routerLink="/addons">{{ 'View addons' | i18n }}</a>
                 }
                 @default {
-                  <p class="headline">Nada para este título.</p>
+                  <p class="headline">{{ 'Nothing for this title.' | i18n }}</p>
                   <p>
-                    {{ queried() }} addon(s) consultado(s)
-                    @if (failed()) { ({{ failed() }} falhou/falharam) }
-                    e nenhum tem
-                    {{ isShow() ? 'este episódio' : 'este filme' }} em um formato reproduzível.
+                    {{ '{queried} addon(s) queried' | i18n: { queried: queried() } }}
+                    @if (failed()) { {{ '({failed} failed)' | i18n: { failed: failed() } }} }
+                    {{ 'and none has {item} in a playable format.' | i18n: { item: ((isShow() ? 'this episode' : 'this movie') | i18n) } }}
                   </p>
-                  <a class="cta" routerLink="/addons">Ver addons</a>
+                  <a class="cta" routerLink="/addons">{{ 'View addons' | i18n }}</a>
                 }
               }
             }
@@ -183,7 +180,7 @@
           @if (isShow()) {
             <div class="pickers">
               <label class="picker">
-                <span>Temporada</span>
+                <span>{{ 'Season' | i18n }}</span>
                 <select [value]="seasonNumber()" (change)="chooseSeason($event)">
                   @for (s of seasons(); track s.season_number) {
                     <option [value]="s.season_number">{{ s.name }}</option>
@@ -192,7 +189,7 @@
               </label>
 
               <label class="picker">
-                <span>Episódio</span>
+                <span>{{ 'Episode' | i18n }}</span>
                 <select [value]="episodeNumber()" (change)="chooseEpisode($event)">
                   @for (e of episodes(); track e.id) {
                     <option [value]="e.episode_number">{{ e.episode_number }}. {{ e.name }}</option>
@@ -205,11 +202,11 @@
           @if (subtitleOptions().length) {
             <label class="picker">
               <span>
-                Legenda
-                @if (subtitleBusy()) { <em>baixando…</em> }
+                {{ 'Subtitle' | i18n }}
+                @if (subtitleBusy()) { <em>{{ 'downloading…' | i18n }}</em> }
               </span>
               <select [value]="subtitle()?.key ?? ''" (change)="chooseSubtitle($event)">
-                <option value="">Sem legenda</option>
+                <option value="">{{ 'No subtitles' | i18n }}</option>
                 @for (s of subtitleOptions(); track s.key) {
                   <option [value]="s.key">{{ s.label }} — {{ s.addon }}</option>
                 }
@@ -226,6 +223,6 @@
   </main>
 } @else if (!loadingDetail()) {
   <main class="player-page">
-    <p class="missing shell">Título não encontrado.</p>
+    <p class="missing shell">{{ 'Title not found' | i18n }}.</p>
   </main>
 }

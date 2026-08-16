@@ -1,19 +1,31 @@
 <header class="topbar" [class.solid]="scrolled()">
   <div class="topbar-inner shell">
-    <div class="theme-picker">
-      <button type="button" class="theme-btn" (click)="toggleThemeMenu()" aria-label="Aparência">
-        {{ activeThemeLabel() }}
-      </button>
-      @if (themeMenuOpen()) {
-        <div class="theme-menu">
-          @for (option of themeOptions; track option.key) {
-            <button type="button" class="theme-option" [class.on]="theme() === option.key"
-                    (click)="pickTheme(option.key)">
-              {{ option.label }}
-            </button>
-          }
-        </div>
-      }
+    <div class="preferences">
+      <div class="theme-picker">
+        <button type="button" class="theme-btn" (click)="toggleThemeMenu()"
+                [attr.aria-label]="'Appearance' | i18n">
+          {{ activeThemeLabel() | i18n }}
+        </button>
+        @if (themeMenuOpen()) {
+          <div class="theme-menu">
+            @for (option of themeOptions; track option.key) {
+              <button type="button" class="theme-option" [class.on]="theme() === option.key"
+                      (click)="pickTheme(option.key)">
+                {{ option.label | i18n }}
+              </button>
+            }
+          </div>
+        }
+      </div>
+
+      <label class="language-picker">
+        <span>{{ 'Language' | i18n }}</span>
+        <select [value]="i18n.language()" (change)="pickLanguage($event)"
+                [attr.aria-label]="'Language' | i18n">
+          <option value="en">EN</option>
+          <option value="pt">PT</option>
+        </select>
+      </label>
     </div>
     <a class="brand" routerLink="/">
       <img class="mark" src="open-stream.png" alt="" width="32" height="32" />
@@ -24,7 +36,7 @@
       @if (user(); as account) {
         <a class="nav-link" routerLink="/addons" routerLinkActive="on">Addons</a>
         <a class="nav-link" [href]="listsUrl()" target="_blank" rel="noopener">
-          Minhas listas no mdblist
+          {{ 'My lists on mdblist' | i18n }}
         </a>
 
         <span class="account" [title]="'@' + account.username">
@@ -43,7 +55,7 @@
           <span class="who">{{ account.name || account.username }}</span>
         </span>
 
-        <button type="button" class="signout" (click)="signOut()">Sair</button>
+        <button type="button" class="signout" (click)="signOut()">{{ 'Sign out' | i18n }}</button>
       }
       <span class="powered">TMDB · Trakt · OMDb</span>
     </nav>
@@ -67,6 +79,6 @@
   platform, not just TV.
 -->
 <footer class="foot shell" data-nav-skip>
-  <p class="credits">Dados de mdblist, TMDB, Trakt e OMDb.</p>
-  <p class="fine">Este produto usa a API do TMDB, mas não é endossado nem certificado pelo TMDB.</p>
+  <p class="credits">{{ 'Data from mdblist, TMDB, Trakt and OMDb.' | i18n }}</p>
+  <p class="fine">{{ 'This product uses the TMDB API but is not endorsed or certified by TMDB.' | i18n }}</p>
 </footer>

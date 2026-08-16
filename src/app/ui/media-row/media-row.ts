@@ -3,6 +3,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { MdbItem, MdbList } from '../../core/models';
+import { I18nPipe, I18nService } from '../../core/i18n.service';
 import { MdblistService } from '../../core/mdblist.service';
 import { MediaCard } from '../media-card/media-card';
 
@@ -12,13 +13,14 @@ const MAX = 120;
 
 @Component({
   selector: 'app-media-row',
-  imports: [MediaCard],
+  imports: [I18nPipe, MediaCard],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './media-row.html',
   styleUrl: './media-row.scss',
 })
 export class MediaRow implements OnInit {
   private readonly mdblist = inject(MdblistService);
+  private readonly i18n = inject(I18nService);
 
   readonly list = input.required<MdbList>();
   /** Show a numbered rank chip on each card (used for ranked lists). */
@@ -54,9 +56,9 @@ export class MediaRow implements OnInit {
 
   protected readonly kindLabel = computed(() => {
     const type = this.list().mediatype;
-    if (type === 'movie') return 'Filmes';
-    if (type === 'show') return 'Séries';
-    return 'Misto';
+    if (type === 'movie') return this.i18n.t('Movies');
+    if (type === 'show') return this.i18n.t('Shows');
+    return this.i18n.t('Mixed');
   });
 
   // The component is only instantiated once its @defer block enters the

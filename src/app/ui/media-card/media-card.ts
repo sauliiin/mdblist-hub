@@ -3,6 +3,7 @@ import {
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { upscalePoster } from '../../core/api.config';
+import { I18nPipe, translateGenre } from '../../core/i18n.service';
 import { HoverPreviewService } from '../../core/hover-preview.service';
 import { LandscapeArtworkService } from '../../core/landscape-artwork.service';
 import { MdbItem, formatYear, titleWithYear, toTmdbType } from '../../core/models';
@@ -12,7 +13,7 @@ import { TvService } from '../../core/tv/tv.service';
 
 @Component({
   selector: 'app-media-card',
-  imports: [RouterLink],
+  imports: [I18nPipe, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './media-card.html',
   styleUrl: './media-card.scss',
@@ -58,6 +59,7 @@ export class MediaCard implements OnDestroy {
   );
   protected readonly year = computed(() => formatYear(this.item().release_year));
   protected readonly genres = computed(() => (this.item().genre ?? []).slice(0, 2));
+  protected readonly genreLabel = translateGenre;
 
   protected readonly imdbRating = computed(() => {
     const value = this.item().ratings?.find((r) => r.source === 'imdb')?.value;

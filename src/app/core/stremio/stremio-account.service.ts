@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject, signal } from '@angular/core';
 import { Observable, catchError, map, of, switchMap, tap, throwError } from 'rxjs';
 import { noCache } from '../http-cache.interceptor';
+import { translate as t } from '../i18n.service';
 import { AddonsService } from './addons.service';
 import { ImportReport, StremioManifest } from './models';
 
@@ -61,7 +62,7 @@ export class StremioAccountService {
       password,
     }).pipe(
       tap((result) => {
-        if (!result.authKey) throw new Error('A API do Stremio não devolveu uma sessão.');
+        if (!result.authKey) throw new Error(t('The Stremio API did not return a session.'));
         this.persist({ authKey: result.authKey, email: result.user?.email ?? email.trim() });
       }),
       switchMap(() => this.sync()),
@@ -71,7 +72,7 @@ export class StremioAccountService {
   /** Re-reads the collection for the session already stored. */
   sync(): Observable<ImportReport> {
     const session = this.session();
-    if (!session) return throwError(() => new Error('Entre na sua conta Stremio primeiro.'));
+    if (!session) return throwError(() => new Error(t('Sign in to your Stremio account first.')));
 
     return this.post<CollectionResult>('addonCollectionGet', {
       type: 'AddonCollectionGet',
@@ -87,7 +88,7 @@ export class StremioAccountService {
         if (/session/i.test(err.message)) {
           this.forget();
           return throwError(
-            () => new Error('Sua sessão do Stremio expirou. Entre novamente.'),
+            () => new Error(t('Your Stremio session expired. Sign in again.')),
           );
         }
         return throwError(() => err);
@@ -113,11 +114,11 @@ export class StremioAccountService {
       .post<ApiResponse<T>>(`${API}/${path}`, body, { context: noCache() })
       .pipe(
         catchError(() =>
-          throwError(() => new Error('Não foi possível falar com a API do Stremio.')),
+          throwError(() => new Error(t('Could not reach the Stremio API.'))),
         ),
         map((response) => {
-          if (response?.error) throw new Error(translate(response.error.message));
-          if (!response?.result) throw new Error('Resposta inesperada da API do Stremio.');
+          if (response?.error) throw new Error(translateApiError(response.error.message));
+          if (!response?.result) throw new Error(t('Unexpected response from the Stremio API.'));
           return response.result;
         }),
       );
@@ -135,11 +136,11 @@ export class StremioAccountService {
 }
 
 /** The API's messages are English and terse; these are the ones users hit. */
-function translate(message: string): string {
+function translateApiError(message: string): string {
   const known: Record<string, string> = {
-    'Wrong passphrase': 'Senha incorreta.',
-    'User not found': 'Não existe conta Stremio com esse e-mail.',
-    'Session does not exist': 'Sessão do Stremio expirada. Entre novamente.',
+    'Wrong passphrase': t('Incorrect password.'),
+    'User not found': t('No Stremio account exists with that email.'),
+    'Session does not exist': t('Stremio session expired. Sign in again.'),
   };
   return known[message] ?? message;
 }

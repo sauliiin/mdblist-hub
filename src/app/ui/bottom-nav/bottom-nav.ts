@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
+import { I18nPipe } from '../../core/i18n.service';
 import { PlatformService } from '../../core/platform.service';
 
 /**
@@ -12,7 +13,7 @@ import { PlatformService } from '../../core/platform.service';
  */
 @Component({
   selector: 'app-bottom-nav',
-  imports: [RouterLink, RouterLinkActive],
+  imports: [I18nPipe, RouterLink, RouterLinkActive],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './bottom-nav.html',
   styleUrl: './bottom-nav.scss',

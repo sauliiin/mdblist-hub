@@ -1,6 +1,6 @@
 <div class="overlay" (click)="close()">
   <div class="panel" (click)="$event.stopPropagation()" role="dialog" aria-modal="true">
-    <button type="button" class="close" (click)="close()" aria-label="Fechar">✕</button>
+    <button type="button" class="close" (click)="close()" [attr.aria-label]="'Close' | i18n">✕</button>
 
     <div class="head">
       @if (photo()) {
@@ -19,25 +19,25 @@
         <dl class="facts">
           @if (birthday()) {
             <div>
-              <dt>Nascimento</dt>
+              <dt>{{ 'Born' | i18n }}</dt>
               <dd>
-                {{ birthday()!.length === 10 ? (birthday() | date: 'dd/MM/yyyy') : birthday() }}
-                @if (age() && !deathday()) { <span class="age">({{ age() }} anos)</span> }
+                {{ birthday()!.length === 10 ? (birthday() | date: 'mediumDate') : birthday() }}
+                @if (age() && !deathday()) { <span class="age">({{ '{count} years old' | i18n: { count: age() } }})</span> }
               </dd>
             </div>
           }
           @if (deathday()) {
             <div>
-              <dt>Falecimento</dt>
+              <dt>{{ 'Died' | i18n }}</dt>
               <dd>
-                {{ deathday()!.length === 10 ? (deathday() | date: 'dd/MM/yyyy') : deathday() }}
-                @if (age()) { <span class="age">({{ age() }} anos)</span> }
+                {{ deathday()!.length === 10 ? (deathday() | date: 'mediumDate') : deathday() }}
+                @if (age()) { <span class="age">({{ '{count} years old' | i18n: { count: age() } }})</span> }
               </dd>
             </div>
           }
           @if (birthplace()) {
             <div>
-              <dt>Local</dt>
+              <dt>{{ 'Place' | i18n }}</dt>
               <dd>{{ birthplace() }}</dd>
             </div>
           }
@@ -53,7 +53,7 @@
       } @else if (bio(); as biography) {
         <section class="bio">
           <div class="bio-head">
-            <h3>Biografia</h3>
+            <h3>{{ 'Biography' | i18n }}</h3>
             <span class="src" [class.tmdb]="biography.source === 'tmdb'">
               @if (biography.source === 'wikipedia') {
                 Wikipedia <small>{{ wiki()?.lang }}</small>
@@ -65,17 +65,17 @@
           <p class="bio-text">{{ biography.text }}</p>
           @if (wiki()?.articleUrl) {
             <a class="wiki-link" [href]="wiki()!.articleUrl" target="_blank" rel="noopener">
-              Ler o artigo completo na Wikipedia ↗
+              {{ 'Read the full article on Wikipedia ↗' | i18n }}
             </a>
           }
         </section>
       } @else {
-        <p class="none">Nenhuma biografia encontrada na Wikipedia nem no TMDB.</p>
+        <p class="none">{{ 'No biography found on Wikipedia or TMDB.' | i18n }}</p>
       }
 
       @if (knownFor().length) {
         <section class="known">
-          <h3>Mais conhecido por</h3>
+          <h3>{{ 'Known for' | i18n }}</h3>
           <app-scroll-track class="credits">
             @for (credit of knownFor(); track credit.media_type + credit.id) {
               <a class="credit" [routerLink]="creditLink(credit)" (click)="close()">

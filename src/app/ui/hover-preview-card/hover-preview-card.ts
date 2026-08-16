@@ -3,6 +3,7 @@ import {
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { upscalePoster } from '../../core/api.config';
+import { I18nPipe } from '../../core/i18n.service';
 import { HoverPreviewService } from '../../core/hover-preview.service';
 import { toTmdbType } from '../../core/models';
 import { TrailerPreviewService } from '../../core/trailer-preview.service';
@@ -15,7 +16,7 @@ import { loadYouTubeIframeApi, YouTubePlayer } from '../../core/youtube-player';
  */
 @Component({
   selector: 'app-hover-preview-card',
-  imports: [RouterLink],
+  imports: [I18nPipe, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './hover-preview-card.html',
   styleUrl: './hover-preview-card.scss',

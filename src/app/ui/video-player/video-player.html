@@ -49,7 +49,7 @@
     class="opening"
     [class.loaded]="!opening()"
     [attr.aria-hidden]="opening() ? null : true"
-    [attr.aria-label]="opening() ? 'Carregando ' + (mediaTitle() || 'vídeo') : null"
+    [attr.aria-label]="opening() ? ('Loading' | i18n) + ' ' + (mediaTitle() || ('video' | i18n)) : null"
     role="status"
     aria-live="polite"
     aria-atomic="true">
@@ -68,7 +68,7 @@
     }
     <div class="opening-shade" aria-hidden="true"></div>
     <div class="opening-copy">
-      <p class="opening-title">{{ mediaTitle() || 'Carregando' }}</p>
+      <p class="opening-title">{{ mediaTitle() || ('Loading' | i18n) }}</p>
       @if (mediaSubtitle(); as subtitle) {
         <p class="opening-subtitle">{{ subtitle }}</p>
       }
@@ -86,14 +86,14 @@
   }
 
   @if (waiting() && !opening()) {
-    <div class="spinner" aria-label="Carregando"></div>
+    <div class="spinner" [attr.aria-label]="'Loading' | i18n"></div>
     @if (reconnecting()) {
-      <span class="spinner-hint" aria-live="polite">Reconectando…</span>
+      <span class="spinner-hint" aria-live="polite">{{ 'Reconnecting…' | i18n }}</span>
     }
   }
 
   @if (!playing() && !opening()) {
-    <button type="button" class="big-play" (click)="togglePlay()" aria-label="Reproduzir">
+    <button type="button" class="big-play" (click)="togglePlay()" [attr.aria-label]="'Play' | i18n">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg>
     </button>
   }
@@ -112,7 +112,7 @@
       [attr.aria-valuemin]="0"
       [attr.aria-valuemax]="100"
       [attr.aria-valuenow]="progress() * 100"
-      aria-label="Progresso"
+      [attr.aria-label]="'Progress' | i18n"
       (pointerdown)="onScrubStart($event)"
       (pointermove)="onScrubMove($event)"
       (pointerup)="onScrubEnd($event)"
@@ -131,7 +131,7 @@
 
     <div class="buttons">
       <button type="button" class="icon" data-player-control (click)="togglePlay()"
-              [attr.aria-label]="playing() ? 'Pausar' : 'Reproduzir'">
+              [attr.aria-label]="(playing() ? 'Pause' : 'Play') | i18n">
         @if (playing()) {
           <svg viewBox="0 0 24 24"><path d="M6 5h4v14H6zM14 5h4v14h-4z" /></svg>
         } @else {
@@ -141,7 +141,7 @@
 
       <div class="volume">
         <button type="button" class="icon" data-player-control (click)="toggleMute()"
-                [attr.aria-label]="muted() ? 'Ativar som' : 'Silenciar'">
+                [attr.aria-label]="(muted() ? 'Unmute' : 'Mute') | i18n">
           @switch (volumeIcon()) {
             @case ('mute') {
               <svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3l2.5-2.5-1-1L15.5 11 13 8.5l-1 1 2.5 2.5L12 14.5l1 1 2.5-2.5 2.5 2.5 1-1-2.5-2.5z" /></svg>
@@ -178,14 +178,14 @@
             class="icon"
             data-player-control
             (click)="toggleSourcesMenu()"
-            aria-label="Fontes"
-            title="Fontes">
+            [attr.aria-label]="'Sources' | i18n"
+            [title]="'Sources' | i18n">
             <svg viewBox="0 0 24 24"><path d="M4 6a2 2 0 012-2h12a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm0 10a2 2 0 012-2h12a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2z" /></svg>
           </button>
 
           @if (sourcesMenuOpen()) {
             <div class="menu sources-menu">
-              <p class="menu-head">Fontes</p>
+              <p class="menu-head">{{ 'Sources' | i18n }}</p>
               @for (option of sourceOptions(); track option.key) {
                 <button type="button" class="menu-item" [class.on]="activeSourceKey() === option.key"
                         (click)="pickSource(option)">
@@ -207,18 +207,18 @@
           data-player-control
           [class.off]="!hasCaptions() || !captionsOn()"
           (click)="toggleCaptionsMenu()"
-          aria-label="Legendas"
-          [title]="hasCaptions() ? subtitleLabel() : 'Legendas'">
+          [attr.aria-label]="'Subtitles' | i18n"
+          [title]="hasCaptions() ? subtitleLabel() : ('Subtitles' | i18n)">
           <svg viewBox="0 0 24 24"><path d="M19 4H5a2 2 0 00-2 2v12a2 2 0 002 2h14a2 2 0 002-2V6a2 2 0 00-2-2zM7.5 13.5h-1v.5h2v1.5h-2.5a1 1 0 01-1-1v-3a1 1 0 011-1H10v1.5H7.5v1.5zm9 0h-1v.5h2v1.5H15a1 1 0 01-1-1v-3a1 1 0 011-1h2.5v1.5H16v1.5z" /></svg>
         </button>
 
         @if (captionsMenuOpen()) {
           <div class="menu captions-menu">
-            <p class="menu-head">Legenda</p>
+            <p class="menu-head">{{ 'Subtitle' | i18n }}</p>
 
             <button type="button" class="menu-item" [class.on]="!subtitleActiveKey()"
                     (click)="pickSubtitle(null)">
-              Sem legenda
+              {{ 'No subtitles' | i18n }}
             </button>
 
             @for (option of subtitleOptions(); track option.key) {
@@ -229,9 +229,9 @@
             }
 
             @if (subtitleLoading()) {
-              <p class="menu-note">Baixando…</p>
+              <p class="menu-note">{{ 'Downloading…' | i18n }}</p>
             } @else if (!subtitleOptions().length) {
-              <p class="menu-note">Nenhuma legenda encontrada.</p>
+              <p class="menu-note">{{ 'No subtitles found.' | i18n }}</p>
             }
 
             @if (subtitleError(); as err) {
@@ -241,7 +241,7 @@
             @if (hasCaptions()) {
               <div class="menu-divider"></div>
               <p class="menu-head">
-                Sincronia
+                {{ 'Sync' | i18n }}
                 <span class="sync-value">
                   {{ subtitleOffset() > 0 ? '+' : '' }}{{ subtitleOffset().toFixed(1) }}s
                 </span>
@@ -258,30 +258,30 @@
                   [style.--fill-lo]="syncFillLo()"
                   [style.--fill-hi]="syncFillHi()"
                   (input)="onSyncInput($event)"
-                  aria-label="Sincronia da legenda" />
+                  [attr.aria-label]="'Subtitle sync' | i18n" />
               </div>
               @if (subtitleOffset()) {
-                <button type="button" class="menu-item" (click)="resetSync()">Repor sincronia</button>
+                <button type="button" class="menu-item" (click)="resetSync()">{{ 'Reset sync' | i18n }}</button>
               }
 
               <div class="menu-divider"></div>
-              <p class="menu-head">Fonte</p>
+              <p class="menu-head">{{ 'Font' | i18n }}</p>
               <div class="font-row">
                 @for (option of fontOptions; track option.key) {
                   <button type="button" class="menu-item" [class.on]="subtitleFontKey() === option.key"
                           (click)="pickFont(option.key)">
-                    {{ option.label }}
+                    {{ option.label | i18n }}
                   </button>
                 }
               </div>
 
               <div class="menu-divider"></div>
-              <p class="menu-head">Cor</p>
+              <p class="menu-head">{{ 'Color' | i18n }}</p>
               <div class="color-row">
                 @for (option of colorOptions; track option.key) {
                   <button type="button" class="color-btn" [class.on]="subtitleColorKey() === option.key"
                           [style.--swatch]="option.value" (click)="pickColor(option.key)"
-                          [attr.aria-label]="option.label" [attr.aria-pressed]="subtitleColorKey() === option.key">
+                          [attr.aria-label]="option.label | i18n" [attr.aria-pressed]="subtitleColorKey() === option.key">
                     <span class="swatch"></span>
                   </button>
                 }
@@ -290,7 +290,7 @@
 
             @if (audioTrackOptions().length > 1) {
               <div class="menu-divider"></div>
-              <p class="menu-head">Áudio</p>
+              <p class="menu-head">{{ 'Audio' | i18n }}</p>
               @for (option of audioTrackOptions(); track option.index) {
                 <button type="button" class="menu-item" [class.on]="activeAudioIndex() === option.index"
                         (click)="pickAudioTrack(option.index)">
@@ -305,17 +305,17 @@
       <div class="settings">
         <button #settingsButton type="button" class="icon" data-player-control
                 (click)="toggleSettingsMenu()"
-                aria-label="Configurações">
+                [attr.aria-label]="'Settings' | i18n">
           <svg viewBox="0 0 24 24"><path d="M19.4 13a7.8 7.8 0 000-2l2.1-1.6a.5.5 0 00.1-.6l-2-3.5a.5.5 0 00-.6-.2l-2.5 1a7.3 7.3 0 00-1.7-1l-.4-2.6a.5.5 0 00-.5-.4h-4a.5.5 0 00-.5.4l-.4 2.6a7.3 7.3 0 00-1.7 1l-2.5-1a.5.5 0 00-.6.2l-2 3.5a.5.5 0 00.1.6L4.6 11a7.8 7.8 0 000 2l-2.1 1.6a.5.5 0 00-.1.6l2 3.5a.5.5 0 00.6.2l2.5-1a7.3 7.3 0 001.7 1l.4 2.6a.5.5 0 00.5.4h4a.5.5 0 00.5-.4l.4-2.6a7.3 7.3 0 001.7-1l2.5 1a.5.5 0 00.6-.2l2-3.5a.5.5 0 00-.1-.6L19.4 13zM12 15.5A3.5 3.5 0 1115.5 12 3.5 3.5 0 0112 15.5z" /></svg>
         </button>
 
         @if (settingsOpen()) {
           <div class="menu">
-            <p class="menu-head">Velocidade</p>
+            <p class="menu-head">{{ 'Speed' | i18n }}</p>
             @for (option of speeds; track option) {
               <button type="button" class="menu-item" [class.on]="speed() === option"
                       (click)="setSpeed(option)">
-                {{ option === 1 ? 'Normal' : option + 'x' }}
+                {{ option === 1 ? ('Normal' | i18n) : option + 'x' }}
               </button>
             }
           </div>
@@ -323,12 +323,12 @@
       </div>
 
       <button type="button" class="icon" data-player-control (click)="toggleStretch()"
-              [attr.aria-label]="stretch() ? 'Ajustar aspecto' : 'Esticar vídeo'">
+              [attr.aria-label]="(stretch() ? 'Fit aspect ratio' : 'Stretch video') | i18n">
         <svg viewBox="0 0 24 24"><path d="M4 19h16v-2H4v2zm16-14H4v2h16V5zm-8 9l-4-4h3V8h2v2h3l-4 4z" /></svg>
       </button>
 
       <button type="button" class="icon" data-player-control (click)="toggleFullscreen()"
-              [attr.aria-label]="fullscreen() ? 'Sair da tela cheia' : 'Tela cheia'">
+              [attr.aria-label]="(fullscreen() ? 'Exit fullscreen' : 'Fullscreen') | i18n">
         @if (fullscreen()) {
           <svg viewBox="0 0 24 24"><path d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z" /></svg>
         } @else {

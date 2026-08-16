@@ -8,9 +8,9 @@
   </div>
 } @else if (!d) {
   <div class="missing shell">
-    <h1>Título não encontrado</h1>
-    <p>O TMDB não retornou dados para este id.</p>
-    <button type="button" class="btn ghost" (click)="back()">Voltar</button>
+    <h1>{{ 'Title not found' | i18n }}</h1>
+    <p>{{ 'TMDB returned no data for this ID.' | i18n }}</p>
+    <button type="button" class="btn ghost" (click)="back()">{{ 'Back' | i18n }}</button>
   </div>
 } @else {
   <article class="detail">
@@ -21,9 +21,9 @@
       }
       <div class="veil"></div>
 
-      <button type="button" class="back" (click)="back()" aria-label="Voltar">
+      <button type="button" class="back" (click)="back()" [attr.aria-label]="'Back' | i18n">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" /></svg>
-        Voltar
+        {{ 'Back' | i18n }}
       </button>
 
       <div class="masthead-inner shell">
@@ -46,7 +46,7 @@
             @if (d.omdb?.Rated && d.omdb!.Rated !== 'N/A') {
               <span class="rated">{{ d.omdb!.Rated }}</span>
             }
-            <span class="kind">{{ d.type === 'show' ? 'Série' : 'Filme' }}</span>
+            <span class="kind">{{ (d.type === 'show' ? 'Series' : 'Movie') | i18n }}</span>
           </div>
 
           @if (d.genres.length) {
@@ -59,13 +59,13 @@
             @if (d.imdbId) {
               <a #watchBtn class="btn primary" [routerLink]="['/watch', type(), id()]">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg>
-                Assistir
+                {{ 'Watch' | i18n }}
               </a>
             }
             @if (d.trailerKey) {
               <button type="button" class="btn ghost" (click)="openTrailer()">
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg>
-                Trailer
+                {{ 'Trailer' | i18n }}
               </button>
             }
             @if (d.imdbId) {
@@ -104,26 +104,26 @@
       <div class="main">
         <!-- ---------------------------------------------- ratings -->
         <section class="block">
-          <h2 class="block-title">Notas</h2>
+          <h2 class="block-title">{{ 'Ratings' | i18n }}</h2>
           <app-rating-badges [badges]="d.ratings" />
         </section>
 
         <!-- --------------------------------------------- overview -->
         @if (d.overview) {
           <section class="block">
-            <h2 class="block-title">Sinopse</h2>
+            <h2 class="block-title">{{ 'Overview' | i18n }}</h2>
             <p class="overview">{{ d.overview }}</p>
           </section>
         }
 
         <!-- ------------------------------------------------- cast -->
         <section class="block">
-          <h2 class="block-title">Elenco</h2>
+          <h2 class="block-title">{{ 'Cast' | i18n }}</h2>
           @if (d.cast.length) {
             <app-scroll-track class="cast">
               @for (member of d.cast; track member.id) {
                 <button type="button" class="person" (click)="openPerson(member)"
-                        [attr.aria-label]="'Ver biografia de ' + member.name">
+                        [attr.aria-label]="'View {name} biography' | i18n: { name: member.name }">
                   @if (profile(member)) {
                     <img [src]="profile(member)" [alt]="member.name" loading="lazy" />
                   } @else {
@@ -137,7 +137,7 @@
               }
             </app-scroll-track>
           } @else {
-            <p class="muted">O TMDB não tem elenco cadastrado para este título.</p>
+            <p class="muted">{{ 'TMDB has no cast listed for this title.' | i18n }}</p>
           }
         </section>
 
@@ -167,10 +167,10 @@
                     }
                     <div class="who">
                       <span class="author">{{ review.author }}</span>
-                      <span class="when">{{ review.createdAt | date: 'dd MMM yyyy' }}</span>
+                      <span class="when">{{ review.createdAt | date: 'mediumDate' }}</span>
                     </div>
                     <span class="source-tag" [class.tmdb]="review.source === 'tmdb'"
-                          [title]="review.via ? 'Espelhada pelo mdblist' : ''">
+                          [title]="review.via ? ('Mirrored by mdblist' | i18n) : ''">
                       {{ review.source === 'trakt' ? 'Trakt' : 'TMDB' }}
                       @if (review.via) { <small>· mdblist</small> }
                     </span>
@@ -181,7 +181,7 @@
 
                   @if (isHidden(review)) {
                     <button type="button" class="spoiler" (click)="reveal(review)">
-                      Contém spoiler — clique para revelar
+                      {{ 'Contains spoilers — click to reveal' | i18n }}
                     </button>
                   } @else {
                     <p class="text">{{ review.content }}</p>
@@ -189,7 +189,7 @@
                       <div class="review-foot">
                         @if (isLong(review)) {
                           <button type="button" class="more" (click)="toggle(review)">
-                            {{ isExpanded(review) ? 'Mostrar menos' : 'Ler tudo' }}
+                            {{ (isExpanded(review) ? 'Show less' : 'Read all') | i18n }}
                           </button>
                         }
                         @if (review.likes) {
@@ -204,18 +204,18 @@
 
             @if (d.reviews.length > reviews().length) {
               <button type="button" class="btn ghost wide" (click)="showAllReviews.set(true)">
-                Ver todas as {{ d.reviews.length }} reviews
+                {{ 'View all {count} reviews' | i18n: { count: d.reviews.length } }}
               </button>
             }
           } @else {
-            <p class="muted">Nenhuma review encontrada para este título.</p>
+            <p class="muted">{{ 'No reviews found for this title.' | i18n }}</p>
           }
         </section>
 
         <!-- -------------------------------------- recommendations -->
         @if (d.recommendations.length) {
           <section class="block">
-            <h2 class="block-title">Você também pode gostar</h2>
+            <h2 class="block-title">{{ 'You may also like' | i18n }}</h2>
             <div class="recs">
               @for (rec of d.recommendations; track rec.id) {
                 <a class="rec" [class.landscape]="theme() === 'primefly' || theme() === 'netflixy'" [routerLink]="recLink(rec)">
@@ -246,7 +246,7 @@
       <!-- ------------------------------------------------ sidebar -->
       <aside class="side">
         <div class="card">
-          <h3>Ficha técnica</h3>
+          <h3>{{ 'Technical details' | i18n }}</h3>
           <dl>
             @for (fact of facts(); track fact.label) {
               <div class="fact">
@@ -256,15 +256,15 @@
             }
             @if (d.releaseDate) {
               <div class="fact">
-                <dt>Lançamento</dt>
-                <dd>{{ d.releaseDate | date: 'dd/MM/yyyy' }}</dd>
+                <dt>{{ 'Release' | i18n }}</dt>
+                <dd>{{ d.releaseDate | date: 'mediumDate' }}</dd>
               </div>
             }
           </dl>
         </div>
 
         <div class="card ids">
-          <h3>Identificadores</h3>
+          <h3>{{ 'Identifiers' | i18n }}</h3>
           <p><span>TMDB</span><code>{{ d.tmdbId }}</code></p>
           @if (d.imdbId) { <p><span>IMDb</span><code>{{ d.imdbId }}</code></p> }
         </div>
@@ -283,7 +283,7 @@
   <!-- --------------------------------------------------- trailer -->
   @if (trailerOpen() && d.trailerKey) {
     <div #lightbox class="lightbox" (click)="closeTrailer()">
-      <button type="button" class="close" aria-label="Fechar">✕</button>
+      <button type="button" class="close" [attr.aria-label]="'Close' | i18n">✕</button>
       <div class="frame" (click)="$event.stopPropagation()">
         <iframe
           [src]="trailerUrl()"

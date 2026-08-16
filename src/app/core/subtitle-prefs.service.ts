@@ -19,10 +19,10 @@ export interface SubtitleColorOption {
 
 /** Web-safe families only — no new font files, so every choice renders everywhere. */
 export const SUBTITLE_FONT_OPTIONS: readonly SubtitleFontOption[] = [
-  { key: 'default', label: 'Padrão', value: 'inherit' },
-  { key: 'serif', label: 'Serifada', value: 'Georgia, "Times New Roman", serif' },
-  { key: 'rounded', label: 'Arredondada', value: '"Trebuchet MS", "Segoe UI", sans-serif' },
-  { key: 'mono', label: 'Monoespaçada', value: '"Courier New", ui-monospace, monospace' },
+  { key: 'default', label: 'Default', value: 'inherit' },
+  { key: 'serif', label: 'Serif', value: 'Georgia, "Times New Roman", serif' },
+  { key: 'rounded', label: 'Rounded', value: '"Trebuchet MS", "Segoe UI", sans-serif' },
+  { key: 'mono', label: 'Monospace', value: '"Courier New", ui-monospace, monospace' },
 ];
 
 /**
@@ -31,10 +31,10 @@ export const SUBTITLE_FONT_OPTIONS: readonly SubtitleFontOption[] = [
  * rendered yellow by default — a synced account still correctly overrides it.
  */
 export const SUBTITLE_COLOR_OPTIONS: readonly SubtitleColorOption[] = [
-  { key: 'yellow', label: 'Amarelo', value: '#ffeb3b' },
-  { key: 'white', label: 'Branco', value: '#ffffff' },
-  { key: 'red', label: 'Vermelho', value: '#ff0000' },
-  { key: 'blue', label: 'Azul', value: '#0000ff' },
+  { key: 'yellow', label: 'Yellow', value: '#ffeb3b' },
+  { key: 'white', label: 'White', value: '#ffffff' },
+  { key: 'red', label: 'Red', value: '#ff0000' },
+  { key: 'blue', label: 'Blue', value: '#0000ff' },
 ];
 
 const DEFAULT_FONT_KEY = SUBTITLE_FONT_OPTIONS[0].key;

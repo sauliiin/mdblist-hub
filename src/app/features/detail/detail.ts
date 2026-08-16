@@ -8,6 +8,7 @@ import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { RouterLink } from '@angular/router';
 import { switchMap, tap } from 'rxjs';
 import { tmdbImg } from '../../core/api.config';
+import { activeLocale, I18nPipe, I18nService } from '../../core/i18n.service';
 import { Bucket, LibraryService, LibraryStatus, LibraryTarget } from '../../core/library.service';
 import { castCharacter, MediaDetailService } from '../../core/media-detail.service';
 import {
@@ -21,7 +22,7 @@ import { ScrollTrack } from '../../ui/scroll-track/scroll-track';
 
 @Component({
   selector: 'app-detail',
-  imports: [DatePipe, DecimalPipe, RouterLink, PersonModal, RatingBadges, ScrollTrack],
+  imports: [DatePipe, DecimalPipe, I18nPipe, RouterLink, PersonModal, RatingBadges, ScrollTrack],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './detail.html',
   styleUrl: './detail.scss',
@@ -33,6 +34,7 @@ export class Detail {
   private readonly libraryService = inject(LibraryService);
   protected readonly tv = inject(TvService);
   protected readonly theme = inject(ThemePrefsService).themeKey;
+  private readonly i18n = inject(I18nService);
   protected readonly formatYear = formatYear;
 
   private readonly lightbox = viewChild<ElementRef<HTMLElement>>('lightbox');
@@ -68,21 +70,21 @@ export class Detail {
   }[] = [
     {
       bucket: 'watchlist',
-      label: 'Watchlist',
-      done: 'Na watchlist',
-      undo: 'Remover da watchlist',
+      label: this.i18n.t('Watchlist'),
+      done: this.i18n.t('In watchlist'),
+      undo: this.i18n.t('Remove from watchlist'),
     },
     {
       bucket: 'collection',
-      label: 'Coleção',
-      done: 'Na coleção',
-      undo: 'Remover da coleção',
+      label: this.i18n.t('Collection'),
+      done: this.i18n.t('In collection'),
+      undo: this.i18n.t('Remove from collection'),
     },
     {
       bucket: 'watched',
-      label: 'Marcar como assistido',
-      done: 'Assistido',
-      undo: 'Desmarcar como assistido',
+      label: this.i18n.t('Mark as watched'),
+      done: this.i18n.t('Watched'),
+      undo: this.i18n.t('Mark as unwatched'),
     },
   ];
 
@@ -145,17 +147,17 @@ export class Detail {
       if (value && value !== 'N/A') rows.push({ label, value });
     };
 
-    push('Status', d.status);
-    push('Título original', d.originalTitle !== d.title ? d.originalTitle : null);
-    push('Classificação', omdb?.Rated);
-    push('Direção', d.directors.join(', ') || null);
-    push('Roteiro', d.writers.join(', ') || null);
-    push('Produção', d.companies.join(', ') || null);
-    push('Idiomas', omdb?.Language);
-    push('País', omdb?.Country);
-    push('Orçamento', d.budget ? money(d.budget) : null);
-    push('Bilheteria', d.revenue ? money(d.revenue) : omdb?.BoxOffice);
-    push('Prêmios', omdb?.Awards);
+    push(this.i18n.t('Status'), d.status ? this.i18n.t(d.status) : null);
+    push(this.i18n.t('Original title'), d.originalTitle !== d.title ? d.originalTitle : null);
+    push(this.i18n.t('Certification'), omdb?.Rated);
+    push(this.i18n.t('Director'), d.directors.join(', ') || null);
+    push(this.i18n.t('Writing'), d.writers.join(', ') || null);
+    push(this.i18n.t('Production'), d.companies.join(', ') || null);
+    push(this.i18n.t('Languages'), omdb?.Language);
+    push(this.i18n.t('Country'), omdb?.Country);
+    push(this.i18n.t('Budget'), d.budget ? money(d.budget) : null);
+    push(this.i18n.t('Revenue'), d.revenue ? money(d.revenue) : omdb?.BoxOffice);
+    push(this.i18n.t('Awards'), omdb?.Awards);
     return rows;
   });
 
@@ -170,7 +172,9 @@ export class Detail {
   protected readonly seasonsLabel = computed(() => {
     const d = this.detail();
     if (!d || d.type !== 'show' || !d.seasons) return null;
-    const seasons = `${d.seasons} temporada${d.seasons > 1 ? 's' : ''}`;
+    const seasons = this.i18n.t(d.seasons === 1 ? '{count} season' : '{count} seasons', {
+      count: d.seasons,
+    });
     return d.episodes ? `${seasons} · ${d.episodes} eps` : seasons;
   });
 
@@ -233,7 +237,7 @@ export class Detail {
         // Almost always the missing proxy: the write endpoints cannot be
         // reached from a plain static host (see README).
         this.libraryError.set(
-          'Não foi possível gravar no mdblist. As ações de biblioteca precisam do proxy — veja o README.',
+          this.i18n.t('Could not save to mdblist. Library actions require the proxy — see the README.'),
         );
       },
     });
@@ -311,7 +315,7 @@ export class Detail {
 }
 
 function money(value: number): string {
-  return value.toLocaleString('en-US', {
+  return value.toLocaleString(activeLocale(), {
     style: 'currency',
     currency: 'USD',
     maximumFractionDigits: 0,

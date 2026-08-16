@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { tmdbImg } from '../../../core/api.config';
+import { I18nPipe } from '../../../core/i18n.service';
 import { formatYear, toTmdbType } from '../../../core/models';
 import { ResumeItem } from '../../../core/scrobble/models';
 import { ScrobbleService } from '../../../core/scrobble/scrobble.service';
@@ -20,7 +21,7 @@ interface ResumeCard extends ResumeItem {
  */
 @Component({
   selector: 'app-continue-watching',
-  imports: [RouterLink],
+  imports: [I18nPipe, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './continue-watching.html',
   styleUrl: './continue-watching.scss',

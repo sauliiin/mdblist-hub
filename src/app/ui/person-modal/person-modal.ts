@@ -5,6 +5,7 @@ import {
 import { RouterLink } from '@angular/router';
 import { forkJoin, of, switchMap } from 'rxjs';
 import { tmdbImg } from '../../core/api.config';
+import { I18nPipe } from '../../core/i18n.service';
 import { TmdbPerson, TmdbPersonCredit, formatYear } from '../../core/models';
 import { TmdbService } from '../../core/tmdb.service';
 import { WikiBio, WikipediaService } from '../../core/wikipedia.service';
@@ -12,7 +13,7 @@ import { ScrollTrack } from '../scroll-track/scroll-track';
 
 @Component({
   selector: 'app-person-modal',
-  imports: [DatePipe, RouterLink, ScrollTrack],
+  imports: [DatePipe, I18nPipe, RouterLink, ScrollTrack],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './person-modal.html',
   styleUrl: './person-modal.scss',

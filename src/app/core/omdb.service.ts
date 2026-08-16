@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, catchError, map, of } from 'rxjs';
 import { API } from './api.config';
+import { translate } from './i18n.service';
 import { OmdbResponse } from './models';
 
 export interface OmdbResult {
@@ -23,9 +24,9 @@ export class OmdbService {
         map((data) =>
           data?.Response === 'True'
             ? { data, error: null }
-            : { data: null, error: data?.Error ?? 'OMDb não retornou dados.' },
+            : { data: null, error: data?.Error ?? translate('OMDb returned no data.') },
         ),
-        catchError(() => of({ data: null, error: 'OMDb indisponível (cota diária ou rede).' })),
+        catchError(() => of({ data: null, error: translate('OMDb is unavailable (daily quota or network).') })),
       );
   }
 }

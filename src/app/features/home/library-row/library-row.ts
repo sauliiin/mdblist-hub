@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, OnInit, inject, input, output, signal } from '@angular/core';
 import { LibraryService } from '../../../core/library.service';
+import { I18nPipe } from '../../../core/i18n.service';
 import { MdbItem } from '../../../core/models';
 import { MediaCard } from '../../../ui/media-card/media-card';
 
@@ -15,7 +16,7 @@ import { MediaCard } from '../../../ui/media-card/media-card';
  */
 @Component({
   selector: 'app-library-row',
-  imports: [MediaCard],
+  imports: [I18nPipe, MediaCard],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './library-row.html',
   styleUrl: './library-row.scss',

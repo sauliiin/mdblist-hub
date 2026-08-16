@@ -3,12 +3,14 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { of, switchMap } from 'rxjs';
 import { AuthService } from '../../core/auth.service';
 import { GoogleAuthService } from '../../core/google-auth.service';
+import { I18nPipe, I18nService } from '../../core/i18n.service';
 import { ListPrefsSyncService } from '../../core/sync/list-prefs-sync.service';
 import { MdblistKeySyncService } from '../../core/sync/mdblist-key-sync.service';
 import { PreferencesSyncService } from '../../core/sync/preferences-sync.service';
 
 @Component({
   selector: 'app-login',
+  imports: [I18nPipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './login.html',
   styleUrl: './login.scss',
@@ -21,6 +23,7 @@ export class Login {
   private readonly preferencesSync = inject(PreferencesSyncService);
   private readonly listPrefsSync = inject(ListPrefsSyncService);
   private readonly mdblistKeySync = inject(MdblistKeySyncService);
+  private readonly i18n = inject(I18nService);
 
   protected readonly key = signal('');
   protected readonly busy = signal(false);
@@ -81,8 +84,8 @@ export class Login {
         this.busy.set(false);
         this.error.set(
           err?.status === 0
-            ? 'Não foi possível falar com o mdblist. Verifique sua conexão.'
-            : 'Chave inválida. Confira se copiou a chave inteira das preferências do mdblist.',
+            ? this.i18n.t('Could not reach mdblist. Check your connection.')
+            : this.i18n.t('Invalid key. Make sure you copied the entire key from your mdblist preferences.'),
         );
       },
     });

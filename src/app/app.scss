@@ -81,6 +81,12 @@
   .name { animation: none; background-position: -70% 0; }
 }
 
+.preferences {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .theme-picker {
   position: relative;
 }
@@ -98,6 +104,27 @@
   transition: border-color 0.2s var(--ease), color 0.2s var(--ease);
 
   &:hover, &:focus-visible { border-color: var(--border-strong); color: var(--text); }
+}
+
+.language-picker {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-faint);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+
+  select {
+    padding: 6px 22px 6px 8px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface);
+    color: var(--text-dim);
+    font: inherit;
+    cursor: pointer;
+  }
 }
 
 .theme-menu {
@@ -237,4 +264,5 @@
 @media (max-width: 520px) {
   .name { display: none; }
   .links a { font-size: 13px; }
+  .language-picker > span { display: none; }
 }

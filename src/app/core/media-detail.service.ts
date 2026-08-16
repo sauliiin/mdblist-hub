@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { Observable, forkJoin, map, of, switchMap } from 'rxjs';
 import { tmdbImg } from './api.config';
+import { translate } from './i18n.service';
 import { MdblistService } from './mdblist.service';
 import {
   MdbInfo, MdbReview, MediaDetail, MediaType, OmdbResponse, Review, TmdbCastMember,
@@ -75,7 +76,7 @@ function assemble(
     type,
     tmdbId,
     imdbId,
-    title: tmdb.title || tmdb.name || info?.title || 'Sem título',
+    title: tmdb.title || tmdb.name || info?.title || translate('Untitled'),
     originalTitle: tmdb.original_title || tmdb.original_name || null,
     tagline: tmdb.tagline || info?.tagline || null,
     overview: tmdb.overview || info?.description || omdb?.Plot || null,
@@ -140,7 +141,7 @@ function fromMdblist(r: MdbReview): Review {
   const source = r.provider_id === 2 ? 'tmdb' : 'trakt';
   return {
     id: `mdblist-${source}-${normalise(r.author)}-${r.updated_at}`,
-    author: r.author || 'Anônimo',
+    author: r.author || translate('Anonymous'),
     avatar: null,
     content: stripMarkup(r.content),
     rating: r.rating,
@@ -156,7 +157,7 @@ function fromMdblist(r: MdbReview): Review {
 function fromTmdb(r: TmdbReview): Review {
   return {
     id: `tmdb-${r.id}`,
-    author: r.author_details?.name || r.author || 'Usuário TMDB',
+    author: r.author_details?.name || r.author || translate('TMDB user'),
     avatar: avatarUrl(r.author_details?.avatar_path),
     content: stripMarkup(r.content),
     rating: r.author_details?.rating ?? null,

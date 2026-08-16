@@ -25,11 +25,11 @@
     }
 
     <span class="type" [class.is-show]="item().mediatype === 'show'">
-      {{ item().mediatype === 'show' ? 'Série' : 'Filme' }}
+      {{ (item().mediatype === 'show' ? 'Series' : 'Movie') | i18n }}
     </span>
 
     @if (imdbRating(); as rating) {
-      <div class="imdb-ring" [style.--pct]="(rating * 10) + '%'" title="Nota IMDb">
+      <div class="imdb-ring" [style.--pct]="(rating * 10) + '%'" [title]="'IMDb rating' | i18n">
         <span class="imdb-value">{{ rating.toFixed(1) }}</span>
       </div>
     }
@@ -37,7 +37,7 @@
     @if (genres().length) {
       <div class="genres">
         @for (g of genres(); track g) {
-          <span class="tag">{{ g }}</span>
+          <span class="tag">{{ genreLabel(g) }}</span>
         }
       </div>
     }

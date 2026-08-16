@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy, Component, ElementRef, signal, viewChild,
 } from '@angular/core';
+import { I18nPipe } from '../../core/i18n.service';
 
 /**
  * Wraps a horizontally-scrolling `<ng-content>` with the same nudging
@@ -9,6 +10,7 @@ import {
  */
 @Component({
   selector: 'app-scroll-track',
+  imports: [I18nPipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './scroll-track.html',
   styleUrl: './scroll-track.scss',

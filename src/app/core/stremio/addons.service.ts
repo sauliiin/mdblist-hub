@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Observable, catchError, map, throwError } from 'rxjs';
 import { RawAddonCatalog } from '../models';
+import { translate } from '../i18n.service';
 import {
   ImportReport, InstalledAddon, StremioManifest, StremioType, normaliseAddonUrl, serves,
 } from './models';
@@ -64,17 +65,14 @@ export class AddonsService {
     try {
       base = normaliseAddonUrl(url);
     } catch {
-      return throwError(() => new Error('URL inválida. Cole o endereço do manifest.json do addon.'));
+      return throwError(() => new Error(translate('Invalid URL. Paste the address of the addon manifest.json.')));
     }
 
     return this.http.get<StremioManifest>(`${base}/manifest.json`).pipe(
       catchError(() =>
         throwError(
           () =>
-            new Error(
-              'Não foi possível ler o manifest. Confira a URL — e note que o addon precisa ' +
-                'liberar CORS para ser usado a partir do navegador.',
-            ),
+            new Error(translate('Could not read the manifest. Check the URL and make sure the addon allows browser CORS requests.')),
         ),
       ),
       map((manifest) => {
@@ -82,11 +80,7 @@ export class AddonsService {
         // serves exactly that at its root — so this is the error people hit
         // when they paste the site instead of the URL it generated for them.
         if (!manifest?.id || !manifest?.name) {
-          throw new Error(
-            'O endereço respondeu, mas não é um manifest de addon do Stremio. Vários addons ' +
-              'geram uma URL própria para cada usuário na página de configuração — é essa ' +
-              'que precisa ser colada aqui, não o endereço do site.',
-          );
+          throw new Error(translate('The address responded, but it is not a Stremio addon manifest. Many addons generate a URL for each user on their configuration page — paste that URL here, not the website address.'));
         }
 
         const addon: InstalledAddon = { base, manifest, addedAt: new Date().toISOString() };
@@ -113,14 +107,14 @@ export class AddonsService {
 
     for (const entry of entries) {
       const url = entry?.transportUrl ?? '';
-      const name = entry?.manifest?.name || url || 'addon sem nome';
+      const name = entry?.manifest?.name || url || translate('unnamed addon');
 
       if (!url) {
-        skipped.push({ name, url, reason: 'a conta não guardou a URL deste addon' });
+        skipped.push({ name, url, reason: translate('the account did not save this addon URL') });
         continue;
       }
       if (!entry?.manifest?.id) {
-        skipped.push({ name, url, reason: 'o manifest veio sem id' });
+        skipped.push({ name, url, reason: translate('the manifest had no ID') });
         continue;
       }
 
@@ -131,7 +125,7 @@ export class AddonsService {
           addedAt: new Date().toISOString(),
         });
       } catch {
-        skipped.push({ name, url, reason: 'URL que não dá para interpretar' });
+        skipped.push({ name, url, reason: translate('URL could not be parsed') });
       }
     }
 
@@ -144,8 +138,8 @@ export class AddonsService {
       imported: imported.map((a) => a.manifest.name),
       skipped,
       entries: entries.map((e) => ({
-        name: e?.manifest?.name || '(sem nome)',
-        url: e?.transportUrl || '(sem URL)',
+        name: e?.manifest?.name || translate('(unnamed)'),
+        url: e?.transportUrl || translate('(no URL)'),
       })),
     };
   }

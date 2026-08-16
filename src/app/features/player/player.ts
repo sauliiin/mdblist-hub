@@ -8,6 +8,7 @@ import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Subscription, of, startWith, switchMap, tap } from 'rxjs';
 import { MediaDetailService } from '../../core/media-detail.service';
+import { I18nPipe, I18nService, currentLanguage } from '../../core/i18n.service';
 import { TmdbEpisode, toMediaType } from '../../core/models';
 import { AddonsService } from '../../core/stremio/addons.service';
 import {
@@ -39,7 +40,7 @@ const RETRY_PROBE_TIMEOUT = 30_000;
 
 @Component({
   selector: 'app-player',
-  imports: [RouterLink, VideoPlayer],
+  imports: [I18nPipe, RouterLink, VideoPlayer],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './player.html',
   styleUrl: './player.scss',
@@ -56,6 +57,8 @@ export class Player {
   private readonly route = inject(ActivatedRoute);
   private readonly location = inject(Location);
   private readonly videoPlayer = viewChild(VideoPlayer);
+  private readonly i18n = inject(I18nService);
+  protected readonly defaultSubtitleLanguage = currentLanguage() === 'pt' ? 'pt' : 'en';
 
   /** Route params and query params, bound by `withComponentInputBinding()`. */
   readonly type = input.required<string>();
@@ -285,7 +288,7 @@ export class Player {
 
   protected readonly episodeLabel = computed(() => {
     if (!this.isShow()) return null;
-    const number = `T${this.seasonNumber()}E${this.episodeNumber()}`;
+    const number = `${currentLanguage() === 'pt' ? 'T' : 'S'}${this.seasonNumber()}E${this.episodeNumber()}`;
     const found = this.episodes().find((e) => e.episode_number === this.episodeNumber());
     return found ? `${number} · ${found.name}` : number;
   });
@@ -781,7 +784,7 @@ export class Player {
       error: (error: unknown) => {
         this.subtitleRequest = undefined;
         this.subtitleBusy.set(false);
-        this.subtitleError.set(subtitleFailureMessage(error));
+        this.subtitleError.set(subtitleFailureMessage(error, this.i18n));
       },
     });
   }
@@ -823,19 +826,23 @@ export class Player {
  * Angular reports when the browser blocks the request before any response
  * exists, which does mean CORS, an offline tab or a blocked host.
  */
-function subtitleFailureMessage(error: unknown): string {
-  const tail = ' Tente outra legenda da lista.';
-
+function subtitleFailureMessage(error: unknown, i18n: I18nService): string {
   if (error instanceof HttpErrorResponse) {
     if (error.status === 0) {
-      return 'O navegador bloqueou o download da legenda — pode ser falta de conexão ou uma ' +
-        'restrição do servidor que a hospeda.' + tail;
+      return i18n.t(
+        'The browser blocked the subtitle download — this may be a connection problem or a restriction on the hosting server. Try another subtitle from the list.',
+      );
     }
-    return `O servidor recusou o download da legenda (HTTP ${error.status}).${tail}`;
+    return i18n.t(
+      'The server refused the subtitle download (HTTP {status}). Try another subtitle from the list.',
+      { status: error.status },
+    );
   }
 
   // Anything that is not an HTTP failure got here from the decode/convert
   // step, i.e. the file downloaded fine and was not a subtitle this player
   // could read.
-  return 'A legenda foi baixada, mas o arquivo não pôde ser lido.' + tail;
+  return i18n.t(
+    'The subtitle was downloaded, but the file could not be read. Try another subtitle from the list.',
+  );
 }

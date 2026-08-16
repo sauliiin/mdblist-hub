@@ -9,7 +9,7 @@ export interface ThemeOption {
 
 /** Same four appearances the native apps offer — see `HubThemeVariant` (Color.kt). */
 export const THEME_OPTIONS: readonly ThemeOption[] = [
-  { key: 'normal', label: 'Normal' },
+  { key: 'normal', label: 'Default' },
   { key: 'cyberpunk', label: 'Cyberpunk' },
   { key: 'netflixy', label: 'Netflixy' },
   { key: 'primefly', label: 'Primefly' },

@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { tmdbImg } from '../../../core/api.config';
+import { currentLanguage, I18nPipe, translateGenre } from '../../../core/i18n.service';
 import { MdblistService } from '../../../core/mdblist.service';
 import { MdbItem, MdbList, TmdbDetail, TmdbLogo, toTmdbType } from '../../../core/models';
 import { ThemePrefsService } from '../../../core/theme-prefs.service';
@@ -27,7 +28,8 @@ function pickLogo(logos: TmdbLogo[] | undefined): string | null {
   if (!logos?.length) return null;
 
   const ranked = [...logos].sort((a, b) => {
-    const tier = (logo: TmdbLogo) => (logo.iso_639_1 === 'en' ? 0 : logo.iso_639_1 === null ? 1 : 2);
+    const preferred = currentLanguage();
+    const tier = (logo: TmdbLogo) => (logo.iso_639_1 === preferred ? 0 : logo.iso_639_1 === null ? 1 : 2);
     const byTier = tier(a) - tier(b);
     return byTier !== 0 ? byTier : b.vote_average - a.vote_average;
   });
@@ -40,7 +42,7 @@ const PREFERRED = ['trending movies', 'lastest movie releases', 'best ever'];
 
 @Component({
   selector: 'app-hero',
-  imports: [RouterLink],
+  imports: [I18nPipe, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './hero.html',
   styleUrl: './hero.scss',
@@ -49,6 +51,7 @@ export class Hero {
   private readonly mdblist = inject(MdblistService);
   private readonly tmdb = inject(TmdbService);
   protected readonly theme = inject(ThemePrefsService).themeKey;
+  protected readonly genreLabel = translateGenre;
 
   protected readonly featured = signal<Featured | null>(null);
   private lists: MdbList[] = [];

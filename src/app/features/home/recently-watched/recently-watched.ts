@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, OnInit, inject, signal } from '@angular/core';
 import { LibraryService } from '../../../core/library.service';
+import { I18nPipe } from '../../../core/i18n.service';
 import { MdbItem } from '../../../core/models';
 import { MediaCard } from '../../../ui/media-card/media-card';
 
@@ -11,7 +12,7 @@ import { MediaCard } from '../../../ui/media-card/media-card';
  */
 @Component({
   selector: 'app-recently-watched',
-  imports: [MediaCard],
+  imports: [I18nPipe, MediaCard],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './recently-watched.html',
   styleUrl: './recently-watched.scss',

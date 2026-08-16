@@ -3,6 +3,7 @@ import {
   output, signal, viewChild,
 } from '@angular/core';
 import { PlayableStream, SubtitleOption } from '../../core/stremio/models';
+import { currentLanguage, I18nPipe, I18nService } from '../../core/i18n.service';
 import {
   SUBTITLE_COLOR_OPTIONS,
   SUBTITLE_FONT_OPTIONS,
@@ -71,6 +72,7 @@ const SUBTITLE_LINE_LIFTED = 78;
  */
 @Component({
   selector: 'app-video-player',
+  imports: [I18nPipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './video-player.html',
   styleUrl: './video-player.scss',
@@ -84,12 +86,13 @@ export class VideoPlayer {
   private readonly host: ElementRef<HTMLElement> = inject(ElementRef);
   private readonly tv = inject(TvService);
   private readonly subtitlePrefs = inject(SubtitlePrefsService);
+  private readonly i18n = inject(I18nService);
 
   readonly src = input.required<string>();
   /** A `blob:` URL of a WebVTT file, or null when no subtitle is loaded. */
   readonly subtitleUrl = input<string | null>(null);
-  readonly subtitleLabel = input<string>('Legenda');
-  readonly subtitleLang = input<string>('pt');
+  readonly subtitleLabel = input<string>(this.i18n.t('Subtitle'));
+  readonly subtitleLang = input<string>(currentLanguage() === 'pt' ? 'pt' : 'en');
 
   /**
    * The subtitle chooser lives here, not just in the page around the player,
@@ -589,7 +592,10 @@ export class VideoPlayer {
       let active = 0;
       for (let i = 0; i < tracks.length; i++) {
         const track = tracks[i];
-        options.push({ index: i, label: track.label || track.language || `Faixa ${i + 1}` });
+        options.push({
+          index: i,
+          label: track.label || track.language || this.i18n.t('Track {number}', { number: i + 1 }),
+        });
         if (track.enabled) active = i;
       }
       this.audioTrackOptions.set(options.length > 1 ? options : []);

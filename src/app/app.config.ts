@@ -11,6 +11,7 @@ import {
 
 import { routes } from './app.routes';
 import { httpCacheInterceptor } from './core/http-cache.interceptor';
+import { activeLocale } from './core/i18n.service';
 
 registerLocaleData(localePt, 'pt-BR');
 
@@ -32,6 +33,6 @@ export const appConfig: ApplicationConfig = {
       withInMemoryScrolling({ scrollPositionRestoration: 'top', anchorScrolling: 'enabled' }),
     ),
     provideHttpClient(withInterceptors([httpCacheInterceptor])),
-    { provide: LOCALE_ID, useValue: 'pt-BR' },
+    { provide: LOCALE_ID, useFactory: activeLocale },
   ],
 };

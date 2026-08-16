@@ -1,3 +1,5 @@
+import { currentLanguage, translate } from '../i18n.service';
+
 /**
  * Turning an addon's subtitle file into something `<track>` accepts.
  *
@@ -163,25 +165,25 @@ export function srtToVtt(input: string): string {
 
 /** ISO 639-2/B codes the addons use, for a readable dropdown. */
 const LANGUAGES: Record<string, string> = {
-  por: 'Português', pob: 'Português (BR)', pt: 'Português', 'pt-br': 'Português (BR)',
-  eng: 'Inglês', en: 'Inglês',
-  spa: 'Espanhol', es: 'Espanhol',
-  fre: 'Francês', fra: 'Francês', fr: 'Francês',
-  ger: 'Alemão', deu: 'Alemão', de: 'Alemão',
-  ita: 'Italiano', it: 'Italiano',
-  jpn: 'Japonês', ja: 'Japonês',
-  kor: 'Coreano', ko: 'Coreano',
-  chi: 'Chinês', zho: 'Chinês', zh: 'Chinês',
-  rus: 'Russo', ru: 'Russo',
-  ara: 'Árabe', ar: 'Árabe',
-  dut: 'Holandês', nld: 'Holandês',
-  swe: 'Sueco', nor: 'Norueguês', dan: 'Dinamarquês', fin: 'Finlandês',
-  pol: 'Polonês', tur: 'Turco', hin: 'Hindi', heb: 'Hebraico', ell: 'Grego',
+  por: 'Portuguese', pob: 'Portuguese (Brazil)', pt: 'Portuguese', 'pt-br': 'Portuguese (Brazil)',
+  eng: 'English', en: 'English',
+  spa: 'Spanish', es: 'Spanish',
+  fre: 'French', fra: 'French', fr: 'French',
+  ger: 'German', deu: 'German', de: 'German',
+  ita: 'Italian', it: 'Italian',
+  jpn: 'Japanese', ja: 'Japanese',
+  kor: 'Korean', ko: 'Korean',
+  chi: 'Chinese', zho: 'Chinese', zh: 'Chinese',
+  rus: 'Russian', ru: 'Russian',
+  ara: 'Arabic', ar: 'Arabic',
+  dut: 'Dutch', nld: 'Dutch',
+  swe: 'Swedish', nor: 'Norwegian', dan: 'Danish', fin: 'Finnish',
+  pol: 'Polish', tur: 'Turkish', hin: 'Hindi', heb: 'Hebrew', ell: 'Greek',
 };
 
 export function languageLabel(code: string): string {
   const key = (code ?? '').toLowerCase().trim();
-  return LANGUAGES[key] ?? (key ? key.toUpperCase() : 'Desconhecido');
+  return LANGUAGES[key] ? translate(LANGUAGES[key]) : key ? key.toUpperCase() : translate('Unknown');
 }
 
 /**
@@ -197,10 +199,17 @@ export function toBcp47(code: string): string {
   return key.slice(0, 2) || 'und';
 }
 
-/** Portuguese first, then English, then the rest alphabetically. */
+/** UI language first, then the other supported language, then the rest. */
 export function languageRank(code: string): number {
   const key = (code ?? '').toLowerCase();
-  if (key.startsWith('po') || key.startsWith('pt')) return 0;
-  if (key.startsWith('en')) return 1;
+  const portuguese = key.startsWith('po') || key.startsWith('pt');
+  const english = key.startsWith('en');
+  if (currentLanguage() === 'pt') {
+    if (portuguese) return 0;
+    if (english) return 1;
+  } else {
+    if (english) return 0;
+    if (portuguese) return 1;
+  }
   return 2;
 }

@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, catchError, forkJoin, map, of } from 'rxjs';
 import { API } from './api.config';
+import { activeLocale, currentLanguage, tmdbLanguage } from './i18n.service';
 import {
   GenreOption, MediaType, TmdbDetail, TmdbGenre, TmdbKeyword, TmdbPerson, TmdbReview,
   TmdbSearchResult, TmdbSeason, toTmdbType,
@@ -32,8 +33,9 @@ export class TmdbService {
       .get<TmdbDetail>(`${API.tmdb.base}/${tmdbType}/${tmdbId}`, {
         params: {
           api_key: API.tmdb.key,
+          language: tmdbLanguage(),
           append_to_response: append,
-          include_image_language: 'pt,en,null',
+          include_image_language: currentLanguage() === 'pt' ? 'pt,en,null' : 'en,pt,null',
         },
       })
       .pipe(catchError(() => of(null)));
@@ -46,7 +48,7 @@ export class TmdbService {
   season(tmdbId: number, season: number): Observable<TmdbSeason | null> {
     return this.http
       .get<TmdbSeason>(`${API.tmdb.base}/tv/${tmdbId}/season/${season}`, {
-        params: { api_key: API.tmdb.key, language: 'pt-BR' },
+        params: { api_key: API.tmdb.key, language: tmdbLanguage() },
       })
       .pipe(catchError(() => of(null)));
   }
@@ -69,7 +71,7 @@ export class TmdbService {
       .get<TmdbPerson>(`${API.tmdb.base}/person/${personId}`, {
         params: {
           api_key: API.tmdb.key,
-          language: 'pt-BR',
+          language: tmdbLanguage(),
           append_to_response: 'external_ids,combined_credits',
         },
       })
@@ -82,8 +84,8 @@ export class TmdbService {
    */
   genres(): Observable<GenreOption[]> {
     return forkJoin({
-      movie: this.genreList('movie', 'pt-BR'),
-      tv: this.genreList('tv', 'pt-BR'),
+      movie: this.genreList('movie', tmdbLanguage()),
+      tv: this.genreList('tv', tmdbLanguage()),
       // The English names double as the mdblist genre slugs.
       movieEn: this.genreList('movie', 'en-US'),
       tvEn: this.genreList('tv', 'en-US'),
@@ -115,7 +117,7 @@ export class TmdbService {
             });
         }
 
-        return [...merged.values()].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'));
+        return [...merged.values()].sort((a, b) => a.name.localeCompare(b.name, activeLocale()));
       }),
     );
   }
@@ -141,7 +143,7 @@ export class TmdbService {
       .get<{ results: TmdbSearchResult[] }>(`${API.tmdb.base}/discover/${tmdbType}`, {
         params: {
           api_key: API.tmdb.key,
-          language: 'pt-BR',
+          language: tmdbLanguage(),
           include_adult: 'false',
           sort_by: 'popularity.desc',
           'vote_count.gte': 40,
@@ -216,7 +218,7 @@ export class TmdbService {
       .get<{ results: TmdbSearchResult[] }>(`${API.tmdb.base}/search/multi`, {
         params: {
           api_key: API.tmdb.key,
-          language: 'pt-BR',
+          language: tmdbLanguage(),
           include_adult: 'false',
           query,
         },

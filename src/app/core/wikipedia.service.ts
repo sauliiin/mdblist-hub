@@ -1,6 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, catchError, map, of, switchMap } from 'rxjs';
+import { wikipediaLanguage } from './i18n.service';
 
 /**
  * Wikipedia biographies, following the same route as
@@ -30,7 +31,6 @@ const PROP = {
  * otherwise in Portuguese. 200 keeps real paragraphs and still skips stubs.
  */
 const MIN_BIO_CHARS = 200;
-const LANG = 'pt';
 
 export interface WikiBio {
   biography: string;
@@ -86,6 +86,7 @@ export class WikipediaService {
   }
 
   private fromEntity(qid: string): Observable<WikiBio> {
+    const lang = wikipediaLanguage();
     return this.http
       .get<WikidataEntities>(WIKIDATA, {
         params: {
@@ -101,7 +102,7 @@ export class WikipediaService {
           const entity = res?.entities?.[qid];
           if (!entity) return of(EMPTY);
 
-          const localTitle = entity.sitelinks?.[`${LANG}wiki`]?.title ?? null;
+          const localTitle = entity.sitelinks?.[`${lang}wiki`]?.title ?? null;
           const enTitle = entity.sitelinks?.['enwiki']?.title ?? null;
           const facts = {
             birthday: claimTime(entity, PROP.birth),
@@ -109,9 +110,9 @@ export class WikipediaService {
           };
           const placeQid = claimEntityId(entity, PROP.birthplace);
 
-          return this.bestIntro(localTitle, enTitle).pipe(
+          return this.bestIntro(localTitle, enTitle, lang).pipe(
             switchMap((intro) =>
-              this.label(placeQid).pipe(
+              this.label(placeQid, lang).pipe(
                 map((placeOfBirth) => ({
                   ...facts,
                   placeOfBirth,
@@ -136,11 +137,12 @@ export class WikipediaService {
   private bestIntro(
     localTitle: string | null,
     enTitle: string | null,
+    lang: string,
   ): Observable<{ text: string; lang: string | null; title: string | null }> {
     if (!localTitle && !enTitle) return of({ text: '', lang: null, title: null });
 
     const primaryTitle = localTitle ?? enTitle!;
-    const primaryLang = localTitle ? LANG : 'en';
+    const primaryLang = localTitle ? lang : 'en';
 
     return this.intro(primaryTitle, primaryLang).pipe(
       switchMap((text) => {
@@ -183,7 +185,7 @@ export class WikipediaService {
   }
 
   /** Human-readable label of a Wikidata item (used for the birthplace). */
-  private label(qid: string | null): Observable<string | null> {
+  private label(qid: string | null, lang: string): Observable<string | null> {
     if (!qid) return of(null);
 
     return this.http
@@ -193,14 +195,14 @@ export class WikipediaService {
           format: 'json',
           ids: qid,
           props: 'labels',
-          languages: `${LANG}|en`,
+          languages: lang === 'en' ? 'en' : `${lang}|en`,
           origin: '*',
         },
       })
       .pipe(
         map((res) => {
           const labels = res?.entities?.[qid]?.labels;
-          return labels?.[LANG]?.value ?? labels?.['en']?.value ?? null;
+          return labels?.[lang]?.value ?? labels?.['en']?.value ?? null;
         }),
         catchError(() => of(null)),
       );

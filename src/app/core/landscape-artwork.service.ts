@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject, signal } from '@angular/core';
 import { Observable, catchError, map, of } from 'rxjs';
 import { API, tmdbImg } from './api.config';
+import { currentLanguage } from './i18n.service';
 import { FanartImage, FanartResponse, MediaType, TmdbLogo } from './models';
 import { TmdbService } from './tmdb.service';
 
@@ -93,7 +94,7 @@ function key(type: MediaType, id: number): string {
 function pickLandscape(backdrops: TmdbLogo[] | undefined): string | null {
   if (!backdrops?.length) return null;
 
-  for (const lang of ['pt', 'en']) {
+  for (const lang of currentLanguage() === 'pt' ? ['pt', 'en'] : ['en', 'pt']) {
     const best = backdrops
       .filter((b) => b.iso_639_1 === lang)
       .sort((a, b) => b.vote_average - a.vote_average)[0];

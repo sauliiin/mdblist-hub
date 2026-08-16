@@ -2,9 +2,7 @@
   <header class="intro">
     <h1>Addons</h1>
     <p class="lead">
-      O hub fala o protocolo de addon do Stremio. Cole a URL de um addon e ele passa a
-      responder pelas fontes e legendas na página de cada título. Nada vem instalado — a
-      lista fica salva só neste navegador, como a sua chave do mdblist.
+      {{ 'The hub supports the Stremio addon protocol. Paste an addon URL and it will provide streams and subtitles on each title page. Nothing comes preinstalled — the list is stored only in this browser, just like your mdblist key.' | i18n }}
     </p>
   </header>
 
@@ -13,27 +11,26 @@
     @if (googleLinked()) {
       <div class="sync-on">
         <div>
-          <p class="sync-title">Conta Google conectada</p>
+          <p class="sync-title">{{ 'Google account connected' | i18n }}</p>
           @if (googleProfile(); as profile) {
-            <p class="sync-sub">{{ profile.email }} — a mesma conta que o APK e a TV usam.</p>
+            <p class="sync-sub">{{ profile.email }} — {{ 'the same account used by the APK and TV.' | i18n }}</p>
           }
         </div>
         <div class="row-actions">
-          <button type="button" class="ghost" (click)="disconnectGoogle()">Desconectar</button>
+          <button type="button" class="ghost" (click)="disconnectGoogle()">{{ 'Disconnect' | i18n }}</button>
         </div>
       </div>
     } @else {
       <div class="sync-on">
         <div>
-          <p class="sync-title">Conectar conta Google</p>
+          <p class="sync-title">{{ 'Connect Google account' | i18n }}</p>
           <p class="sync-sub">
-            Necessário para ligar a sincronização de addons abaixo e a fonte da legenda no
-            player entre este site, o APK e a TV. Não substitui a chave do mdblist.
+            {{ 'Required to enable the addon sync below and sync the subtitle source in the player between this website, the APK and your TV. It does not replace the mdblist key.' | i18n }}
           </p>
         </div>
         <div class="row-actions">
           <button type="button" class="ghost" [disabled]="googleBusy()" (click)="connectGoogle()">
-            {{ googleBusy() ? 'Conectando…' : 'Conectar' }}
+            {{ (googleBusy() ? 'Connecting…' : 'Connect') | i18n }}
           </button>
         </div>
       </div>
@@ -48,27 +45,24 @@
     <div class="sync-on">
       <div>
         <p class="sync-title">
-          Sincronizar addons e listas entre aparelhos
-          <span class="pill" [class.live]="syncOn()">{{ syncOn() ? 'ligado' : 'desligado' }}</span>
+          {{ 'Sync addons and lists across devices' | i18n }}
+          <span class="pill" [class.live]="syncOn()">{{ (syncOn() ? 'on' : 'off') | i18n }}</span>
         </p>
         <p class="sync-sub">
-          Guarda a lista de addons e o que você renomeou/ocultou/reordenou na home, na nuvem,
-          atrelado à sua conta Google acima. Ligue nos aparelhos que entrarem com essa conta e
-          tudo acompanha, sem depender de conta do Stremio. Toda alteração sobe sozinha; não
-          precisa apertar nada depois.
+          {{ 'Stores your addon list and everything you renamed, hid or reordered on the home page in the cloud, linked to the Google account above. Enable it on devices signed in with that account and everything stays in sync, without requiring a Stremio account. Every change uploads automatically; there is nothing else to press.' | i18n }}
         </p>
       </div>
       <div class="row-actions">
         <button type="button" class="ghost" [disabled]="syncBusy() || !googleLinked()" (click)="toggleSync()">
-          {{ syncOn() ? 'Desligar' : 'Ligar' }}
+          {{ (syncOn() ? 'Turn off' : 'Turn on') | i18n }}
         </button>
         @if (syncOn()) {
           <button type="button" class="ghost" [disabled]="syncBusy()" (click)="pullNow()"
-                  title="Deixa este aparelho idêntico ao que está salvo, inclusive removendo o que foi apagado em outro">
-            Baixar
+                  [title]="'Make this device identical to the saved version, including removing items deleted on another device' | i18n">
+            {{ 'Download' | i18n }}
           </button>
           <button type="button" class="ghost" [disabled]="syncBusy()" (click)="pushNow()">
-            Enviar
+            {{ 'Upload' | i18n }}
           </button>
         }
       </div>
@@ -80,9 +74,9 @@
     @if (pulled() !== null) {
       <p class="ok" role="status">
         @if (pulled()) {
-          Atualizado — {{ pulled() }} item(ns) de diferença entre addons e listas.
+          {{ 'Updated — {count} item(s) differed between addons and lists.' | i18n: { count: pulled() } }}
         } @else {
-          Nada mudou — este aparelho já estava em dia.
+          {{ 'Nothing changed — this device was already up to date.' | i18n }}
         }
       </p>
     }
@@ -93,23 +87,20 @@
     @if (account(); as session) {
       <div class="sync-on">
         <div>
-          <p class="sync-title">Conta Stremio conectada</p>
+          <p class="sync-title">{{ 'Stremio account connected' | i18n }}</p>
           <p class="sync-sub">{{ session.email }}</p>
         </div>
         <div class="row-actions">
           <button type="button" class="ghost" [disabled]="syncing()" (click)="sync()">
-            {{ syncing() ? 'Sincronizando…' : 'Sincronizar agora' }}
+            {{ (syncing() ? 'Syncing…' : 'Sync now') | i18n }}
           </button>
-          <button type="button" class="ghost danger" (click)="signOut()">Desconectar</button>
+          <button type="button" class="ghost danger" (click)="signOut()">{{ 'Disconnect' | i18n }}</button>
         </div>
       </div>
     } @else {
-      <p class="sync-title">Trazer os addons da sua conta Stremio</p>
+      <p class="sync-title">{{ 'Import addons from your Stremio account' | i18n }}</p>
       <p class="sync-sub">
-        A lista abaixo mora só neste navegador. Entrando com sua conta do Stremio, a coleção
-        inteira vem pronta — já com as URLs configuradas, chave de debrid incluída. A senha vai
-        direto para <code>api.strem.io</code> e não fica salva: o que guardamos é a chave de
-        sessão que ela devolve.
+        {{ 'The list below lives only in this browser. Sign in to Stremio to import your entire collection, including configured URLs and debrid keys. Your password goes directly to api.strem.io and is never stored; only the session key it returns is saved.' | i18n }}
       </p>
 
       <form class="sync-form" (submit)="signIn($event)">
@@ -119,19 +110,19 @@
           (input)="onEmail($event)"
           name="stremio-email"
           autocomplete="username"
-          placeholder="e-mail do Stremio" />
+          [placeholder]="'Stremio email' | i18n" />
         <input
           type="password"
           [value]="password()"
           (input)="onPassword($event)"
           name="stremio-password"
           autocomplete="current-password"
-          placeholder="senha" />
+          [placeholder]="'password' | i18n" />
         <button
           type="submit"
           class="submit"
           [disabled]="!email().trim() || !password() || syncing()">
-          {{ syncing() ? 'Entrando…' : 'Entrar' }}
+          {{ (syncing() ? 'Signing in…' : 'Sign in') | i18n }}
         </button>
       </form>
     }
@@ -141,16 +132,16 @@
     }
     @if (report(); as r) {
       <p class="ok" role="status">
-        {{ r.imported.length }} de {{ r.received }} addon(s) da sua conta importado(s).
+        {{ '{imported} of {received} addon(s) from your account imported.' | i18n: { imported: r.imported.length, received: r.received } }}
       </p>
 
       @if (r.imported.length) {
-        <p class="report">Vieram: {{ r.imported.join(', ') }}.</p>
+        <p class="report">{{ 'Imported:' | i18n }} {{ r.imported.join(', ') }}.</p>
       }
 
       @if (r.skipped.length) {
         <div class="warn">
-          <p>Não deu para importar {{ r.skipped.length }}:</p>
+          <p>{{ 'Could not import {count}:' | i18n: { count: r.skipped.length } }}</p>
           <ul>
             @for (s of r.skipped; track s.url + s.name) {
               <li><strong>{{ s.name }}</strong> — {{ s.reason }}</li>
@@ -161,18 +152,15 @@
 
       @if (!r.received) {
         <p class="report">
-          A conta respondeu sem nenhum addon. Se você instalou pelo app do Stremio sem estar
-          logado, a coleção fica só naquele aparelho e não sobe para a conta.
+          {{ 'The account returned no addons. If you installed one in the Stremio app while signed out, the collection remains only on that device and is not uploaded to your account.' | i18n }}
         </p>
       }
 
       @if (r.entries.length) {
         <details class="raw">
-          <summary>O que a API do Stremio respondeu ({{ r.entries.length }})</summary>
+          <summary>{{ 'What the Stremio API returned ({count})' | i18n: { count: r.entries.length } }}</summary>
           <p class="report">
-            Esta é a coleção da sua conta, sem filtro nenhum. Se um addon que você instalou no
-            Stremio não estiver nesta lista, ele não chegou à conta — normalmente porque o app
-            estava deslogado quando você o adicionou, ou o Stremio ainda não subiu a alteração.
+            {{ 'This is your account collection with no filters. If an addon you installed in Stremio is not listed here, it never reached your account — usually because the app was signed out when you added it, or Stremio has not uploaded the change yet.' | i18n }}
           </p>
           <ol>
             @for (e of r.entries; track e.url) {
@@ -189,7 +177,7 @@
 
   <form class="install" (submit)="submit($event)">
     <label class="field">
-      <span class="label">Ou cole a URL de um addon</span>
+      <span class="label">{{ 'Or paste an addon URL' | i18n }}</span>
       <input
         type="text"
         [value]="url()"
@@ -198,16 +186,16 @@
         autocomplete="off"
         autocapitalize="off"
         spellcheck="false"
-        placeholder="https://exemplo.strem.fun/manifest.json" />
+        [placeholder]="'https://example.strem.fun/manifest.json' | i18n" />
     </label>
     <button type="submit" class="submit" [disabled]="!url().trim() || busy()">
-      {{ busy() ? 'Lendo…' : 'Instalar' }}
+      {{ (busy() ? 'Reading…' : 'Install') | i18n }}
     </button>
   </form>
 
   <!-- ------------------------------------------------- quick add -->
   <div class="quick-add">
-    <span class="quick-label">Padrão para começar</span>
+    <span class="quick-label">{{ 'Recommended starters' | i18n }}</span>
     <div class="quick-buttons">
       @for (s of quickAdd; track s.name) {
         @if (s.url) {
@@ -216,7 +204,7 @@
           </button>
         } @else if (s.configure) {
           <a class="chip-btn" [href]="s.configure" target="_blank" rel="noopener">
-            + {{ s.name }} <span class="chip-note">(configurar)</span>
+            + {{ s.name }} <span class="chip-note">({{ 'configure' | i18n }})</span>
           </a>
         }
       }
@@ -227,7 +215,7 @@
     <p class="error" role="alert">{{ error() }}</p>
   }
   @if (added(); as name) {
-    <p class="ok" role="status">{{ name }} instalado.</p>
+    <p class="ok" role="status">{{ '{name} installed.' | i18n: { name } }}</p>
   }
   @if (addedWarning(); as warning) {
     <p class="warn" role="alert">{{ warning }}</p>
@@ -235,10 +223,10 @@
 
   <!-- ------------------------------------------------- installed -->
   <section class="block">
-    <h2>Instalados <span class="count">{{ installed().length }}</span></h2>
+    <h2>{{ 'Installed' | i18n }} <span class="count">{{ installed().length }}</span></h2>
 
     @if (!installed().length) {
-      <p class="empty">Nenhum addon ainda. Comece pelas sugestões abaixo.</p>
+      <p class="empty">{{ 'No addons yet. Start with the suggestions below.' | i18n }}</p>
     } @else {
       <ul class="list">
         @for (addon of installed(); track addon.base) {
@@ -270,9 +258,9 @@
 
             <div class="row-actions">
               @if (configureUrl(addon); as link) {
-                <a class="ghost" [href]="link" target="_blank" rel="noopener">Configurar</a>
+                <a class="ghost" [href]="link" target="_blank" rel="noopener">{{ 'Configure' | i18n }}</a>
               }
-              <button type="button" class="ghost danger" (click)="remove(addon)">Remover</button>
+              <button type="button" class="ghost danger" (click)="remove(addon)">{{ 'Remove' | i18n }}</button>
             </div>
           </li>
         }
@@ -282,7 +270,7 @@
 
   <!-- ------------------------------------------------ suggestions -->
   <section class="block">
-    <h2>Para começar</h2>
+    <h2>{{ 'Getting started' | i18n }}</h2>
     <ul class="list">
       @for (s of suggestions; track s.name) {
         <li class="addon suggestion">
@@ -290,23 +278,23 @@
             <p class="name">
               {{ s.name }}
               @if (s.unconfigured) {
-                <span class="needs">precisa configurar</span>
+                <span class="needs">{{ 'configuration required' | i18n }}</span>
               }
             </p>
-            <p class="desc">{{ s.what }}</p>
+            <p class="desc">{{ s.what | i18n }}</p>
             @if (s.unconfigured; as note) {
-              <p class="host">Verificado: {{ note }}.</p>
+              <p class="host">{{ 'Verified:' | i18n }} {{ note | i18n }}.</p>
             }
           </div>
           <div class="row-actions">
             @if (s.url) {
               <button type="button" class="ghost" [disabled]="busy()" (click)="install(s.url!)">
-                Instalar
+                {{ 'Install' | i18n }}
               </button>
             }
             @if (s.configure) {
               <a class="ghost" [href]="s.configure" target="_blank" rel="noopener">
-                Abrir configuração
+                {{ 'Open configuration' | i18n }}
               </a>
             }
           </div>
@@ -316,17 +304,12 @@
   </section>
 
   <section class="block note">
-    <h2>Como a reprodução funciona aqui</h2>
+    <h2>{{ 'How playback works here' | i18n }}</h2>
     <p>
-      O player desta página é o <code>&lt;video&gt;</code> do navegador, então ele só toca o que
-      chegar como link HTTPS direto. É exatamente o que um addon de torrent devolve
-      <strong>quando configurado com debrid</strong>: o serviço já baixou o arquivo e serve por
-      HTTP.
+      {{ 'This page uses the browser video element, so it can only play a direct HTTPS link. That is exactly what a torrent addon returns when configured with debrid: the service has already downloaded the file and serves it over HTTP.' | i18n }}
     </p>
     <p>
-      Streams que chegam como <code>infoHash</code> aparecem na lista, mas marcados — nenhum
-      navegador fala BitTorrent. Para esses, o botão copia o magnet para você abrir onde
-      preferir.
+      {{ 'Streams returned as infoHash appear in the list but are marked — browsers do not speak BitTorrent. For those, the button copies the magnet link so you can open it wherever you prefer.' | i18n }}
     </p>
   </section>
 </main>

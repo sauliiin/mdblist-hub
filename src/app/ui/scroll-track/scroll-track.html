@@ -4,7 +4,7 @@
     class="nav prev"
     [class.hidden]="atStart()"
     (click)="scrollBy(-1)"
-    aria-label="Anterior">
+    [attr.aria-label]="'Previous' | i18n">
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" /></svg>
   </button>
 
@@ -17,7 +17,7 @@
     class="nav next"
     [class.hidden]="atEnd()"
     (click)="scrollBy(1)"
-    aria-label="Próximo">
+    [attr.aria-label]="'Next' | i18n">
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7" /></svg>
   </button>
 </div>

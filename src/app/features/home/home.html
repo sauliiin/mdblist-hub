@@ -10,13 +10,14 @@
 <div class="toolbar shell" [class.compact]="browseMode()" data-nav-skip>
   <div class="summary">
     @if (browseMode()) {
-      <strong>{{ visibleResults().length }}</strong> resultado{{ visibleResults().length === 1 ? '' : 's' }}
+      <strong>{{ visibleResults().length }}</strong>
+      {{ (visibleResults().length === 1 ? 'result' : 'results') | i18n }}
       <span class="dot"></span>
       <span class="for">{{ resultsLabel() }}</span>
     } @else {
-      <strong>{{ lists().length }}</strong> listas
+      <strong>{{ lists().length }}</strong> {{ (lists().length === 1 ? 'list' : 'lists') | i18n }}
       <span class="dot"></span>
-      <strong>{{ totalItems() | number }}</strong> títulos
+      <strong>{{ totalItems() | number }}</strong> {{ (totalItems() === 1 ? 'title' : 'titles') | i18n }}
     }
   </div>
 
@@ -27,15 +28,15 @@
       </svg>
       <input
         type="text"
-        placeholder="Buscar por título ou tema (zombie, viagem no tempo…)"
+        [placeholder]="'Search by title or theme (zombie, time travel…)' | i18n"
         [value]="query()"
         (input)="onQuery($event)"
-        aria-label="Buscar por título ou palavra-chave" />
+        [attr.aria-label]="'Search by title or keyword' | i18n" />
     </label>
 
     <label class="genre">
-      <select [value]="genre()" (change)="onGenre($event)" aria-label="Filtrar por gênero">
-        <option value="">Filtrar por gênero</option>
+      <select [value]="genre()" (change)="onGenre($event)" [attr.aria-label]="'Filter by genre' | i18n">
+        <option value="">{{ 'Filter by genre' | i18n }}</option>
         @for (option of genres(); track option.name) {
           <option [value]="option.name">{{ option.name }}</option>
         }
@@ -44,17 +45,17 @@
     </label>
 
     @if (browseMode()) {
-      <button type="button" class="clear-all" (click)="clearAll()">Limpar</button>
+      <button type="button" class="clear-all" (click)="clearAll()">{{ 'Clear' | i18n }}</button>
     } @else {
       <button type="button" class="clear-all edit-toggle" [class.on]="editMode()" (click)="toggleEditMode()">
-        {{ editMode() ? 'Concluir' : 'Editar listas' }}
+        {{ (editMode() ? 'Done' : 'Edit lists') | i18n }}
       </button>
     }
 
-    <div class="segmented" role="group" aria-label="Tipo de mídia">
-      <button type="button" [class.on]="filter() === 'all'" (click)="filter.set('all')">Tudo</button>
-      <button type="button" [class.on]="filter() === 'movie'" (click)="filter.set('movie')">Filmes</button>
-      <button type="button" [class.on]="filter() === 'show'" (click)="filter.set('show')">Séries</button>
+    <div class="segmented" role="group" [attr.aria-label]="'Media type' | i18n">
+      <button type="button" [class.on]="filter() === 'all'" (click)="filter.set('all')">{{ 'All' | i18n }}</button>
+      <button type="button" [class.on]="filter() === 'movie'" (click)="filter.set('movie')">{{ 'Movies' | i18n }}</button>
+      <button type="button" [class.on]="filter() === 'show'" (click)="filter.set('show')">{{ 'Shows' | i18n }}</button>
     </div>
   </div>
 </div>
@@ -70,7 +71,7 @@
     } @else if (visibleResults().length) {
       @if (matchedKeyword()) {
         <p class="keyword-hint shell">
-          Também buscando pelo tema <strong>{{ matchedKeyword() }}</strong>
+          {{ 'Also searching for the theme' | i18n }} <strong>{{ matchedKeyword() }}</strong>
         </p>
       }
       <div class="results shell">
@@ -88,7 +89,7 @@
               } @else {
                 <div class="poster-empty">{{ result.title.charAt(0) }}</div>
               }
-              <span class="kind">{{ result.tmdbType === 'tv' ? 'Série' : 'Filme' }}</span>
+              <span class="kind">{{ (result.tmdbType === 'tv' ? 'Series' : 'Movie') | i18n }}</span>
               @if (result.vote) {
                 <span class="vote">{{ result.vote.toFixed(1) }}</span>
               }
@@ -104,8 +105,8 @@
       </div>
     } @else {
       <div class="state shell">
-        <h2>Nada encontrado para {{ resultsLabel() }}</h2>
-        <p>Tente outro termo, outro gênero, ou volte o filtro para “Tudo”.</p>
+        <h2>{{ 'Nothing found for {label}' | i18n: { label: resultsLabel() } }}</h2>
+        <p>{{ 'Try another term or genre, or reset the filter to “All”.' | i18n }}</p>
       </div>
     }
   } @else if (loading()) {
@@ -119,9 +120,9 @@
     }
   } @else if (failed()) {
     <div class="state shell">
-      <h2>Não foi possível carregar suas listas</h2>
-      <p>Verifique sua conexão, ou entre de novo se a chave da API mudou.</p>
-      <button type="button" class="restate" (click)="reauth()">Entrar com outra chave</button>
+      <h2>{{ 'Could not load your lists' | i18n }}</h2>
+      <p>{{ 'Check your connection, or sign in again if the API key changed.' | i18n }}</p>
+      <button type="button" class="restate" (click)="reauth()">{{ 'Sign in with another key' | i18n }}</button>
     </div>
   } @else {
     <!-- Above the lists, not below: it is the row someone coming back wants
@@ -186,7 +187,7 @@
         <app-library-row
           [bucket]="row.kind"
           [heading]="row.name"
-          [subheading]="row.kind === 'watchlist' ? 'Direto da sua watchlist no mdblist.' : 'Direto da sua coleção no mdblist.'"
+          [subheading]="(row.kind === 'watchlist' ? 'Straight from your mdblist watchlist.' : 'Straight from your mdblist collection.') | i18n"
           [editMode]="editMode()"
           [atTop]="row.atTop"
           [atBottom]="row.atBottom"
@@ -198,14 +199,14 @@
     } @empty {
       <div class="state shell">
         @if (lists().length) {
-          <h2>Nenhuma lista corresponde ao filtro</h2>
-          <p>Volte para “Tudo” para ver todas as suas listas.</p>
+          <h2>{{ 'No lists match the filter' | i18n }}</h2>
+          <p>{{ 'Switch back to “All” to see all your lists.' | i18n }}</p>
         } @else {
-          <h2>Sua conta ainda não tem listas</h2>
+          <h2>{{ 'Your account has no lists yet' | i18n }}</h2>
           <p>
-            Crie uma no
+            {{ 'Create one on' | i18n }}
             <a href="https://mdblist.com" target="_blank" rel="noopener">mdblist</a>
-            e ela aparece aqui.
+            {{ 'and it will appear here.' | i18n }}
           </p>
         }
       </div>

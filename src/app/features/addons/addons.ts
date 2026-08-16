@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { Observable, forkJoin } from 'rxjs';
 import { GoogleAuthService } from '../../core/google-auth.service';
+import { I18nPipe, I18nService } from '../../core/i18n.service';
 import { AddonsService } from '../../core/stremio/addons.service';
 import { ImportReport, InstalledAddon, ManifestResource } from '../../core/stremio/models';
 import { StremioAccountService } from '../../core/stremio/stremio-account.service';
@@ -23,14 +24,15 @@ interface Suggestion {
 const AIOSTREAMS_ELFHOSTED: Suggestion = {
   name: 'AIOStreams | ElfHosted',
   what:
-    'Junta vários addons de fontes num só, deduplica e reordena os resultados. A URL do ' +
-    'manifest é gerada por usuário na configuração.',
+    'Combines several stream addons, removes duplicates and reorders the results. A unique ' +
+    'manifest URL is generated for each user during configuration.',
   configure: 'https://aiostreams.elfhosted.com/stremio/configure',
-  unconfigured: 'só funciona pela URL gerada',
+  unconfigured: 'only works with the generated URL',
 };
 
 @Component({
   selector: 'app-addons',
+  imports: [I18nPipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './addons.html',
   styleUrl: './addons.scss',
@@ -43,6 +45,7 @@ export class Addons {
   private readonly listCloud = inject(ListPrefsSyncService);
   private readonly googleAuth = inject(GoogleAuthService);
   private readonly preferencesSync = inject(PreferencesSyncService);
+  private readonly i18n = inject(I18nService);
 
   // ------------------------------------------------------ firebase sync
   protected readonly googleLinked = this.googleAuth.linked;
@@ -85,7 +88,7 @@ export class Addons {
   protected readonly quickAdd: Suggestion[] = [
     {
       name: 'OpenSubtitles v3',
-      what: 'Legendas em dezenas de idiomas, já indexadas por IMDb ID.',
+      what: 'Subtitles in dozens of languages, already indexed by IMDb ID.',
       url: 'https://opensubtitles-v3.strem.io/manifest.json',
     },
     AIOSTREAMS_ELFHOSTED,
@@ -100,27 +103,27 @@ export class Addons {
     {
       name: 'Torrentio',
       what:
-        'Busca em indexadores públicos. Configure com sua chave de debrid (Real-Debrid, ' +
-        'AllDebrid, Premiumize) para receber links HTTPS diretos — sem debrid ele devolve ' +
-        'torrents, que o navegador não reproduz.',
+        'Searches public indexers. Configure it with your debrid key (Real-Debrid, AllDebrid, ' +
+        'Premiumize) to receive direct HTTPS links — without debrid it returns torrents, which ' +
+        'browsers cannot play.',
       configure: 'https://torrentio.strem.fun/configure',
-      unconfigured: 'sem configurar, devolve torrents',
+      unconfigured: 'returns torrents when not configured',
     },
     {
       name: 'MediaFusion',
       what:
-        'Agrega vários indexadores e tem catálogos próprios, com suporte a debrid. Aceita ' +
-        'IDs de IMDb, TMDB e TVDB.',
+        'Aggregates several indexers and has its own catalogs, with debrid support. Accepts ' +
+        'IMDb, TMDB and TVDB IDs.',
       configure: 'https://mediafusion.elfhosted.com/configure',
-      unconfigured: 'sem configurar, responde lista vazia',
+      unconfigured: 'returns an empty list when not configured',
     },
     {
       name: 'Comet',
       what:
-        'Indexador rápido, pensado para debrid. Devolve link direto assim que o serviço ' +
-        'tem o arquivo em cache.',
+        'A fast indexer designed for debrid. Returns a direct link as soon as the service has ' +
+        'the file cached.',
       configure: 'https://comet.elfhosted.com/configure',
-      unconfigured: 'sem configurar, responde 403',
+      unconfigured: 'returns 403 when not configured',
     },
   ];
 
@@ -153,8 +156,10 @@ export class Addons {
         this.addedWarning.set(
           usable.length
             ? null
-            : `${addon.manifest.name} não declara fontes nem legendas, então o player não vai ` +
-                'consultá-lo. Se ele exige configuração, instale pela URL gerada em /configure.',
+            : this.i18n.t(
+                '{name} does not declare streams or subtitles, so the player will not query it. If it requires configuration, install it using the URL generated at /configure.',
+                { name: addon.manifest.name },
+              ),
         );
       },
       error: (err: Error) => {

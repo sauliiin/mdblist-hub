@@ -3,6 +3,7 @@ import { Injectable, effect, inject, signal } from '@angular/core';
 import { Observable, catchError, from, map, of, switchMap, throwError } from 'rxjs';
 import { GoogleAuthService } from '../google-auth.service';
 import { noCache } from '../http-cache.interceptor';
+import { translate } from '../i18n.service';
 import { AddonsService } from '../stremio/addons.service';
 import { InstalledAddon } from '../stremio/models';
 
@@ -123,8 +124,7 @@ export class AddonSyncService {
         map((remote) => {
           if (!remote.length) {
             throw new SyncRefusal(
-              'A nuvem não devolveu nenhum addon, então não mexi nos daqui. ' +
-                'Use "Enviar" no aparelho que tem os addons certos primeiro.',
+              translate('The cloud returned no addons, so the local list was left unchanged. Use “Upload” first on the device with the correct addons.'),
             );
           }
 
@@ -179,7 +179,7 @@ export class AddonSyncService {
   ): Observable<number> {
     const uid = this.googleAuth.uid();
     if (!uid) {
-      const message = 'Conecte sua conta Google primeiro.';
+      const message = translate('Connect your Google account first.');
       this.failure.set(message);
       return throwError(() => new Error(message));
     }
@@ -198,9 +198,9 @@ export class AddonSyncService {
         this.working.set(false);
         const refused = cause instanceof SyncRefusal;
         this.failure.set(
-          refused ? cause.message : 'Não foi possível falar com o Firebase. Verifique sua conexão.',
+          refused ? cause.message : translate('Could not reach Firebase. Check your connection.'),
         );
-        return throwError(() => (refused ? cause : new Error('sync falhou')));
+        return throwError(() => (refused ? cause : new Error('sync failed')));
       }),
     );
   }

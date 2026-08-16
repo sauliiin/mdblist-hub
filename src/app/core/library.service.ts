@@ -3,6 +3,7 @@ import { Injectable, effect, inject } from '@angular/core';
 import { Observable, catchError, forkJoin, map, of, tap } from 'rxjs';
 import { Capacitor } from '@capacitor/core';
 import { API } from './api.config';
+import { translate } from './i18n.service';
 import { AuthService } from './auth.service';
 import { MdbItem, MediaType } from './models';
 
@@ -219,7 +220,7 @@ function fromBucketEntry(entry: BucketEntry): MdbItem | null {
     mediatype: 'movie',
     imdb_id: title.ids?.imdb ?? null,
     ids: title.ids ?? {},
-    title: title.title || 'Sem título',
+    title: title.title || translate('Untitled'),
     language: '',
     country: '',
     release_year: title.year ?? null,

@@ -20,7 +20,7 @@ const SOURCES: Record<string, SourceSpec> = {
     display: (v) => `${Math.round(v)}%`, score: (v) => v,
   },
   popcorn: {
-    label: 'RT Público', tone: 'rt-fresh', order: 3,
+    label: 'RT Audience', tone: 'rt-fresh', order: 3,
     display: (v) => `${Math.round(v)}%`, score: (v) => v,
   },
   metacritic: {

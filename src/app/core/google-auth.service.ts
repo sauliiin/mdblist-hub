@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Observable, catchError, firstValueFrom, from, throwError } from 'rxjs';
 import { noCache } from './http-cache.interceptor';
+import { translate } from './i18n.service';
 
 const GIS_SRC = 'https://accounts.google.com/gsi/client';
 /** Web OAuth client already registered on the `safevault-fcbdc` Firebase project — see google-services.json. */
@@ -108,7 +109,7 @@ export class GoogleAuthService {
    */
   async idToken(): Promise<string> {
     const session = this.account();
-    if (!session) throw new Error('Nenhuma conta Google conectada.');
+    if (!session) throw new Error(translate('No Google account connected.'));
     if (Date.now() < session.expiresAt - REFRESH_SLACK_MS) return session.idToken;
 
     const response = await firstValueFrom(
@@ -153,7 +154,7 @@ export class GoogleAuthService {
       script.async = true;
       script.defer = true;
       script.onload = () => resolve();
-      script.onerror = () => reject(new Error('Não foi possível carregar o Google Identity Services.'));
+      script.onerror = () => reject(new Error(translate('Could not load Google Identity Services.')));
       document.head.appendChild(script);
     });
     return this.gisReady;
@@ -164,7 +165,7 @@ export class GoogleAuthService {
     return new Promise((resolve, reject) => {
       const identity = window.google?.accounts.id;
       if (!identity) {
-        reject(new Error('Google Identity Services indisponível.'));
+        reject(new Error(translate('Google Identity Services is unavailable.')));
         return;
       }
 
@@ -217,5 +218,5 @@ function stored(): GoogleSession | null {
 }
 
 function asError(cause: unknown): Error {
-  return cause instanceof Error ? cause : new Error('Não foi possível conectar com o Google.');
+  return cause instanceof Error ? cause : new Error(translate('Could not connect to Google.'));
 }

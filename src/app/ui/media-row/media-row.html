@@ -15,7 +15,7 @@
           (keydown.enter)="confirmRename()"
           (keydown.escape)="cancelRename()"
           (blur)="confirmRename()"
-          aria-label="Nome da lista" />
+          [attr.aria-label]="'List name' | i18n" />
       } @else {
         <h2>{{ list().name }}</h2>
       }
@@ -29,7 +29,7 @@
             class="icon-btn"
             [disabled]="atTop()"
             (click)="moveUp.emit()"
-            aria-label="Mover lista para cima">
+            [attr.aria-label]="'Move list up' | i18n">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 15l6-6 6 6" /></svg>
           </button>
           <button
@@ -37,10 +37,10 @@
             class="icon-btn"
             [disabled]="atBottom()"
             (click)="moveDown.emit()"
-            aria-label="Mover lista para baixo">
+            [attr.aria-label]="'Move list down' | i18n">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
           </button>
-          <button type="button" class="icon-btn" (click)="startRename()" aria-label="Renomear lista">
+          <button type="button" class="icon-btn" (click)="startRename()" [attr.aria-label]="'Rename list' | i18n">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
             </svg>
@@ -50,7 +50,7 @@
               type="button"
               class="icon-btn danger"
               (click)="askDelete()"
-              aria-label="Excluir lista da home">
+              [attr.aria-label]="'Remove list from the home page' | i18n">
               <svg viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M3 6h18" />
                 <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
@@ -58,12 +58,12 @@
               </svg>
             </button>
             @if (confirmingDelete()) {
-              <div class="delete-confirm" role="dialog" aria-label="Confirmar exclusão">
-                <p>Excluir <strong>{{ list().name }}</strong> da home?</p>
-                <p class="hint">Só remove daqui — sua conta no mdblist não é afetada.</p>
+              <div class="delete-confirm" role="dialog" [attr.aria-label]="'Confirm removal' | i18n">
+                <p>{{ 'Remove' | i18n }} <strong>{{ list().name }}</strong> {{ 'from the home page?' | i18n }}</p>
+                <p class="hint">{{ 'This only removes it from here — your mdblist account is not affected.' | i18n }}</p>
                 <div class="delete-confirm-actions">
-                  <button type="button" class="ghost" (click)="cancelDelete()">Cancelar</button>
-                  <button type="button" class="danger" (click)="confirmDelete()">Excluir</button>
+                  <button type="button" class="ghost" (click)="cancelDelete()">{{ 'Cancel' | i18n }}</button>
+                  <button type="button" class="danger" (click)="confirmDelete()">{{ 'Remove' | i18n }}</button>
                 </div>
               </div>
             }
@@ -71,7 +71,7 @@
         </div>
       }
       <span class="chip">{{ kindLabel() }}</span>
-      @if (list().dynamic) { <span class="chip accent">dinâmica</span> }
+      @if (list().dynamic) { <span class="chip accent">{{ 'dynamic' | i18n }}</span> }
     </div>
   </header>
 
@@ -81,7 +81,7 @@
       class="nav prev"
       [class.hidden]="atStart()"
       (click)="scrollBy(-1)"
-      aria-label="Anterior">
+      [attr.aria-label]="'Previous' | i18n">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" /></svg>
     </button>
 
@@ -98,7 +98,7 @@
         @for (item of items(); track item.mediatype + item.id; let i = $index) {
           <app-media-card [item]="item" [index]="ranked() ? i : null" />
         } @empty {
-          <p class="empty">Nenhum item nesta lista.</p>
+          <p class="empty">{{ 'No items in this list.' | i18n }}</p>
         }
 
         @if (loadingMore()) {
@@ -117,7 +117,7 @@
           -->
           <button type="button" class="load-more" (click)="loadMore()">
             <span class="plus">+</span>
-            <span>Carregar mais</span>
+            <span>{{ 'Load more' | i18n }}</span>
           </button>
         }
       }
@@ -128,7 +128,7 @@
       class="nav next"
       [class.hidden]="atEnd()"
       (click)="scrollBy(1)"
-      aria-label="Próximo">
+      [attr.aria-label]="'Next' | i18n">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7" /></svg>
     </button>
   </div>

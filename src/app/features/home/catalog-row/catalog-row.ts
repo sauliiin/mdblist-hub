@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, OnInit, inject, input, output, signal } from '@angular/core';
 import { Router } from '@angular/router';
+import { I18nPipe } from '../../../core/i18n.service';
 import { RawAddonCatalog, toTmdbType } from '../../../core/models';
 import { CatalogItem } from '../../../core/stremio/models';
 import { StremioService } from '../../../core/stremio/stremio.service';
@@ -18,6 +19,7 @@ import { TmdbService } from '../../../core/tmdb.service';
  */
 @Component({
   selector: 'app-catalog-row',
+  imports: [I18nPipe],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './catalog-row.html',
   styleUrl: './catalog-row.scss',

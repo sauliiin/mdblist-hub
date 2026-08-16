@@ -4,6 +4,7 @@ import { Observable, catchError, from, map, switchMap, throwError } from 'rxjs';
 import { AuthService } from '../auth.service';
 import { GoogleAuthService } from '../google-auth.service';
 import { noCache } from '../http-cache.interceptor';
+import { translate } from '../i18n.service';
 import { CatalogPrefsService } from '../catalog-prefs.service';
 import { ListPrefsService } from '../list-prefs.service';
 import { CatalogPref, ListPref } from '../models';
@@ -142,8 +143,7 @@ export class ListPrefsSyncService {
         map(({ lists, catalogs }) => {
           if (!lists.length && !catalogs.length) {
             throw new SyncRefusal(
-              'A nuvem não devolveu nenhuma preferência de lista, então não mexi nas daqui. ' +
-                'Use "Enviar" no aparelho que tem as listas certas primeiro.',
+              translate('The cloud returned no list preferences, so the local preferences were left unchanged. Use “Upload” first on the device with the correct lists.'),
             );
           }
 
@@ -221,7 +221,7 @@ export class ListPrefsSyncService {
   ): Observable<number> {
     const uid = this.googleAuth.uid();
     if (!uid) {
-      const message = 'Conecte sua conta Google primeiro.';
+      const message = translate('Connect your Google account first.');
       this.failure.set(message);
       return throwError(() => new Error(message));
     }
@@ -240,9 +240,9 @@ export class ListPrefsSyncService {
         this.working.set(false);
         const refused = cause instanceof SyncRefusal;
         this.failure.set(
-          refused ? cause.message : 'Não foi possível falar com o Firebase. Verifique sua conexão.',
+          refused ? cause.message : translate('Could not reach Firebase. Check your connection.'),
         );
-        return throwError(() => (refused ? cause : new Error('sync falhou')));
+        return throwError(() => (refused ? cause : new Error('sync failed')));
       }),
     );
   }

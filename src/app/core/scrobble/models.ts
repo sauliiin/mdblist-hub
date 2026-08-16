@@ -1,4 +1,5 @@
 import { MediaType } from '../models';
+import { currentLanguage, translate } from '../i18n.service';
 
 /** What a scrobble call points at. */
 export interface ScrobbleTarget {
@@ -84,10 +85,10 @@ export function toResumeItem(session: PlaybackSession): ResumeItem | null {
 
   return {
     key: `${session.id}`,
-    title: parent?.title ?? 'Sem título',
+    title: parent?.title ?? translate('Untitled'),
     year: parent?.year ?? null,
     subtitle: isEpisode && season && episode
-      ? `T${season}E${episode}${session.episode?.title ? ` · ${session.episode.title}` : ''}`
+      ? `${currentLanguage() === 'pt' ? 'T' : 'S'}${season}E${episode}${session.episode?.title ? ` · ${session.episode.title}` : ''}`
       : null,
     progress: clampProgress(liveProgress(session)),
     tmdbId,

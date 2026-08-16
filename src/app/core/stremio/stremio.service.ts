@@ -3,6 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable, catchError, forkJoin, map, of, switchMap } from 'rxjs';
 import { Capacitor } from '@capacitor/core';
 import { noCache } from '../http-cache.interceptor';
+import { activeLocale, translate } from '../i18n.service';
 import { RawAddonCatalog } from '../models';
 import {
   CatalogItem, InstalledAddon, PlayableStream, StreamQuery, StremioStream, StremioSubtitle,
@@ -184,13 +185,13 @@ function normalise(stream: StremioStream, addon: InstalledAddon, index: number):
 /** Attachable, but with a real chance of failing once the browser looks at it. */
 function urlWarning(stream: StremioStream): string | null {
   if (UNPLAYABLE_CONTAINERS.test(stream.url ?? '')) {
-    return 'Container que o navegador não abre (MKV e afins). Provavelmente só toca em player externo.';
+    return translate('Browser-incompatible container (such as MKV). It will probably only play in an external player.');
   }
   if (/\.m3u8(\?|$)/i.test(stream.url ?? '')) {
-    return 'Stream HLS — só toca nativamente no Safari.';
+    return translate('HLS stream — only plays natively in Safari.');
   }
   if (stream.behaviorHints?.notWebReady) {
-    return 'O addon marcou este stream como não compatível com navegador.';
+    return translate('The addon marked this stream as browser-incompatible.');
   }
   return null;
 }
@@ -269,7 +270,7 @@ function dedupeSubtitles(subs: SubtitleOption[]): SubtitleOption[] {
 
 function sortSubtitles(subs: SubtitleOption[]): SubtitleOption[] {
   return subs.sort(
-    (a, b) => languageRank(a.lang) - languageRank(b.lang) || a.label.localeCompare(b.label, 'pt-BR'),
+    (a, b) => languageRank(a.lang) - languageRank(b.lang) || a.label.localeCompare(b.label, activeLocale()),
   );
 }
 
