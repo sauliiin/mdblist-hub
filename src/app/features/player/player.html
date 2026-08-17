@@ -192,7 +192,7 @@
                 <span>{{ 'Episode' | i18n }}</span>
                 <select [value]="episodeNumber()" (change)="chooseEpisode($event)">
                   @for (e of episodes(); track e.id) {
-                    <option [value]="e.episode_number">{{ e.episode_number }}. {{ e.name }}</option>
+                    <option [value]="e.episode_number">{{ isEpisodeWatched(e.episode_number) ? '✓ ' : '' }}{{ e.episode_number }}. {{ e.name }}</option>
                   }
                 </select>
               </label>

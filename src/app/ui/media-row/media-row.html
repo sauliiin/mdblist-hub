@@ -17,7 +17,7 @@
           (blur)="confirmRename()"
           [attr.aria-label]="'List name' | i18n" />
       } @else {
-        <h2>{{ list().name }}</h2>
+        <h2>{{ heading() }}</h2>
       }
       <span class="count">{{ list().items }}</span>
     </div>

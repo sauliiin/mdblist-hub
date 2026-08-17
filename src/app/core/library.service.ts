@@ -1,5 +1,5 @@
 import { HttpClient } from '@angular/common/http';
-import { Injectable, effect, inject } from '@angular/core';
+import { Injectable, effect, inject, signal } from '@angular/core';
 import { Observable, catchError, forkJoin, map, of, tap } from 'rxjs';
 import { Capacitor } from '@capacitor/core';
 import { API } from './api.config';
@@ -61,12 +61,42 @@ export class LibraryService {
    */
   private readonly members = new Map<Bucket, Set<number>>();
 
+  /** Set of watched episodes formatted as `${showTmdbId}:${season}:${episode}`. */
+  private readonly watchedEpisodes = new Set<string>();
+
+  /** Signal incremented on watched sets updates to drive reactive UI bindings. */
+  readonly watchedVersion = signal<number>(0);
+
   constructor() {
     // Another account has another watchlist, collection and history.
     effect(() => {
-      this.auth.key();
+      const key = this.auth.key();
       this.members.clear();
+      this.watchedEpisodes.clear();
+      this.watchedVersion.update((v) => v + 1);
+      if (key) {
+        // Eagerly populate watched set
+        this.ids('watched').subscribe();
+      }
     });
+  }
+
+  /** Checks if a movie or series (or any of its episodes) is watched. */
+  isWatched(tmdbId: number): boolean {
+    // Access signal to register reactive dependency in computed() callers
+    this.watchedVersion();
+    return this.members.get('watched')?.has(tmdbId) ?? false;
+  }
+
+  /** Checks if a specific episode is watched. */
+  isEpisodeWatched(showTmdbId: number, season: number, episode: number): boolean {
+    this.watchedVersion();
+    return this.watchedEpisodes.has(`${showTmdbId}:${season}:${episode}`);
+  }
+
+  /** Gets all watched episode keys (`${showTmdbId}:${season}:${episode}`). */
+  getWatchedEpisodes(): Observable<Set<string>> {
+    return this.ids('watched').pipe(map(() => this.watchedEpisodes));
   }
 
   /** Whether the title is already in each bucket. */
@@ -81,7 +111,11 @@ export class LibraryService {
         watched: sets.watched.has(target.tmdbId),
         collection: sets.collection.has(target.tmdbId),
       })),
-      catchError(() => of({ watchlist: false, watched: false, collection: false })),
+      catchError(() => of({
+        watchlist: this.members.get('watchlist')?.has(target.tmdbId) ?? false,
+        watched: this.members.get('watched')?.has(target.tmdbId) ?? false,
+        collection: this.members.get('collection')?.has(target.tmdbId) ?? false,
+      })),
     );
   }
 
@@ -101,6 +135,7 @@ export class LibraryService {
           const set = this.members.get(bucket);
           if (!set) return;
           state ? set.add(target.tmdbId) : set.delete(target.tmdbId);
+          this.watchedVersion.update((v) => v + 1);
         }),
       );
   }
@@ -109,19 +144,11 @@ export class LibraryService {
    * Movies mdblist has marked watched, most recent first — the same
    * `sync/watched` bucket `ids()` reads for membership below, just with the
    * `append_to_response` extras a real row needs (poster, title, year).
-   *
-   * Deliberately not the "Last Watched" list `RecommendationsService`
-   * already seeds "Porque você assistiu" from: the native apps' own doc
-   * comments flag that list as only existing for accounts with Trakt/Simkl
-   * synced through mdblist, and switch to this exact bucket instead for
-   * that reason — same call made here, for the same reason.
    */
   recentlyWatchedMovies(limit = 30): Observable<MdbItem[]> {
     return this.entries('watched', limit).pipe(
       map((entries) =>
         entries
-          // mdblist's own ordering here isn't guaranteed — sorted explicitly,
-          // the same defensive call the native apps' repository makes.
           .slice()
           .sort((a, b) => (b.last_watched_at ?? '').localeCompare(a.last_watched_at ?? ''))
           .map(fromBucketEntry)
@@ -157,7 +184,7 @@ export class LibraryService {
       );
   }
 
-  private ids(bucket: Bucket): Observable<Set<number>> {
+  ids(bucket: Bucket): Observable<Set<number>> {
     const cached = this.members.get(bucket);
     if (cached) return of(cached);
 
@@ -167,11 +194,26 @@ export class LibraryService {
       })
       .pipe(
         map((res) => {
+          if (bucket === 'watched' && res?.episodes) {
+            for (const entry of res.episodes) {
+              const ep = entry.episode;
+              const showId = ep?.show?.ids?.tmdb;
+              const season = ep?.season;
+              const episode = ep?.number;
+              if (showId && typeof season === 'number' && typeof episode === 'number') {
+                this.watchedEpisodes.add(`${showId}:${season}:${episode}`);
+              }
+            }
+          }
           const set = new Set(collectTmdbIds(res));
           this.members.set(bucket, set);
+          this.watchedVersion.update((v) => v + 1);
           return set;
         }),
-        catchError(() => of(new Set<number>())),
+        catchError((err) => {
+          console.warn(`Failed to fetch ${bucket} bucket:`, err);
+          return of(this.members.get(bucket) ?? new Set<number>());
+        }),
       );
   }
 }
@@ -180,7 +222,7 @@ export class LibraryService {
 interface BucketTitle {
   title?: string;
   year?: number;
-  ids?: { imdb?: string; tmdb?: number };
+  ids?: { imdb?: string; tmdb?: number; trakt?: number; tvdb?: number; mdblist?: string };
   poster?: string;
   runtime?: number;
 }
@@ -199,15 +241,35 @@ interface BucketEntry extends BucketTitle {
   last_watched_at?: string | null;
 }
 
+interface BucketEpisode {
+  season?: number;
+  number?: number;
+  ids?: { tmdb?: number; tvdb?: number };
+  show?: BucketTitle;
+}
+
+interface BucketEpisodeEntry {
+  last_watched_at?: string | null;
+  episode?: BucketEpisode;
+}
+
 interface BucketResponse {
   movies?: BucketEntry[];
   shows?: BucketEntry[];
+  seasons?: unknown[];
+  episodes?: BucketEpisodeEntry[];
 }
 
 function collectTmdbIds(res: BucketResponse): number[] {
-  return [...(res?.movies ?? []), ...(res?.shows ?? [])]
+  const movieAndShowIds = [...(res?.movies ?? []), ...(res?.shows ?? [])]
     .map((entry) => entry.movie?.ids?.tmdb ?? entry.show?.ids?.tmdb ?? entry.ids?.tmdb ?? entry.id)
     .filter((id): id is number => typeof id === 'number');
+
+  const episodeShowIds = (res?.episodes ?? [])
+    .map((entry) => entry.episode?.show?.ids?.tmdb)
+    .filter((id): id is number => typeof id === 'number');
+
+  return Array.from(new Set([...movieAndShowIds, ...episodeShowIds]));
 }
 
 function fromBucketEntry(entry: BucketEntry): MdbItem | null {

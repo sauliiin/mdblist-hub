@@ -23,6 +23,8 @@ export class MediaRow implements OnInit {
   private readonly i18n = inject(I18nService);
 
   readonly list = input.required<MdbList>();
+  /** Custom heading override if renamed. */
+  readonly customHeading = input<string | null>(null);
   /** Show a numbered rank chip on each card (used for ranked lists). */
   readonly ranked = input(false);
   /** Reveals the rename/reorder/delete controls next to the heading. */
@@ -36,6 +38,8 @@ export class MediaRow implements OnInit {
   readonly delete = output<void>();
   readonly moveUp = output<void>();
   readonly moveDown = output<void>();
+
+  protected readonly heading = computed(() => this.customHeading() || this.list().name);
 
   protected readonly renaming = signal(false);
   protected readonly draftName = signal('');
@@ -84,14 +88,14 @@ export class MediaRow implements OnInit {
   }
 
   protected startRename(): void {
-    this.draftName.set(this.list().name);
+    this.draftName.set(this.heading());
     this.renaming.set(true);
   }
 
   protected confirmRename(): void {
     const name = this.draftName().trim();
     this.renaming.set(false);
-    if (name && name !== this.list().name) this.rename.emit(name);
+    if (name && name !== this.heading()) this.rename.emit(name);
   }
 
   protected cancelRename(): void {

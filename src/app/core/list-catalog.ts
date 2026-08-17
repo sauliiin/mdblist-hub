@@ -47,7 +47,12 @@ export function applyPrefs<T extends { id: number | string; name: string }>(
   const visible = items.filter((item) => !byId.get(item.id)?.hidden);
   const named = visible.map((item) => {
     const name = byId.get(item.id)?.name;
-    return name ? ({ ...item, name } as T) : item;
+    if (!name) return item;
+    const updated = { ...item, name };
+    if ('list' in item && item.list) {
+      (updated as any).list = { ...(item.list as any), name };
+    }
+    return updated as T;
   });
 
   const positioned = named

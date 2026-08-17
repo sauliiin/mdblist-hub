@@ -8,6 +8,7 @@ import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { Subscription, of, startWith, switchMap, tap } from 'rxjs';
 import { MediaDetailService } from '../../core/media-detail.service';
+import { LibraryService } from '../../core/library.service';
 import { I18nPipe, I18nService, currentLanguage } from '../../core/i18n.service';
 import { TmdbEpisode, toMediaType } from '../../core/models';
 import { AddonsService } from '../../core/stremio/addons.service';
@@ -47,6 +48,7 @@ const RETRY_PROBE_TIMEOUT = 30_000;
 })
 export class Player {
   private readonly service = inject(MediaDetailService);
+  private readonly library = inject(LibraryService);
   private readonly stremio = inject(StremioService);
   private readonly tmdb = inject(TmdbService);
   private readonly addons = inject(AddonsService);
@@ -59,6 +61,12 @@ export class Player {
   private readonly videoPlayer = viewChild(VideoPlayer);
   private readonly i18n = inject(I18nService);
   protected readonly defaultSubtitleLanguage = currentLanguage() === 'pt' ? 'pt' : 'en';
+
+  protected isEpisodeWatched(episodeNumber: number): boolean {
+    const d = this.detail();
+    if (!d) return false;
+    return this.library.isEpisodeWatched(d.tmdbId, this.seasonNumber(), episodeNumber);
+  }
 
   /** Route params and query params, bound by `withComponentInputBinding()`. */
   readonly type = input.required<string>();

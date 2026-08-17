@@ -141,6 +141,7 @@
         @defer (on viewport; prefetch on idle) {
           <app-media-row
             [list]="row.list"
+            [customHeading]="row.name"
             [editMode]="editMode()"
             [atTop]="row.atTop"
             [atBottom]="row.atBottom"

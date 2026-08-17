@@ -1,0 +1,16 @@
+{
+  "rewrites": [
+    {
+      "source": "/mdblist-api/:path*",
+      "destination": "https://api.mdblist.com/:path*"
+    },
+    {
+      "source": "/opensubtitles-api/:path*",
+      "destination": "https://api.opensubtitles.com/api/v1/:path*"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}

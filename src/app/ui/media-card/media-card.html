@@ -41,6 +41,16 @@
         }
       </div>
     }
+
+    @if (isWatched()) {
+      <div class="watched-badge" [title]="'Watched' | i18n" aria-label="Watched">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="10" class="badge-bg" />
+          <circle cx="12" cy="12" r="9.2" class="badge-ring" />
+          <path d="M7.5 12.2 L10.5 15.2 L16.8 8.8" class="badge-check" />
+        </svg>
+      </div>
+    }
   </div>
 
   <p class="title">

@@ -6,6 +6,7 @@ import { upscalePoster } from '../../core/api.config';
 import { I18nPipe, translateGenre } from '../../core/i18n.service';
 import { HoverPreviewService } from '../../core/hover-preview.service';
 import { LandscapeArtworkService } from '../../core/landscape-artwork.service';
+import { LibraryService } from '../../core/library.service';
 import { MdbItem, formatYear, titleWithYear, toTmdbType } from '../../core/models';
 import { PrefetchService } from '../../core/prefetch.service';
 import { ThemePrefsService } from '../../core/theme-prefs.service';
@@ -20,11 +21,14 @@ import { TvService } from '../../core/tv/tv.service';
 })
 export class MediaCard implements OnDestroy {
   private readonly tv = inject(TvService);
+  private readonly library = inject(LibraryService);
   private readonly prefetch = inject(PrefetchService);
   private readonly landscapeArt = inject(LandscapeArtworkService);
   private readonly hoverPreview = inject(HoverPreviewService);
   private readonly host: ElementRef<HTMLElement> = inject(ElementRef);
   protected readonly theme = inject(ThemePrefsService).themeKey;
+
+  protected readonly isWatched = computed(() => this.library.isWatched(this.item().id));
 
   private prefetchTimer: ReturnType<typeof setTimeout> | null = null;
 
