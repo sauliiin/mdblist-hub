@@ -49,10 +49,10 @@
               loading="lazy" />
           } @else {
             <span class="avatar avatar-empty" aria-hidden="true">
-              {{ (account.name || account.username).charAt(0) }}
+              {{ (customAlias() || account.name || account.username).charAt(0) }}
             </span>
           }
-          <span class="who">{{ account.name || account.username }}</span>
+          <span class="who">{{ customAlias() || account.name || account.username }}</span>
         </span>
 
         <button type="button" class="signout" (click)="signOut()">{{ 'Sign out' | i18n }}</button>

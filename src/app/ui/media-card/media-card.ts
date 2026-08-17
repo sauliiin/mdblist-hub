@@ -1,5 +1,5 @@
 import {
-  ChangeDetectionStrategy, Component, ElementRef, OnDestroy, computed, effect, inject, input,
+  ChangeDetectionStrategy, Component, ElementRef, HostListener, OnDestroy, computed, effect, inject, input,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { upscalePoster } from '../../core/api.config';
@@ -11,10 +11,11 @@ import { MdbItem, formatYear, titleWithYear, toTmdbType } from '../../core/model
 import { PrefetchService } from '../../core/prefetch.service';
 import { ThemePrefsService } from '../../core/theme-prefs.service';
 import { TvService } from '../../core/tv/tv.service';
+import { ParallaxCardDirective } from './parallax.directive';
 
 @Component({
   selector: 'app-media-card',
-  imports: [I18nPipe, RouterLink],
+  imports: [I18nPipe, RouterLink, ParallaxCardDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './media-card.html',
   styleUrl: './media-card.scss',
@@ -115,6 +116,15 @@ export class MediaCard implements OnDestroy {
     if (this.prefetchTimer === null) return;
     clearTimeout(this.prefetchTimer);
     this.prefetchTimer = null;
+  }
+
+  @HostListener('click')
+  onClick() {
+    // Add view-transition-name dynamically right before navigation
+    const posterEl = this.host.nativeElement.querySelector('.poster');
+    if (posterEl instanceof HTMLElement) {
+      posterEl.style.viewTransitionName = 'hero-poster';
+    }
   }
 
   protected prefetchNow(): void {

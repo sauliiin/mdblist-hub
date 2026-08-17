@@ -8,6 +8,7 @@ import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { RouterLink } from '@angular/router';
 import { switchMap, tap } from 'rxjs';
 import { tmdbImg } from '../../core/api.config';
+import { AuthService } from '../../core/auth.service';
 import { activeLocale, I18nPipe, I18nService } from '../../core/i18n.service';
 import { Bucket, LibraryService, LibraryStatus, LibraryTarget } from '../../core/library.service';
 import { castCharacter, MediaDetailService } from '../../core/media-detail.service';
@@ -32,7 +33,9 @@ export class Detail {
   private readonly location = inject(Location);
   private readonly sanitizer = inject(DomSanitizer);
   private readonly libraryService = inject(LibraryService);
+  private readonly auth = inject(AuthService);
   protected readonly tv = inject(TvService);
+  protected readonly isGuest = this.auth.isGuest;
   protected readonly theme = inject(ThemePrefsService).themeKey;
   private readonly i18n = inject(I18nService);
   protected readonly formatYear = formatYear;

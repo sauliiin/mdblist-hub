@@ -2,7 +2,7 @@
   <section class="card">
     <img class="mark" src="open-stream.png" alt="" width="52" height="52" />
 
-    <h1>{{ 'Sign in with your mdblist account' | i18n }}</h1>
+    <h1>{{ 'Sign in with your account' | i18n }}</h1>
     <p class="lead">
       {{ 'Your lists, exactly as they are on mdblist. All you need is the API key — it is stored only in this browser and never passes through any server.' | i18n }}
     </p>
@@ -14,7 +14,21 @@
             <img class="google-avatar" [src]="profile.photoUrl" alt="" width="36" height="36" />
           }
           <div class="google-who">
-            <p class="google-name">{{ profile.displayName }}</p>
+            <div class="google-name">
+              @if (editingAlias()) {
+                <input type="text"
+                       [value]="alias() || profile.displayName"
+                       (input)="onAliasUpdate($event)"
+                       (blur)="editingAlias.set(false)"
+                       (keydown.enter)="editingAlias.set(false)"
+                       autofocus />
+              } @else {
+                <span (click)="editingAlias.set(true)" class="editable-name" [title]="'Click to change your display name' | i18n">
+                  {{ alias() || profile.displayName }}
+                  <svg class="edit-icon" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34a.9959.9959 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+                </span>
+              }
+            </div>
             <p class="google-email">{{ profile.email }}</p>
           </div>
         }
@@ -71,9 +85,14 @@
         <p class="error" role="alert">{{ error() }}</p>
       }
 
-      <button type="submit" class="submit" [disabled]="!key().trim() || busy() || autoRestoring()">
-        {{ (busy() ? 'Signing in…' : 'Sign in') | i18n }}
-      </button>
+      <div class="submit-actions">
+        <button type="submit" class="submit" [disabled]="!key().trim() || busy() || autoRestoring()">
+          {{ (busy() ? 'Signing in…' : 'Sign in') | i18n }}
+        </button>
+        <button type="button" class="guest-btn" [disabled]="busy() || autoRestoring()" (click)="loginAsGuest()">
+          {{ 'Continue as Guest' | i18n }}
+        </button>
+      </div>
     </form>
 
     <p class="help" id="apikey-help">
@@ -82,5 +101,31 @@
       {{ 'under the' | i18n }} <em>API Key</em> {{ 'section. No account?' | i18n }}
       <a href="https://mdblist.com" target="_blank" rel="noopener">{{ 'Create one for free' | i18n }}</a>.
     </p>
+
+    <div class="google-divider" role="separator"></div>
+    
+    <div class="app-downloads">
+      <p class="download-title">{{ 'Get the App' | i18n }}</p>
+      <div class="download-buttons">
+        <a href="https://github.com/sauliiin/open-stremio-mobile/releases" target="_blank" rel="noopener" class="download-btn mobile">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="currentColor">
+            <path d="M17.523 15.3414c-.5511 0-.9993-.4486-.9993-.9997s.4482-.9993.9993-.9993c.5511 0 .9993.4482.9993.9993.0004.5511-.4482.9997-.9993.9997m-11.046 0c-.5511 0-.9993-.4486-.9993-.9997s.4482-.9993.9993-.9993c.5511 0 .9993.4482.9993.9993 0 .5511-.4482.9997-.9993.9997m11.4045-6.02l1.9973-3.4592a.416.416 0 00-.1521-.5676.416.416 0 00-.5676.1521l-2.022 3.503c-1.4362-.6923-3.0935-1.0774-4.8517-1.0774-1.761 0-3.4215.3862-4.8601 1.0805l-2.0132-3.506a.4173.4173 0 00-.568-.149.4158.4158 0 00-.1486.5681l1.9973 3.4592C2.6934 11.0125.1727 15.1432 0 19.9922h24c-.1727-4.849-2.6934-8.9797-6.1185-10.6708"/>
+          </svg>
+          <div class="btn-text">
+            <span class="small">{{ 'Download for' | i18n }}</span>
+            <span class="big">Android Mobile</span>
+          </div>
+        </a>
+        <a href="https://github.com/sauliiin/open-Stremio/releases" target="_blank" rel="noopener" class="download-btn tv">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="currentColor">
+            <path d="M21 3H3C1.89 3 1 3.89 1 5v12c0 1.1.89 2 2 2h5v2h8v-2h5c1.1 0 1.99-.9 1.99-2L23 5c0-1.11-.9-2-2-2zm0 14H3V5h18v12z"/>
+          </svg>
+          <div class="btn-text">
+            <span class="small">{{ 'Download for' | i18n }}</span>
+            <span class="big">Android TV</span>
+          </div>
+        </a>
+      </div>
+    </div>
   </section>
 </main>

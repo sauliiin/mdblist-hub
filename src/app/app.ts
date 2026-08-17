@@ -6,6 +6,7 @@ import { AuthService } from './core/auth.service';
 import { AppLanguage, I18nPipe, I18nService } from './core/i18n.service';
 import { PlatformService } from './core/platform.service';
 import { THEME_OPTIONS, ThemePrefsService } from './core/theme-prefs.service';
+import { AliasPrefsService } from './core/alias-prefs.service';
 import { SpatialNavigation } from './core/tv/spatial-navigation';
 import { TvService } from './core/tv/tv.service';
 import { BottomNav } from './ui/bottom-nav/bottom-nav';
@@ -25,9 +26,18 @@ const THEME_CLASSES = THEME_OPTIONS.map((option) => `${option.key}-theme`).filte
 export class App {
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
+
+  @HostListener('document:mousemove', ['$event'])
+  onMouseMove(e: MouseEvent) {
+    if (window.matchMedia('(pointer: coarse)').matches) return;
+    document.documentElement.style.setProperty('--cursor-x', `${e.clientX}px`);
+    document.documentElement.style.setProperty('--cursor-y', `${e.clientY}px`);
+  }
+
   protected readonly platform = inject(PlatformService);
   protected readonly tv = inject(TvService);
   private readonly themePrefs = inject(ThemePrefsService);
+  private readonly aliasPrefs = inject(AliasPrefsService);
   protected readonly i18n = inject(I18nService);
 
   constructor() {
@@ -59,6 +69,7 @@ export class App {
   protected readonly scrolled = signal(false);
 
   protected readonly user = this.auth.user;
+  protected readonly customAlias = this.aliasPrefs.alias;
   /** Points at the signed-in account's own page on mdblist.com. */
   protected readonly listsUrl = this.auth.listsUrl;
   /** Set when the avatar 404s, so the initial takes over. */

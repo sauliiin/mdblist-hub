@@ -103,18 +103,18 @@
     border-radius: 99px;
     font: inherit;
     font-size: 13.5px;
-    color: var(--text);
-    background: var(--surface);
-    border: 1px solid var(--border);
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.12);
+    border: 1px solid rgba(255, 255, 255, 0.3);
     cursor: pointer;
     transition: border-color 0.25s var(--ease), background 0.25s var(--ease);
 
-    &:hover { background: var(--surface-strong); }
+    &:hover { background: rgba(255, 255, 255, 0.22); border-color: rgba(255, 255, 255, 0.5); }
 
     &:focus {
       outline: none;
-      border-color: rgba(124, 92, 255, 0.55);
-      background: rgba(124, 92, 255, 0.09);
+      border-color: rgba(124, 92, 255, 0.7);
+      background: rgba(124, 92, 255, 0.15);
     }
 
     /* The native dropdown paints with the OS palette, not the page's. */
@@ -128,7 +128,7 @@
     height: 15px;
     pointer-events: none;
     fill: none;
-    stroke: var(--text-faint);
+    stroke: #ffffff;
     stroke-width: 2;
     stroke-linecap: round;
     stroke-linejoin: round;
@@ -140,13 +140,13 @@
   padding: 0 16px;
   border-radius: 99px;
   font-size: 13px;
-  font-weight: 600;
-  color: var(--text-dim);
-  background: var(--surface);
-  border: 1px solid var(--border);
+  font-weight: 700;
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.3);
   transition: color 0.25s var(--ease), background 0.25s var(--ease);
 
-  &:hover { color: var(--text); background: var(--surface-strong); }
+  &:hover { background: rgba(255, 255, 255, 0.22); border-color: rgba(255, 255, 255, 0.5); }
 
   &.on {
     color: #fff;
@@ -159,28 +159,28 @@
    plain `var(--border)` left it reading as just another neutral control
    next to "Limpar" and the Filmes/Séries segmented buttons. */
 .edit-toggle:not(.on) {
-  color: #cbbcff;
-  border-color: rgba(124, 92, 255, 0.55);
+  color: #d8caff;
+  border-color: rgba(124, 92, 255, 0.75);
 
-  &:hover { border-color: rgba(124, 92, 255, 0.85); }
+  &:hover { border-color: rgba(124, 92, 255, 1); background: rgba(124, 92, 255, 0.1); }
 }
 
 .segmented {
   display: flex;
   padding: 4px;
   border-radius: 99px;
-  background: var(--surface);
-  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.2);
 
   button {
     padding: 5px 15px;
     border-radius: 99px;
     font-size: 13px;
-    font-weight: 600;
+    font-weight: 700;
     color: var(--text-dim);
     transition: color 0.2s var(--ease), background 0.25s var(--ease);
 
-    &:hover { color: var(--text); }
+    &:hover { color: #ffffff; background: rgba(255, 255, 255, 0.1); }
 
     &.on {
       color: #fff;

@@ -98,7 +98,7 @@ export class HoverPreviewCard {
           height: '100%',
           playerVars: {
             autoplay: 1,
-            mute: 1,
+            mute: 0,
             controls: 0,
             loop: 1,
             playlist: key,
@@ -111,7 +111,8 @@ export class HoverPreviewCard {
           },
           events: {
             onReady: (event) => {
-              event.target.mute();
+              event.target.unMute();
+              event.target.setVolume(100);
               event.target.playVideo();
               this.playing.set(true);
             },

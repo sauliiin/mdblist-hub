@@ -187,6 +187,41 @@ h1 {
   font-size: 13.5px;
   font-weight: 600;
   color: var(--text);
+  margin-bottom: 2px;
+
+  input {
+    width: 100%;
+    background: var(--surface-strong);
+    border: 1px solid var(--border-strong);
+    color: var(--text);
+    border-radius: 4px;
+    padding: 2px 6px;
+    font: inherit;
+    font-size: 13.5px;
+    &:focus { outline: none; border-color: var(--accent); }
+  }
+
+  .editable-name {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    border-radius: 4px;
+    padding: 2px 4px;
+    margin-left: -4px;
+    transition: background 0.2s var(--ease);
+
+    &:hover {
+      background: var(--surface-strong);
+      .edit-icon { opacity: 1; }
+    }
+  }
+
+  .edit-icon {
+    opacity: 0;
+    color: var(--text-dim);
+    transition: opacity 0.2s var(--ease);
+  }
 }
 
 .google-email {
@@ -212,5 +247,120 @@ h1 {
   &:hover {
     border-color: var(--border-strong);
     color: var(--text);
+  }
+}
+
+.app-downloads {
+  margin-top: 10px;
+  text-align: center;
+
+  .download-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-dim);
+    margin-bottom: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .download-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .download-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 12px 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    text-decoration: none;
+    transition: all 0.25s var(--ease);
+    
+    svg {
+      color: var(--text-dim);
+      transition: color 0.25s var(--ease);
+    }
+
+    .btn-text {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      
+      .small {
+        font-size: 10.5px;
+        color: var(--text-faint);
+        line-height: 1.1;
+        transition: color 0.25s var(--ease);
+      }
+      
+      .big {
+        font-size: 14.5px;
+        font-weight: 700;
+        letter-spacing: -0.01em;
+      }
+    }
+
+    &.mobile {
+      svg { color: #3DDC84; }
+    }
+    
+    &.tv {
+      svg { color: #4285F4; }
+    }
+
+    &:hover {
+      background: var(--surface-strong);
+      border-color: var(--border-strong);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      
+      &.mobile {
+        border-color: #3DDC84;
+        .small { color: rgba(61, 220, 132, 0.7); }
+      }
+      
+      &.tv {
+        border-color: #4285F4;
+        .small { color: rgba(66, 133, 244, 0.7); }
+      }
+    }
+  }
+}
+
+.submit-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.guest-btn {
+  width: 100%;
+  padding: 14px 20px;
+  border-radius: var(--radius);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 700;
+  transition: all 0.25s var(--ease);
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+
+  &:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.6);
+    color: #ffffff;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.3);
+  }
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
   }
 }

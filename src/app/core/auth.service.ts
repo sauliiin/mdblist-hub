@@ -27,6 +27,9 @@ export class AuthService {
   readonly key = this.apikey.asReadonly();
   readonly user = this.account.asReadonly();
 
+  /** True if the user logged in using the hardcoded visitor API key. */
+  readonly isGuest = computed(() => this.apikey() === 'omqfcrbt1dm8hj98mwuvgpg9n');
+
   /** The signed-in account's public list page on mdblist.com. */
   readonly listsUrl = computed(() => {
     const username = this.account()?.username;

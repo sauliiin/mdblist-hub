@@ -270,3 +270,32 @@
   right: 34px;
   max-width: calc(100% - 76px);
 }
+
+/* Parallax 3D & Glare effect */
+:host {
+  perspective: 1000px;
+}
+
+.card {
+  transform-style: preserve-3d;
+  position: relative;
+  transition: transform 0.1s ease-out; /* Smooth follow */
+}
+
+/* Glare pseudo element inside poster */
+.poster::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  border-radius: var(--radius);
+  background: radial-gradient(
+    circle at var(--glare-x, 50%) var(--glare-y, 50%),
+    rgba(255, 255, 255, 0.4),
+    transparent 60%
+  );
+  opacity: var(--glare-opacity, 0);
+  pointer-events: none;
+  mix-blend-mode: overlay;
+  transition: opacity 0.3s ease-out;
+}

@@ -8,6 +8,7 @@ import { StremioAccountService } from '../../core/stremio/stremio-account.servic
 import { AddonSyncService } from '../../core/sync/addon-sync.service';
 import { ListPrefsSyncService } from '../../core/sync/list-prefs-sync.service';
 import { PreferencesSyncService } from '../../core/sync/preferences-sync.service';
+import { AliasPrefsService } from '../../core/alias-prefs.service';
 
 /** Addons worth pointing people at, with what each one is for. */
 interface Suggestion {
@@ -50,6 +51,8 @@ export class Addons {
   // ------------------------------------------------------ firebase sync
   protected readonly googleLinked = this.googleAuth.linked;
   protected readonly googleProfile = this.googleAuth.profile;
+  private readonly aliasPrefs = inject(AliasPrefsService);
+  protected readonly customAlias = this.aliasPrefs.alias;
   protected readonly googleBusy = signal(false);
   protected readonly googleError = signal<string | null>(null);
   protected readonly syncOn = computed(() => this.cloud.enabled() || this.listCloud.enabled());

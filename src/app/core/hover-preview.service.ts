@@ -3,7 +3,7 @@ import { DOCUMENT } from '@angular/common';
 import { MdbItem } from './models';
 
 /** How long the pointer has to linger before the Netflix-style preview opens. */
-const OPEN_DELAY = 3000;
+const OPEN_DELAY = 2000;
 /** Grace window before closing, so crossing from the card into the floating preview doesn't flicker it shut. */
 const CLOSE_DELAY = 200;
 const PREVIEW_WIDTH = 520;

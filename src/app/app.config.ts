@@ -6,7 +6,7 @@ import {
   provideZonelessChangeDetection,
 } from '@angular/core';
 import {
-  provideRouter, withComponentInputBinding, withInMemoryScrolling,
+  provideRouter, withComponentInputBinding, withInMemoryScrolling, withViewTransitions
 } from '@angular/router';
 
 import { routes } from './app.routes';
@@ -31,6 +31,7 @@ export const appConfig: ApplicationConfig = {
       // Route params arrive as component inputs on the detail page.
       withComponentInputBinding(),
       withInMemoryScrolling({ scrollPositionRestoration: 'top', anchorScrolling: 'enabled' }),
+      withViewTransitions(),
     ),
     provideHttpClient(withInterceptors([httpCacheInterceptor])),
     { provide: LOCALE_ID, useFactory: activeLocale },

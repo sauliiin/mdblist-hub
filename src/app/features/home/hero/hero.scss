@@ -178,19 +178,27 @@ h1 {
 }
 
 .btn.primary {
-  background: linear-gradient(120deg, var(--accent), #a78bfa);
+  background: linear-gradient(120deg, var(--accent), #b89aff);
   color: #fff;
+  font-weight: 700;
   box-shadow: 0 12px 34px var(--accent-glow);
 
-  &:hover { box-shadow: 0 18px 44px var(--accent-glow); }
+  &:hover { box-shadow: 0 18px 44px var(--accent-glow); filter: brightness(1.1); }
 }
 
 .btn.ghost {
-  background: var(--surface-strong);
-  border: 1px solid var(--border-strong);
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: #fff;
+  font-weight: 700;
   backdrop-filter: blur(12px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
 
-  &:hover { background: rgba(255, 255, 255, 0.14); }
+  &:hover { 
+    background: rgba(255, 255, 255, 0.22);
+    border-color: rgba(255, 255, 255, 0.5);
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.5);
+  }
 }
 
 /* loading state */

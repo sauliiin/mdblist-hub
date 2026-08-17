@@ -736,3 +736,8 @@ body.netflixy-theme .recs {
   color: #ffd08a;
   max-width: 56ch;
 }
+
+/* View Transitions Morphing */
+.poster {
+  view-transition-name: hero-poster;
+}

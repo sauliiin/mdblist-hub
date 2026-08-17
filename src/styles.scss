@@ -4,22 +4,22 @@
 
 :root {
   /* surfaces */
-  --bg: #07080c;
-  --bg-elev: #0d0f16;
-  --surface: rgba(255, 255, 255, 0.045);
-  --surface-strong: rgba(255, 255, 255, 0.08);
-  --border: rgba(255, 255, 255, 0.09);
-  --border-strong: rgba(255, 255, 255, 0.16);
+  --bg: #050609;
+  --bg-elev: #0a0c12;
+  --surface: rgba(255, 255, 255, 0.07);
+  --surface-strong: rgba(255, 255, 255, 0.12);
+  --border: rgba(255, 255, 255, 0.15);
+  --border-strong: rgba(255, 255, 255, 0.28);
 
   /* text */
-  --text: #f2f3f7;
-  --text-dim: #a2a7b8;
-  --text-faint: #6b7183;
+  --text: #ffffff;
+  --text-dim: #c5cad6;
+  --text-faint: #81879c;
 
   /* accents */
-  --accent: #7c5cff;
-  --accent-2: #12d6c4;
-  --accent-glow: rgba(124, 92, 255, 0.45);
+  --accent: #8b6dff;
+  --accent-2: #21ead5;
+  --accent-glow: rgba(139, 109, 255, 0.55);
   /* Netflix-like focus reserved for artwork: a solid red rim plus bloom. */
   --poster-focus: #e50914;
   --poster-focus-glow: rgba(229, 9, 20, 0.52);
@@ -612,4 +612,50 @@ body.primefly-theme {
 body.netflixy-theme .dot,
 body.primefly-theme .dot {
   background: var(--accent);
+}
+
+/* ============================================================
+   View Transitions API (Seamless Navigation)
+   ============================================================ */
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 0.3s;
+  animation-timing-function: var(--ease);
+}
+
+::view-transition-old(hero-poster),
+::view-transition-new(hero-poster) {
+  animation-duration: 0.45s;
+  animation-timing-function: var(--ease);
+}
+
+/* Disable the default cross-fade for the whole page if we want */
+/* We will let it crossfade but make it snappy */
+::view-transition-old(root) {
+  animation-name: fade-out;
+}
+::view-transition-new(root) {
+  animation-name: fade-in;
+}
+
+@keyframes fade-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+/* ============================================================
+   Global Cursor Glow Effect
+   ============================================================ */
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -10;
+  pointer-events: none;
+  background: radial-gradient(
+    600px circle at var(--cursor-x, 50vw) var(--cursor-y, 50vh),
+    rgba(139, 109, 255, 0.08),
+    transparent 40%
+  );
+  transition: background 0.1s ease-out;
 }

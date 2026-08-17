@@ -7,6 +7,7 @@ import { I18nPipe, I18nService } from '../../core/i18n.service';
 import { ListPrefsSyncService } from '../../core/sync/list-prefs-sync.service';
 import { MdblistKeySyncService } from '../../core/sync/mdblist-key-sync.service';
 import { PreferencesSyncService } from '../../core/sync/preferences-sync.service';
+import { AliasPrefsService } from '../../core/alias-prefs.service';
 
 @Component({
   selector: 'app-login',
@@ -44,6 +45,16 @@ export class Login {
   protected readonly googleProfile = this.google.profile;
   protected readonly googleBusy = signal(false);
   protected readonly googleError = signal<string | null>(null);
+
+  // -------------------------------------------------------- Alias
+  private readonly aliasPrefs = inject(AliasPrefsService);
+  protected readonly alias = this.aliasPrefs.alias;
+  protected editingAlias = signal(false);
+
+  protected onAliasUpdate(event: Event): void {
+    const value = (event.target as HTMLInputElement).value;
+    this.aliasPrefs.setAlias(value);
+  }
 
   constructor() {
     // A returning visitor whose Google session outlived their mdblist one
@@ -89,6 +100,16 @@ export class Login {
         );
       },
     });
+  }
+
+  protected loginAsGuest(): void {
+    if (this.busy()) return;
+    this.key.set('omqfcrbt1dm8hj98mwuvgpg9n');
+    // Using an arbitrary fake event to satisfy the signature if needed,
+    // or just call the logic. But submit expects an event.
+    // Instead we can just duplicate the submit logic slightly or mock the event.
+    const fakeEvent = new Event('submit');
+    this.submit(fakeEvent);
   }
 
   // -------------------------------------------------------- Google account

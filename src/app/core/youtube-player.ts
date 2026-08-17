@@ -5,6 +5,8 @@
  */
 export interface YouTubePlayer {
   mute(): void;
+  unMute(): void;
+  setVolume(volume: number): void;
   playVideo(): void;
   destroy(): void;
 }
