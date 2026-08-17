@@ -12,7 +12,7 @@ as **suas** listas.
 Roda inteiramente no navegador — não há backend, banco de dados nem build de
 servidor. As quatro APIs usadas respondem com `Access-Control-Allow-Origin: *`.
 
-**Demo:** [mdblist-hub.saulindin.workers.dev](https://mdblist-hub.saulindin.workers.dev/)
+**Demo:** [openstream.com.br](https://openstream.com.br/)
 
 **Stack:** Angular 22 (standalone, zoneless, signals), TypeScript, SCSS.
 

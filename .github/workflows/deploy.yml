@@ -35,9 +35,8 @@ jobs:
 
       - run: npm ci
 
-      # O site fica em https://<usuario>.github.io/<repo>/, então o base href
-      # precisa apontar para a subpasta do repositório.
-      - run: npm run build -- --base-href "/${{ github.event.repository.name }}/"
+      # O site fica na raiz do domínio personalizado, então o base href não deve ser alterado
+      - run: npm run build
 
       # O Pages não conhece as rotas do Angular: sem isso, abrir um link direto
       # como /title/movie/278 devolve 404. Servir o index.html como página de
