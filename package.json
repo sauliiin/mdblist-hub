@@ -4,7 +4,7 @@
   "scripts": {
     "ng": "node node_modules/@angular/cli/bin/ng.js",
     "start": "node node_modules/@angular/cli/bin/ng.js serve",
-    "build": "node node_modules/@angular/cli/bin/ng.js build",
+    "build": "node node_modules/@angular/cli/bin/ng.js build && rm -f dist/mdblist-hub/browser/_redirects",
     "watch": "node node_modules/@angular/cli/bin/ng.js build --watch --configuration development",
     "test": "node node_modules/@angular/cli/bin/ng.js test",
     "deploy": "node ./node_modules/wrangler/bin/wrangler.js deploy"
