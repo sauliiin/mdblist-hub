@@ -41,6 +41,13 @@ interface RefreshResponse {
   expires_in: string;
 }
 
+/** Reports why a One Tap prompt didn't end in a credential — see `promptGis`. */
+interface PromptMomentNotification {
+  isNotDisplayed(): boolean;
+  isSkippedMoment(): boolean;
+  isDismissedMoment(): boolean;
+}
+
 /** The slice of Google Identity Services this uses — an ID token, nothing else. */
 interface GoogleIdentityServices {
   accounts: {
@@ -49,14 +56,21 @@ interface GoogleIdentityServices {
         client_id: string;
         callback: (response: { credential: string }) => void;
       }): void;
-      prompt(): void;
+      prompt(momentListener?: (notification: PromptMomentNotification) => void): void;
     };
   };
+}
+
+/** Exposed by the desktop app's preload script — see electron/preload.js. */
+interface ElectronBridge {
+  isElectron: true;
+  signInWithGoogle(): Promise<string>;
 }
 
 declare global {
   interface Window {
     google?: GoogleIdentityServices;
+    electronAPI?: ElectronBridge;
   }
 }
 
@@ -134,11 +148,20 @@ export class GoogleAuthService {
   }
 
   private async runSignIn(): Promise<GoogleProfile> {
-    await this.loadGis();
-    const credential = await this.promptGis();
+    // Electron's embedded Chromium has no Google session of its own, so GIS's
+    // One Tap has nothing to offer there — sign in via the system browser
+    // instead, where the user is actually logged in. See electron/main.js.
+    const credential = window.electronAPI?.isElectron
+      ? await window.electronAPI.signInWithGoogle()
+      : await this.runInlineSignIn();
     const session = await this.exchange(credential);
     this.persist(session);
     return { email: session.email, displayName: session.displayName, photoUrl: session.photoUrl };
+  }
+
+  private async runInlineSignIn(): Promise<string> {
+    await this.loadGis();
+    return this.promptGis();
   }
 
   /** Injects the GIS script once, memoised — never fetched just because the app booted. */
@@ -173,7 +196,14 @@ export class GoogleAuthService {
         client_id: CLIENT_ID,
         callback: (response) => resolve(response.credential),
       });
-      identity.prompt();
+      // Without this listener, a prompt that never displays (no eligible
+      // session, FedCM unavailable, user opted out, …) leaves the promise —
+      // and the caller — hanging forever instead of failing visibly.
+      identity.prompt((notification) => {
+        if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+          reject(new Error(translate('Could not show the Google sign-in prompt. Try again or use a different browser.')));
+        }
+      });
     });
   }
 
