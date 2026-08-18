@@ -82,6 +82,74 @@
     }
   </section>
 
+  <!-- ------------------------------------------------------- trakt -->
+  <section class="sync trakt">
+    <div class="sync-on">
+      <div>
+        <p class="sync-title">
+          Trakt
+          <span class="pill" [class.live]="traktLinked()">
+            {{ (traktLinked() ? 'on' : 'off') | i18n }}
+          </span>
+        </p>
+        <p class="sync-sub">
+          @if (traktAccount(); as account) {
+            {{ 'Connected as {handle}.' | i18n: { handle: '@' + account.username } }}
+          } @else {
+            {{ 'No Trakt account connected' | i18n }}.
+          }
+          {{ 'Connect it to read your watchlist, collection, watched history and playback position from Trakt instead of mdblist — the same choice the TV and phone apps offer. Free Trakt accounts connect only one third-party app at a time.' | i18n }}
+        </p>
+      </div>
+      <div class="row-actions">
+        @if (traktLinked()) {
+          <button type="button" class="ghost danger" (click)="unlinkTrakt()">
+            {{ 'Disconnect' | i18n }}
+          </button>
+        } @else {
+          <button type="button" class="ghost" [disabled]="traktBusy()" (click)="linkTrakt()">
+            {{ (traktBusy() ? 'Asking Trakt for a code…' : 'Connect Trakt') | i18n }}
+          </button>
+        }
+      </div>
+    </div>
+
+    @if (traktCode(); as code) {
+      <div class="trakt-link">
+        <p class="sync-sub">
+          {{ 'Go to' | i18n }}
+          <a [href]="code.verificationUrl" target="_blank" rel="noopener">{{ code.verificationUrl }}</a>
+          {{ 'and enter:' | i18n }}
+        </p>
+        <p class="trakt-code">{{ code.userCode }}</p>
+        <p class="sync-sub">{{ 'Code expires in {time}' | i18n: { time: traktCountdown() } }}</p>
+        <button type="button" class="ghost" (click)="cancelTraktLink()">{{ 'Cancel' | i18n }}</button>
+      </div>
+    }
+
+    @if (traktError(); as e) {
+      <p class="error" role="alert">{{ e }}</p>
+    }
+    @if (traktJustLinked()) {
+      <p class="ok" role="status">{{ 'Connected — Trakt is now the library source.' | i18n }}</p>
+    }
+
+    <!-- ------------------------------------------------ which one answers -->
+    <div class="provider">
+      <p class="sync-title">{{ 'Library source' | i18n }}</p>
+      <p class="sync-sub">
+        {{ 'Watchlist, watched, collection and continue watching' | i18n }} —
+        {{ 'the lists on the home page are always mdblist’s.' | i18n }}
+      </p>
+      <div class="row-actions">
+        <button type="button" class="ghost" [class.on]="provider() === 'mdblist'"
+                (click)="pickProvider('mdblist')">mdblist</button>
+        <button type="button" class="ghost" [class.on]="provider() === 'trakt'"
+                (click)="pickProvider('trakt')">Trakt</button>
+      </div>
+    </div>
+  </section>
+
   <!-- -------------------------------------------- stremio account -->
   <section class="sync">
     @if (account(); as session) {

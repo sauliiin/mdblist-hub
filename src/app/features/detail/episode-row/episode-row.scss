@@ -1,0 +1,224 @@
+/*
+ * The block chrome (`.block`, `.block-head`, `.block-title`, `.count-tag`,
+ * `.muted`) repeats what `detail.scss` sets for its own sections: styles are
+ * component-scoped, so a row living in its own component cannot inherit the
+ * page's. Same values on purpose — the episodes section has to sit flush with
+ * "Sinopse" above it and "Elenco" below.
+ */
+
+:host { display: block; }
+
+.block { margin-bottom: 44px; }
+
+.block-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.block-title {
+  font-size: 18px;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  &::before {
+    content: '';
+    width: 4px;
+    height: 18px;
+    border-radius: 99px;
+    background: linear-gradient(var(--accent), var(--accent-2));
+  }
+}
+
+.count-tag {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 9px;
+  border-radius: 99px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  font-variant-numeric: tabular-nums;
+}
+
+.muted { color: var(--text-faint); font-size: 13.5px; margin: 0; }
+
+
+.season-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.season-chip {
+  padding: 6px 14px;
+  border-radius: 99px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-dim);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: border-color 0.25s var(--ease), background 0.25s var(--ease), color 0.25s var(--ease);
+
+  &:hover { border-color: var(--border-strong); color: var(--text); }
+
+  &.on {
+    color: #fff;
+    background: linear-gradient(120deg, var(--accent), var(--accent-2));
+    border-color: transparent;
+  }
+}
+
+.seen-tag { color: var(--fresh); }
+
+/* Layout comes from ScrollTrack, same as the cast row above. */
+.episode-track {
+  display: block;
+  --track-gap: 14px;
+}
+
+.episode {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 260px;
+  flex-shrink: 0;
+  scroll-snap-align: start;
+  padding: 10px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: inherit;
+  text-decoration: none;
+  transition: transform 0.3s var(--ease), border-color 0.3s var(--ease), background 0.3s var(--ease);
+
+  &:hover:not(.static) {
+    transform: translateY(-4px);
+    border-color: var(--border-strong);
+    background: var(--surface-strong);
+  }
+
+  /* Nothing to click into: a guest session, or a title with no IMDb id. */
+  &.static { cursor: default; }
+
+  /* Watched episodes step back so the unwatched ones read first. */
+  &.seen .still img { opacity: 0.55; }
+
+  .still {
+    position: relative;
+    display: block;
+    aspect-ratio: 16 / 9;
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    background: var(--bg-elev);
+
+    img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      transition: opacity 0.3s var(--ease);
+    }
+  }
+
+  .still-empty {
+    display: grid;
+    place-items: center;
+    height: 100%;
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--text-faint);
+  }
+
+  .aired {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 7px;
+    border-radius: var(--radius-sm);
+    color: var(--text);
+    background: rgba(5, 6, 9, 0.78);
+
+    /* Not out yet — the one case where the date is the whole point. */
+    &.soon {
+      color: #0b0b0f;
+      background: var(--accent-2);
+    }
+  }
+
+  .seen-badge {
+    position: absolute;
+    right: 8px;
+    bottom: 8px;
+    display: grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    font-size: 13px;
+    font-weight: 700;
+    color: #0b0b0f;
+    background: var(--fresh);
+  }
+
+  .play {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    opacity: 0;
+    background: rgba(5, 6, 9, 0.45);
+    transition: opacity 0.25s var(--ease);
+
+    svg {
+      width: 42px;
+      height: 42px;
+      fill: #fff;
+    }
+  }
+
+  &:hover .play, &:focus-visible .play { opacity: 1; }
+
+  .ep-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .ep-title,
+  .ep-overview {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .ep-title {
+    font-size: 13.5px;
+    font-weight: 600;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+  }
+
+  .ep-runtime {
+    flex-shrink: 0;
+    font-size: 11.5px;
+    color: var(--text-faint);
+  }
+
+  .ep-overview {
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--text-faint);
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+  }
+}
+

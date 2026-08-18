@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { Observable, forkJoin, map, of, switchMap } from 'rxjs';
 import { tmdbImg } from './api.config';
-import { translate } from './i18n.service';
+import { currentLanguage, translate } from './i18n.service';
 import { MdblistService } from './mdblist.service';
 import {
   MdbInfo, MdbReview, MediaDetail, MediaType, OmdbResponse, Review, TmdbCastMember,
@@ -66,9 +66,16 @@ function assemble(
   let ratings = toBadges(info?.ratings);
   if (!ratings.length) ratings = badgesFromOmdb(omdb);
 
-  const trailer = tmdb.videos?.results?.find(
-    (v) => v.site === 'YouTube' && v.type === 'Trailer' && v.official,
-  ) ?? tmdb.videos?.results?.find((v) => v.site === 'YouTube');
+  // Now that videos come back in more than one language (see `include_video_language`
+  // in `TmdbService.detail`), a dubbed/legendado trailer wins over the English
+  // one for a Portuguese visitor — but any trailer beats no button at all.
+  const videos = (tmdb.videos?.results ?? []).filter((v) => v.site === 'YouTube');
+  const spoken = currentLanguage() === 'pt' ? 'pt' : 'en';
+  const trailer =
+    videos.find((v) => v.type === 'Trailer' && v.official && v.iso_639_1 === spoken) ??
+    videos.find((v) => v.type === 'Trailer' && v.official) ??
+    videos.find((v) => v.type === 'Trailer') ??
+    videos[0];
 
   const date = tmdb.release_date || tmdb.first_air_date || info?.released || null;
 
@@ -89,6 +96,10 @@ function assemble(
     runtime: tmdb.runtime ?? tmdb.episode_run_time?.[0] ?? info?.runtime ?? null,
     seasons: tmdb.number_of_seasons ?? null,
     episodes: tmdb.number_of_episodes ?? null,
+    // Specials and seasons TMDB knows of but has no episodes for are dropped
+    // here rather than in the template — the same filter the player's season
+    // picker applies, so both pickers offer the same list.
+    seasonList: (tmdb.seasons ?? []).filter((s) => s.season_number > 0 && s.episode_count > 0),
     status: tmdb.status ?? null,
     genres: tmdb.genres?.map((g) => g.name) ?? [],
     cast: (credits?.cast ?? []).slice(0, 24),

@@ -35,24 +35,27 @@
     <nav class="links">
       @if (user(); as account) {
         <a class="nav-link" routerLink="/addons" routerLinkActive="on">Addons</a>
-        <a class="nav-link" [href]="listsUrl()" target="_blank" rel="noopener">
-          {{ 'My lists on mdblist' | i18n }}
-        </a>
+        @if (!sharedKey()) {
+          <a class="nav-link" [href]="listsUrl()" target="_blank" rel="noopener">
+            {{ 'My lists on mdblist' | i18n }}
+          </a>
+        }
 
-        <span class="account" [title]="'@' + account.username">
-          @if (account.avatar_url && !avatarBroken()) {
+        <span
+          class="account"
+          [class.guest]="isGuest()"
+          [title]="sharedKey() ? ('Browsing with the shared guest key' | i18n) : '@' + account.username">
+          @if (avatarUrl() && !avatarBroken()) {
             <img
               class="avatar"
-              [src]="account.avatar_url"
+              [src]="avatarUrl()"
               (error)="avatarBroken.set(true)"
               alt=""
               loading="lazy" />
           } @else {
-            <span class="avatar avatar-empty" aria-hidden="true">
-              {{ (customAlias() || account.name || account.username).charAt(0) }}
-            </span>
+            <span class="avatar avatar-empty" aria-hidden="true">{{ displayName().charAt(0) }}</span>
           }
-          <span class="who">{{ customAlias() || account.name || account.username }}</span>
+          <span class="who">{{ displayName() }}</span>
         </span>
 
         <button type="button" class="signout" (click)="signOut()">{{ 'Sign out' | i18n }}</button>

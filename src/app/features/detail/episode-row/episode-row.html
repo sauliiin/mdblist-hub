@@ -1,0 +1,73 @@
+<section class="block episodes">
+  <div class="block-head">
+    <h2 class="block-title">{{ 'Episodes' | i18n }}</h2>
+    @if (progress(); as watched) {
+      <span class="count-tag seen-tag" [title]="'Episodes watched in this season' | i18n">
+        ✓ {{ watched }}
+      </span>
+    }
+  </div>
+
+  @if (seasons().length > 1) {
+    <div class="season-picker">
+      @for (s of seasons(); track s.id) {
+        <button
+          type="button"
+          class="season-chip"
+          [class.on]="season() === s.season_number"
+          (click)="pick(s.season_number)">
+          {{ s.name }}
+        </button>
+      }
+    </div>
+  }
+
+  @if (episodes().length) {
+    <app-scroll-track class="episode-track">
+      @for (ep of episodes(); track ep.id) {
+        <!--
+          An anchor either way: with nothing to play — a guest session, or a
+          title with no IMDb id for the addons to be keyed by — `routerLink`
+          stays null, so the card still reads as a card but goes nowhere.
+        -->
+        <a
+          class="episode"
+          [class.seen]="isWatched(ep)"
+          [class.static]="!playable()"
+          [routerLink]="playable() ? watchLink() : null"
+          [queryParams]="query(ep)">
+          <span class="still">
+            @if (still(ep)) {
+              <img [src]="still(ep)" [alt]="ep.name" loading="lazy" />
+            } @else {
+              <span class="still-empty">{{ ep.episode_number }}</span>
+            }
+
+            @if (airDate(ep); as aired) {
+              <span class="aired" [class.soon]="isUpcoming(ep)">{{ aired }}</span>
+            }
+
+            @if (isWatched(ep)) {
+              <span class="seen-badge" [attr.aria-label]="'Watched' | i18n">✓</span>
+            }
+
+            @if (playable()) {
+              <span class="play" aria-hidden="true">
+                <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
+              </span>
+            }
+          </span>
+
+          <span class="ep-head">
+            <span class="ep-title">{{ ep.episode_number }}. {{ ep.name }}</span>
+            @if (ep.runtime) { <span class="ep-runtime">{{ ep.runtime }}min</span> }
+          </span>
+
+          @if (ep.overview) { <span class="ep-overview">{{ ep.overview }}</span> }
+        </a>
+      }
+    </app-scroll-track>
+  } @else {
+    <p class="muted">{{ 'TMDB has no episodes listed for this season.' | i18n }}</p>
+  }
+</section>

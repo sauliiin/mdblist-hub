@@ -1,11 +1,13 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, effect, inject, signal } from '@angular/core';
-import { Observable, catchError, forkJoin, map, of, tap } from 'rxjs';
+import { EMPTY, Observable, catchError, expand, forkJoin, map, of, reduce, tap } from 'rxjs';
 import { Capacitor } from '@capacitor/core';
 import { API } from './api.config';
 import { translate } from './i18n.service';
 import { AuthService } from './auth.service';
+import { LibraryProviderService } from './library-provider.service';
 import { MdbItem, MediaType } from './models';
+import { TraktService } from './trakt/trakt.service';
 
 /** The three mdblist buckets a title can belong to. */
 export type Bucket = 'watchlist' | 'watched' | 'collection';
@@ -49,10 +51,21 @@ const ROUTES: Record<Bucket, { read: string; add: string; remove: string }> = {
   },
 };
 
+/**
+ * Entries per bucket request. mdblist counts films, series, seasons and
+ * episodes together against this, and honours it up to a thousand.
+ */
+const BUCKET_PAGE = 1000;
+
+/** A stop, not a target: bounds a huge history at a few thousand entries. */
+const BUCKET_MAX_PAGES = 5;
+
 @Injectable({ providedIn: 'root' })
 export class LibraryService {
   private readonly http = inject(HttpClient);
   private readonly auth = inject(AuthService);
+  private readonly trakt = inject(TraktService);
+  private readonly provider = inject(LibraryProviderService);
 
   /**
    * Membership sets keyed by TMDB id, filled on the first read and kept in
@@ -68,9 +81,13 @@ export class LibraryService {
   readonly watchedVersion = signal<number>(0);
 
   constructor() {
-    // Another account has another watchlist, collection and history.
+    // Another account has another watchlist, collection and history — and so
+    // does another *provider*: without this, a title on the mdblist watchlist
+    // would keep showing as watchlisted under a Trakt account that never
+    // heard of it.
     effect(() => {
       const key = this.auth.key();
+      this.provider.provider();
       this.members.clear();
       this.watchedEpisodes.clear();
       this.watchedVersion.update((v) => v + 1);
@@ -125,27 +142,33 @@ export class LibraryService {
     const key = target.imdbId ? { imdb: target.imdbId } : { tmdb: target.tmdbId };
     const body = target.type === 'show' ? { shows: [key] } : { movies: [key] };
 
-    return this.http
-      .post<unknown>(`${WRITE_BASE}${route}`, body, {
-        params: { apikey: this.auth.key() },
-      })
-      .pipe(
-        map(() => add),
-        tap((state) => {
-          const set = this.members.get(bucket);
-          if (!set) return;
-          state ? set.add(target.tmdbId) : set.delete(target.tmdbId);
-          this.watchedVersion.update((v) => v + 1);
-        }),
-      );
+    const write$ = this.provider.usingTrakt()
+      ? this.trakt.write(bucket, target, add)
+      : this.http
+          .post<unknown>(`${WRITE_BASE}${route}`, body, {
+            params: { apikey: this.auth.key() },
+          })
+          .pipe(map(() => add));
+
+    return write$.pipe(
+      tap((state) => {
+        const set = this.members.get(bucket);
+        if (!set) return;
+        state ? set.add(target.tmdbId) : set.delete(target.tmdbId);
+        this.watchedVersion.update((v) => v + 1);
+      }),
+    );
   }
 
   /**
-   * Movies mdblist has marked watched, most recent first — the same
-   * `sync/watched` bucket `ids()` reads for membership below, just with the
-   * `append_to_response` extras a real row needs (poster, title, year).
+   * Movies marked watched, most recent first — the same `watched` bucket
+   * `ids()` reads for membership below, just with the extras a real row needs
+   * (poster, title, year). On Trakt that bucket is the play history, and the
+   * artwork is a TMDB lookup rather than something the answer carries.
    */
   recentlyWatchedMovies(limit = 30): Observable<MdbItem[]> {
+    if (this.provider.usingTrakt()) return this.trakt.movies('watched', limit);
+
     return this.entries('watched', limit).pipe(
       map((entries) =>
         entries
@@ -168,6 +191,8 @@ export class LibraryService {
   }
 
   private bucketMovies(bucket: Bucket, limit: number): Observable<MdbItem[]> {
+    if (this.provider.usingTrakt()) return this.trakt.movies(bucket, limit);
+
     return this.entries(bucket, limit).pipe(
       map((entries) => entries.map(fromBucketEntry).filter((item): item is MdbItem => item !== null)),
     );
@@ -188,14 +213,62 @@ export class LibraryService {
     const cached = this.members.get(bucket);
     if (cached) return of(cached);
 
-    return this.http
-      .get<BucketResponse>(`${API.mdblist.base}${ROUTES[bucket].read}`, {
-        params: { apikey: this.auth.key() },
-      })
-      .pipe(
-        map((res) => {
-          if (bucket === 'watched' && res?.episodes) {
-            for (const entry of res.episodes) {
+    return this.provider.usingTrakt() ? this.traktIds(bucket) : this.mdblistIds(bucket);
+  }
+
+  /**
+   * The same three buckets read from Trakt. A null answer means there was no
+   * account to ask — an unlinked token, not an empty library — so whatever is
+   * cached stays as it is rather than being replaced by nothing.
+   */
+  private traktIds(bucket: Bucket): Observable<Set<number>> {
+    return this.trakt.membership(bucket).pipe(
+      map((membership) => {
+        if (!membership) return this.members.get(bucket) ?? new Set<number>();
+
+        if (bucket === 'watched') {
+          this.watchedEpisodes.clear();
+          for (const key of membership.episodeKeys) this.watchedEpisodes.add(key);
+        }
+
+        const set = new Set(membership.titleIds);
+        this.members.set(bucket, set);
+        this.watchedVersion.update((v) => v + 1);
+        return set;
+      }),
+    );
+  }
+
+  /**
+   * A bucket read to the end, not just its first page.
+   *
+   * mdblist paginates all three: without asking for the rest, an account with
+   * any real history gets back its most recent hundred entries and nothing
+   * else — which showed as a series whose older episodes had lost their tick,
+   * and a film in the collection whose button read "add".
+   */
+  private mdblistIds(bucket: Bucket): Observable<Set<number>> {
+    const page = (cursor?: string) =>
+      this.http.get<BucketResponse>(`${API.mdblist.base}${ROUTES[bucket].read}`, {
+        params: cursor
+          ? { apikey: this.auth.key(), limit: BUCKET_PAGE, cursor }
+          : { apikey: this.auth.key(), limit: BUCKET_PAGE },
+      });
+
+    return page().pipe(
+      expand((res, index) => {
+        const next = res?.pagination?.next_cursor;
+        return res?.pagination?.has_more && next && index + 2 <= BUCKET_MAX_PAGES
+          ? page(next)
+          : EMPTY;
+      }),
+      reduce((pages: BucketResponse[], res) => [...pages, res], []),
+      map((pages) => {
+        const set = new Set<number>();
+
+        for (const res of pages) {
+          if (bucket === 'watched') {
+            for (const entry of res?.episodes ?? []) {
               const ep = entry.episode;
               const showId = ep?.show?.ids?.tmdb;
               const season = ep?.season;
@@ -205,16 +278,18 @@ export class LibraryService {
               }
             }
           }
-          const set = new Set(collectTmdbIds(res));
-          this.members.set(bucket, set);
-          this.watchedVersion.update((v) => v + 1);
-          return set;
-        }),
-        catchError((err) => {
-          console.warn(`Failed to fetch ${bucket} bucket:`, err);
-          return of(this.members.get(bucket) ?? new Set<number>());
-        }),
-      );
+          for (const id of collectTmdbIds(res)) set.add(id);
+        }
+
+        this.members.set(bucket, set);
+        this.watchedVersion.update((v) => v + 1);
+        return set;
+      }),
+      catchError((err) => {
+        console.warn(`Failed to fetch ${bucket} bucket:`, err);
+        return of(this.members.get(bucket) ?? new Set<number>());
+      }),
+    );
   }
 }
 
@@ -258,6 +333,8 @@ interface BucketResponse {
   shows?: BucketEntry[];
   seasons?: unknown[];
   episodes?: BucketEpisodeEntry[];
+  /** `next_cursor` is what the following page is asked for by. */
+  pagination?: { has_more?: boolean; next_cursor?: string | null };
 }
 
 function collectTmdbIds(res: BucketResponse): number[] {

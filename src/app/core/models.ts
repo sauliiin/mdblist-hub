@@ -225,6 +225,8 @@ export interface TmdbVideo {
   site: string;
   type: string;
   official: boolean;
+  /** "pt" or "en" — the request asks for both, so the pick has to choose. */
+  iso_639_1?: string;
 }
 
 export interface TmdbDetail {
@@ -286,6 +288,21 @@ export interface FanartResponse {
   tvthumb?: FanartImage[];
   moviebackground?: FanartImage[];
   showbackground?: FanartImage[];
+}
+
+/**
+ * The few fields a card needs from TMDB when the row itself carries no
+ * artwork — which is every Trakt-backed row: Trakt answers with ids, a title
+ * and a year, and nothing to draw.
+ */
+export interface TmdbCard {
+  id: number;
+  title?: string;
+  name?: string;
+  poster_path: string | null;
+  release_date?: string;
+  first_air_date?: string;
+  runtime?: number | null;
 }
 
 /** A season as listed on the show record. */
@@ -501,6 +518,12 @@ export interface MediaDetail {
   runtime: number | null;
   seasons: number | null;
   episodes: number | null;
+  /**
+   * The show's seasons as TMDB lists them, so the detail page can offer the
+   * episode picker without a second call for the show record it already read.
+   * Empty for a film.
+   */
+  seasonList: TmdbSeasonSummary[];
   status: string | null;
   genres: string[];
   cast: TmdbCastMember[];

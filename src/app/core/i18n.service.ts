@@ -15,6 +15,14 @@ const PT: Record<string, string> = {
   'Default': 'Normal',
   'My lists on mdblist': 'Minhas listas no mdblist',
   'Sign out': 'Sair',
+  'Guest': 'Convidado',
+  'Browsing with the shared guest key': 'Navegando com a chave compartilhada de convidado',
+  'No mdblist key is saved for this Google account yet — paste yours below and it will be saved for your other devices.':
+    'Nenhuma chave do mdblist salva nesta conta Google ainda — cole a sua abaixo e ela ficará guardada para os seus outros aparelhos.',
+  'The key saved for this Google account is the shared guest one — paste your own below to replace it.':
+    'A chave guardada nesta conta Google é a de convidado — cole a sua abaixo para substituí-la.',
+  'The key saved for this Google account no longer works — paste a current one below.':
+    'A chave guardada nesta conta Google não funciona mais — cole uma atual abaixo.',
   'Data from mdblist, TMDB, Trakt and OMDb.': 'Dados de mdblist, TMDB, Trakt e OMDb.',
   'This product uses the TMDB API but is not endorsed or certified by TMDB.':
     'Este produto usa a API do TMDB, mas não é endossado nem certificado pelo TMDB.',
@@ -62,6 +70,29 @@ const PT: Record<string, string> = {
     'Necessário para ligar a sincronização de addons abaixo e a fonte da legenda no player entre este site, o APK e a TV. Não substitui a chave do mdblist.',
   'Connect': 'Conectar',
   'Sync addons and lists across devices': 'Sincronizar addons e listas entre aparelhos',
+
+  'No Trakt account connected': 'Nenhuma conta Trakt conectada',
+  'Connected as {handle}.': 'Conectado como {handle}.',
+  'Connect it to read your watchlist, collection, watched history and playback position from Trakt instead of mdblist — the same choice the TV and phone apps offer. Free Trakt accounts connect only one third-party app at a time.':
+    'Conecte para ler watchlist, coleção, assistidos e o ponto de reprodução do Trakt em vez do mdblist — a mesma escolha que os apps de TV e celular oferecem. Contas Trakt gratuitas conectam só um app de terceiros por vez.',
+  'Connect Trakt': 'Conectar Trakt',
+  'Asking Trakt for a code…': 'Pedindo um código ao Trakt…',
+  'Go to': 'Acesse',
+  'and enter:': 'e informe:',
+  'Code expires in {time}': 'O código expira em {time}',
+  'Connected — Trakt is now the library source.':
+    'Conectado — o Trakt agora é a fonte da biblioteca.',
+  'Library source': 'Fonte da biblioteca',
+  'Watchlist, watched, collection and continue watching':
+    'Watchlist, assistidos, coleção e continuar assistindo',
+  'the lists on the home page are always mdblist’s.':
+    'as listas da home são sempre do mdblist.',
+  'The code expired before it was approved. Ask for a new one.':
+    'O código expirou antes de ser aprovado. Peça um novo.',
+  'Access was denied on Trakt.': 'O acesso foi recusado no Trakt.',
+  'Could not reach Trakt. Try again.': 'Não foi possível falar com o Trakt. Tente de novo.',
+  'Trakt did not recognise this title.': 'O Trakt não reconheceu este título.',
+  'No Trakt account linked.': 'Conta Trakt não conectada.',
   'on': 'ligado',
   'off': 'desligado',
   'Stores your addon list and everything you renamed, hid or reordered on the home page in the cloud, linked to the Google account above. Enable it on devices signed in with that account and everything stays in sync, without requiring a Stremio account. Every change uploads automatically; there is nothing else to press.':
@@ -239,6 +270,10 @@ const PT: Record<string, string> = {
   'Mark as unwatched': 'Desmarcar como assistido',
   'Ratings': 'Notas',
   'Overview': 'Sinopse',
+  'Episodes': 'Episódios',
+  'Episodes watched in this season': 'Episódios assistidos nesta temporada',
+  'TMDB has no episodes listed for this season.':
+    'O TMDB não tem episódios cadastrados para esta temporada.',
   'Cast': 'Elenco',
   'View {name} biography': 'Ver biografia de {name}',
   'TMDB has no cast listed for this title.': 'O TMDB não tem elenco cadastrado para este título.',

@@ -6,11 +6,14 @@ import { API } from '../api.config';
 import { AuthService } from '../auth.service';
 import { noCache } from '../http-cache.interceptor';
 import { translate } from '../i18n.service';
+import { LibraryProviderService } from '../library-provider.service';
+import { TraktService } from '../trakt/trakt.service';
 import { PlaybackSession, ResumeItem, ScrobbleAction, ScrobbleTarget, toResumeItem } from './models';
 import { scrobbleBody } from './payload';
 
 /**
- * Playback scrobbling against mdblist.
+ * Playback scrobbling, against mdblist or Trakt — whichever
+ * `LibraryProviderService` says owns the account's library.
  *
  * mdblist keeps the session itself: `pause` and `stop` store the point, `start`
  * replaces it, and `/sync/playback` hands the paused ones back — which is what
@@ -30,6 +33,8 @@ const WRITE_BASE = Capacitor.isNativePlatform() ? API.mdblist.base : API.mdblist
 export class ScrobbleService {
   private readonly http = inject(HttpClient);
   private readonly auth = inject(AuthService);
+  private readonly trakt = inject(TraktService);
+  private readonly provider = inject(LibraryProviderService);
 
   /**
    * The raw body of the last rejection, surfaced in the player rather than
@@ -55,10 +60,17 @@ export class ScrobbleService {
    *
    * `sendBeacon` is the only request the browser commits to delivering once the
    * page is going away. It targets the same-origin proxy, so its JSON Blob does
-   * not need a cross-origin preflight before the page closes.
+   * not need a cross-origin preflight before the page closes. Trakt needs a
+   * bearer token a beacon cannot carry, so that path uses a keepalive `fetch`
+   * instead — see `TraktService.beaconStop`.
    */
   beaconStop(target: ScrobbleTarget, progress: number): void {
-    if (!this.auth.key() || (!target.imdbId && !target.tmdbId)) return;
+    if (this.provider.usingTrakt()) {
+      this.trakt.beaconStop(target, progress);
+      return;
+    }
+
+    if (!this.auth.canSaveToLibrary() || (!target.imdbId && !target.tmdbId)) return;
 
     const url = `${WRITE_BASE}/scrobble/stop?apikey=${encodeURIComponent(this.auth.key())}`;
     const payload = scrobbleBody(target, progress);
@@ -69,14 +81,33 @@ export class ScrobbleService {
     );
   }
 
-  /** Drops a paused session — the "remove from continue watching" action. */
-  clear(target: ScrobbleTarget): Observable<boolean> {
+  /**
+   * Drops a paused session — the "remove from continue watching" action.
+   *
+   * [playbackId] is only meaningful on Trakt, which deletes a session by its
+   * own id; mdblist addresses the title and ignores it. It rides on the resume
+   * row (`ResumeItem.playbackId`), which is where a caller finds it.
+   */
+  clear(target: ScrobbleTarget, playbackId?: number | null): Observable<boolean> {
+    if (this.provider.usingTrakt()) return this.trakt.clear(playbackId);
     return this.send('clear', target, 0);
   }
 
-  /** Paused sessions, newest progress first, ready for the home row. */
+  /** Paused sessions, ready for the home row, from whichever provider owns them. */
   sessions(): Observable<ResumeItem[]> {
-    if (!this.auth.key()) return of([]);
+    const source$ = this.provider.usingTrakt() ? this.trakt.sessions() : this.mdblistSessions();
+
+    // A title all but finished is not something to offer resuming, wherever
+    // the session came from.
+    return source$.pipe(
+      map((items) => items.filter((item) => item.progress > 1 && item.progress < 95)),
+    );
+  }
+
+  private mdblistSessions(): Observable<ResumeItem[]> {
+    // Same reason `send` refuses to write: what the shared account has half
+    // watched is not this visitor's continue-watching row.
+    if (!this.auth.canSaveToLibrary()) return of([]);
 
     return this.http
       .get<PlaybackSession[]>(`${API.mdblist.base}/sync/playback`, {
@@ -87,9 +118,7 @@ export class ScrobbleService {
         map((list) =>
           (Array.isArray(list) ? list : [])
             .map(toResumeItem)
-            .filter((item): item is ResumeItem => !!item)
-            // A title all but finished is not something to offer resuming.
-            .filter((item) => item.progress > 1 && item.progress < 95),
+            .filter((item): item is ResumeItem => !!item),
         ),
         catchError(() => of([])),
       );
@@ -107,7 +136,28 @@ export class ScrobbleService {
     target: ScrobbleTarget,
     progress: number,
   ): Observable<boolean> {
-    if (!this.auth.key() || (!target.imdbId && !target.tmdbId)) return of(false);
+    if (!target.imdbId && !target.tmdbId) return of(false);
+
+    if (this.provider.usingTrakt()) {
+      return this.trakt.scrobble(action, target, progress).pipe(
+        map((sent) => {
+          this.failure.set(null);
+          return sent;
+        }),
+        catchError((err: { status?: number; error?: unknown }) => {
+          this.failure.set(translate('scrobble/{action} returned {status}: {detail}', {
+            action,
+            status: err?.status ?? '?',
+            detail: describe(err?.error),
+          }));
+          return of(false);
+        }),
+      );
+    }
+
+    // The shared key can play but must not write: its account is the same one
+    // every other anonymous visitor is watching under.
+    if (!this.auth.canSaveToLibrary()) return of(false);
 
     return this.http
       .post(`${WRITE_BASE}/scrobble/${action}`, scrobbleBody(target, progress), {

@@ -22,10 +22,17 @@ export const authGuard: CanActivateFn = (_route, state) => {
     );
 };
 
-/** Keeps an already signed-in visitor away from the login screen. */
+/**
+ * Keeps an already signed-in visitor away from the login screen — unless the
+ * session is the shared one, which has no account behind it: bouncing that
+ * back to the home page left no way in to paste a key of one's own (or to
+ * connect Google) short of signing out first.
+ */
 export const guestGuard: CanActivateFn = () => {
   const auth = inject(AuthService);
   const router = inject(Router);
 
-  return auth.restore().pipe(map((ok) => !ok || router.createUrlTree(['/'])));
+  return auth
+    .restore()
+    .pipe(map((ok) => !ok || auth.isGuest() || router.createUrlTree(['/'])));
 };

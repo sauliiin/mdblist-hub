@@ -4,7 +4,7 @@ import { Observable, catchError, forkJoin, map, of } from 'rxjs';
 import { API } from './api.config';
 import { activeLocale, currentLanguage, tmdbLanguage } from './i18n.service';
 import {
-  GenreOption, MediaType, TmdbDetail, TmdbGenre, TmdbKeyword, TmdbPerson, TmdbReview,
+  GenreOption, MediaType, TmdbCard, TmdbDetail, TmdbGenre, TmdbKeyword, TmdbPerson, TmdbReview,
   TmdbSearchResult, TmdbSeason, toTmdbType,
 } from './models';
 
@@ -36,6 +36,10 @@ export class TmdbService {
           language: tmdbLanguage(),
           append_to_response: append,
           include_image_language: currentLanguage() === 'pt' ? 'pt,en,null' : 'en,pt,null',
+          // `videos` is filtered by `language` like everything else, and most
+          // titles have nothing tagged pt-BR — without this the Trailer button
+          // vanished on all but a handful of releases.
+          include_video_language: currentLanguage() === 'pt' ? 'pt,en,null' : 'en,pt,null',
         },
       })
       .pipe(catchError(() => of(null)));
@@ -48,6 +52,20 @@ export class TmdbService {
   season(tmdbId: number, season: number): Observable<TmdbSeason | null> {
     return this.http
       .get<TmdbSeason>(`${API.tmdb.base}/tv/${tmdbId}/season/${season}`, {
+        params: { api_key: API.tmdb.key, language: tmdbLanguage() },
+      })
+      .pipe(catchError(() => of(null)));
+  }
+
+  /**
+   * Just enough of a title to draw a card with — poster, name, year — from a
+   * bare record with none of `detail()`'s appended extras. The Trakt-backed
+   * rows are what need it: Trakt hands back ids and a title and no artwork at
+   * all, where an mdblist bucket entry already carries its poster.
+   */
+  card(type: MediaType, tmdbId: number): Observable<TmdbCard | null> {
+    return this.http
+      .get<TmdbCard>(`${API.tmdb.base}/${toTmdbType(type)}/${tmdbId}`, {
         params: { api_key: API.tmdb.key, language: tmdbLanguage() },
       })
       .pipe(catchError(() => of(null)));

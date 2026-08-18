@@ -15,7 +15,8 @@ export const THEME_OPTIONS: readonly ThemeOption[] = [
   { key: 'primefly', label: 'Primefly' },
 ];
 
-const DEFAULT_KEY = THEME_OPTIONS[0].key;
+/** What a first-time visitor sees, before ever opening the appearance menu. */
+const DEFAULT_KEY = 'netflixy';
 
 /**
  * The chosen appearance, persisted locally and — once a Google account is

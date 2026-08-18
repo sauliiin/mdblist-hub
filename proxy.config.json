@@ -5,6 +5,18 @@
     "changeOrigin": true,
     "pathRewrite": { "^/mdblist-api": "" }
   },
+  "/trakt-api": {
+    "target": "https://api.trakt.tv",
+    "secure": true,
+    "changeOrigin": true,
+    "pathRewrite": { "^/trakt-api": "" }
+  },
+  "/trakt-auth": {
+    "target": "https://auth.trakt.tv",
+    "secure": true,
+    "changeOrigin": true,
+    "pathRewrite": { "^/trakt-auth": "" }
+  },
   "/opensubtitles-api": {
     "target": "https://api.opensubtitles.com",
     "secure": true,

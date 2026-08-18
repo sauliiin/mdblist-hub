@@ -3,6 +3,7 @@ import {
 } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { AuthService } from './core/auth.service';
+import { GoogleAuthService } from './core/google-auth.service';
 import { AppLanguage, I18nPipe, I18nService } from './core/i18n.service';
 import { PlatformService } from './core/platform.service';
 import { THEME_OPTIONS, ThemePrefsService } from './core/theme-prefs.service';
@@ -70,6 +71,38 @@ export class App {
 
   protected readonly user = this.auth.user;
   protected readonly customAlias = this.aliasPrefs.alias;
+  /** On the shared key, i.e. no mdblist account of one's own behind the session. */
+  protected readonly sharedKey = this.auth.isGuest;
+  private readonly googleProfile = inject(GoogleAuthService).profile;
+
+  /**
+   * Who the header says you are, in the order that identity is actually
+   * established: your own alias, then the Google account you signed in with,
+   * then the mdblist account the key belongs to.
+   *
+   * The shared key signs in as an mdblist account that belongs to the project
+   * rather than to whoever pressed the button, so its name never stands in as
+   * yours — with nothing else to go on, that session is "Guest".
+   */
+  protected readonly displayName = computed(() => {
+    const alias = this.customAlias();
+    if (alias) return alias;
+
+    const google = this.googleProfile();
+    if (google?.displayName) return google.displayName;
+
+    const account = this.user();
+    if (!account) return '';
+    return this.sharedKey() ? this.i18n.t('Guest') : account.name || account.username;
+  });
+
+  /** True only when nothing identifies the visitor — see `displayName`. */
+  protected readonly isGuest = computed(() => this.sharedKey() && !this.googleProfile());
+
+  /** The Google picture wins for the same reason its name does. */
+  protected readonly avatarUrl = computed(
+    () => this.googleProfile()?.photoUrl || (this.sharedKey() ? '' : this.user()?.avatar_url) || '',
+  );
   /** Points at the signed-in account's own page on mdblist.com. */
   protected readonly listsUrl = this.auth.listsUrl;
   /** Set when the avatar 404s, so the initial takes over. */

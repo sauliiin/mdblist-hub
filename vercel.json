@@ -5,6 +5,14 @@
       "destination": "https://api.mdblist.com/:path*"
     },
     {
+      "source": "/trakt-api/:path*",
+      "destination": "https://api.trakt.tv/:path*"
+    },
+    {
+      "source": "/trakt-auth/:path*",
+      "destination": "https://auth.trakt.tv/:path*"
+    },
+    {
       "source": "/opensubtitles-api/:path*",
       "destination": "https://api.opensubtitles.com/api/v1/:path*"
     },

@@ -65,6 +65,11 @@ export interface ResumeItem {
   type: MediaType;
   season: number | null;
   episode: number | null;
+  /**
+   * Trakt's id for the *session*, set only on Trakt-backed rows: a paused
+   * session there is dropped by its own id, where mdblist addresses the title.
+   */
+  playbackId?: number | null;
 }
 
 /**

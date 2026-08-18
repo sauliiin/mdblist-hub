@@ -10,7 +10,9 @@ Você entra com a chave da API da sua própria conta do mdblist, e o site mostra
 as **suas** listas.
 
 Roda inteiramente no navegador — não há backend, banco de dados nem build de
-servidor. As quatro APIs usadas respondem com `Access-Control-Allow-Origin: *`.
+servidor. As APIs de leitura respondem com `Access-Control-Allow-Origin: *`; as
+duas exceções (escrita no mdblist e o Trakt inteiro) passam por proxies
+same-origin declarados em `proxy.config.json`, `vercel.json` e `worker.js`.
 
 **Site:** [openstream.com.br](https://openstream.com.br/)
 
@@ -26,9 +28,10 @@ npm start       # http://localhost:4200
 npm run build   # gera dist/mdblist-hub
 ```
 
-Use `npm start` para o uso normal: os botões de watchlist/coleção/assistido
-dependem do proxy declarado em `proxy.config.json`, que só existe no dev server
-(o porquê está em [Escrita no mdblist](#escrita-no-mdblist)).
+Use `npm start` para o uso normal: os botões de watchlist/coleção/assistido e
+tudo que fala com o Trakt dependem dos proxies declarados em
+`proxy.config.json`, que só existem no dev server (o porquê está em
+[Escrita no mdblist](#escrita-no-mdblist)).
 
 O `.npmrc` do projeto traz `bin-links=false`, necessário em sistemas de arquivos
 sem suporte a symlinks (exFAT, por exemplo). Por isso os scripts do
@@ -100,8 +103,15 @@ trailer e ficha técnica. Além disso:
 
 - **Elenco clicável** — abre a biografia do ator vinda da Wikipedia, com data de
   nascimento, idade, local e os trabalhos mais conhecidos.
-- **Ações do mdblist** — adicionar à watchlist, à coleção e marcar como
-  assistido, com o estado atual já refletido no botão.
+- **Ações da biblioteca** — adicionar à watchlist, à coleção e marcar como
+  assistido, com o estado atual já refletido no botão. Vale para o mdblist ou
+  para o Trakt, conforme a fonte escolhida em `/addons`.
+- **Episódios** — séries ganham a fileira de episódios que os apps de TV e
+  celular já tinham: seletor de temporada, still de cada episódio, sinopse,
+  duração, a **data de exibição** ("sex., 18/12/2026" em português, "Fri, Dec
+  18, 2026" em inglês) e um **✓ nos que já foram assistidos**, com o contador
+  "✓ 4/10" ao lado do título da seção. Episódio ainda não exibido tem a data
+  destacada; clicar em qualquer um abre o player já naquele episódio.
 
 As tiras horizontais (elenco, e "mais conhecido por" no perfil do ator) têm
 setas de navegação com uma leve animação de "pulinho" para indicar que dá pra
@@ -156,6 +166,40 @@ Duas coisas valem nota:
 O `/sync/playback` devolve `progress_at_update`, `updated_at_ts` e `runtime`
 justamente para o cliente projetar o ponto atual de uma sessão ainda rodando;
 `toResumeItem` faz essa conta e congela o valor quando a sessão está pausada.
+
+### Trakt como fonte da biblioteca
+
+Watchlist, coleção, assistidos e o ponto de reprodução podem vir do **Trakt** em
+vez do mdblist — a mesma opção que os apps de TV e celular oferecem, e a mesma
+credencial (a do addon `plugin.video.pov` do Kodi; criar um registro novo no
+Trakt hoje exige VIP).
+
+A conexão é o **device flow**: `/addons` pede um código ao Trakt, mostra o código
+na tela e fica perguntando de tempos em tempos se já foi aprovado. Você digita o
+código em `auth.trakt.tv/activate` — no mesmo navegador ou no celular — e a
+conexão se fecha sozinha. Conectar **já troca a fonte para o Trakt**: passar por
+um device flow é o pedido de usar o Trakt, e perguntar de novo depois seria
+perguntar duas vezes. O par de tokens fica no `localStorage`, e o access token
+(sete dias de validade) é renovado sozinho na primeira resposta `401`.
+
+O que muda com o Trakt selecionado:
+
+| | mdblist | Trakt |
+| --- | --- | --- |
+| Watchlist / coleção | `/watchlist/items`, `/sync/collection` | `sync/watchlist/{tipo}`, `sync/collection/{tipo}` |
+| Assistidos | `/sync/watched` (episódios em lista plana) | `sync/watched/shows` (episódios aninhados por temporada) |
+| Marcar como assistido | `POST /sync/watched` | `POST sync/history` — no Trakt "assistido" é o histórico, não um balde |
+| Continuar assistindo | `GET /sync/playback` | `sync/playback/movies` + `/episodes`, duas chamadas juntadas aqui |
+| Remover da fileira | `scrobble/clear` pelo título | `DELETE sync/playback/{id}`, pelo id da sessão |
+
+Duas diferenças de formato valem nota. O Trakt não tem nada parecido com o
+`unified=true` do mdblist, então toda leitura são **duas chamadas** (filmes e
+séries) juntadas localmente. E as leituras paginadas do Trakt devolvem **dez
+itens** por padrão quando não se pede outra coisa — não "tudo" —, então cada uma
+pede 100 por página e caminha até uma página vir curta.
+
+O que **não** muda: as fileiras da home continuam sendo as listas do mdblist, que
+são o motivo de o site existir. A chave do mdblist segue obrigatória para entrar.
 
 ### Sincronizar addons entre aparelhos
 
@@ -369,8 +413,23 @@ até aceita, mas interpreta errado. Por isso as escritas passam pelo proxy do de
 server (`proxy.config.json`, prefixo `/mdblist-api`). As leituras são GET comum e
 não precisam de proxy.
 
-Se for servir o `dist/` em outro lugar, replique essa regra de proxy no servidor
-(nginx, Caddy, etc.) — sem ela, as três ações de biblioteca não gravam.
+Os prefixos são quatro, e os três arquivos que os declaram — `proxy.config.json`
+(dev server), `vercel.json` e `worker.js` (produção) — precisam concordar:
+
+```
+/mdblist-api       → https://api.mdblist.com
+/opensubtitles-api → https://api.opensubtitles.com/api/v1
+/trakt-api         → https://api.trakt.tv
+/trakt-auth        → https://auth.trakt.tv
+```
+
+O Trakt entra aqui por um motivo um pouco diferente do mdblist: ele não devolve
+cabeçalho de CORS nenhum, nem nas leituras. Pelo proxy tudo vira same-origin, que
+nunca é pré-verificado.
+
+Se for servir o `dist/` em outro lugar, replique essas regras de proxy no
+servidor (nginx, Caddy, etc.) — sem elas, as três ações de biblioteca não gravam
+e o Trakt não conecta.
 
 ---
 
@@ -419,12 +478,15 @@ histórico), é por isso que ela não é embutida no bundle.
 
 ## Limitações conhecidas
 
-- **Trakt** — a API não é chamada diretamente. A chave usada pelos addons de
-  Kodi que inspiraram este projeto retorna `403` em todos os endpoints (client id
-  revogado), e a rota `/{tipo}/tmdb/{id}/comments` nem existe na API do Trakt
-  (responde `405`). As reviews chegam espelhadas pelo mdblist, como descrito
-  acima. Para voltar a usar o Trakt direto, é preciso um client id válido e um
-  proxy — a API do Trakt também não responde ao preflight.
+- **Trakt** — a API responde, mas não ao navegador: não manda cabeçalho de CORS
+  nenhum, então tanto `api.trakt.tv` quanto `auth.trakt.tv` são chamados pelos
+  proxies same-origin `/trakt-api` e `/trakt-auth` (o APK, que não tem essa
+  regra, fala direto). O client id/secret são emprestados de um addon de Kodi e
+  vão no bundle, como vão no APK: é a identidade de outro projeto, revogável a
+  qualquer momento — se tudo do Trakt começar a falhar de uma vez, é o primeiro
+  lugar para olhar. Contas Trakt gratuitas conectam **um app de terceiros por
+  vez**. As reviews continuam chegando espelhadas pelo mdblist: a rota
+  `/{tipo}/tmdb/{id}/comments` não existe na API do Trakt (responde `405`).
 - **OMDb** — o plano gratuito tem cota de 1000 requisições por dia. Estourada a
   cota, a página apenas omite os campos que vêm dele (classificação indicativa,
   prêmios, bilheteria), sem exibir erro. As notas não dependem do OMDb.
@@ -460,14 +522,15 @@ src/app/
     stremio/  protocolo de addon: manifests, streams, legendas (SRT→VTT),
               e login da conta Stremio para importar a coleção
     sync/     lista de addons no Realtime Database, via REST
-    scrobble/ pontos de reprodução no mdblist (start/pause/stop/clear)
+    scrobble/ pontos de reprodução (start/pause/stop/clear), mdblist ou Trakt
+    trakt/    device flow, tokens e a API do Trakt como fonte de biblioteca
     tv/       detecção de Android TV e navegação espacial por D-pad
   ui/         media-card, media-row (carrossel), rating-badges, person-modal,
               video-player (player próprio), bottom-nav (tabs no celular)
   features/
     login/    chave da API do mdblist
     home/     destaque + continuar assistindo + fileiras + busca/gênero
-    detail/   backdrop, notas, sinopse, elenco, reviews, recomendações
+    detail/   backdrop, notas, sinopse, episódios, elenco, reviews, recomendações
     addons/   instalar e remover addons do Stremio
     player/   fontes, seletor de episódio, legendas, <video>
 ```

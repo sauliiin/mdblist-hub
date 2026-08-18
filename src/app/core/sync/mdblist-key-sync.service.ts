@@ -34,7 +34,12 @@ export class MdblistKeySyncService {
         }),
       ),
       map((profile) => profile?.mdblistApiKey?.trim() || null),
-      catchError(() => of(null)),
+      catchError((error: unknown) => {
+        // Silent until now, which made "connected Google but nothing happened"
+        // impossible to tell apart from "this account has no key saved".
+        console.warn('[mdblist-key-sync] could not read users/%s/profile', uid, error);
+        return of(null);
+      }),
     );
   }
 

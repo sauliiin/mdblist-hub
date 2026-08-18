@@ -474,6 +474,54 @@
   &.danger:hover { border-color: rgba(239, 68, 68, 0.5); color: #fca5a5; }
 }
 
+/* --------------------------------------------------------------- trakt */
+
+/* The Trakt card is Trakt's own red rather than the teal of cloud sync. */
+.trakt {
+  border-color: rgba(237, 28, 36, 0.3);
+  background: linear-gradient(180deg, rgba(237, 28, 36, 0.1), rgba(237, 28, 36, 0.02));
+}
+
+.trakt-link {
+  margin-top: 14px;
+  padding: 14px 16px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+
+  a { color: var(--accent-2); }
+}
+
+/* Read aloud from across a room, typed on a phone — big and unambiguous. */
+.trakt-code {
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: 0.22em;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.provider {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+
+  .row-actions {
+    flex-direction: row;
+    margin-top: 10px;
+  }
+
+  /* Which source is answering, not merely hovered. */
+  .ghost.on {
+    border-color: transparent;
+    color: #fff;
+    background: linear-gradient(120deg, var(--accent), var(--accent-2));
+  }
+}
+
 /* ---------------------------------------------------------------- note */
 
 .note {

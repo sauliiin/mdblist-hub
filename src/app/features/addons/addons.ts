@@ -1,5 +1,5 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { Observable, forkJoin } from 'rxjs';
+import { ChangeDetectionStrategy, Component, OnDestroy, computed, inject, signal } from '@angular/core';
+import { Observable, Subscription, forkJoin } from 'rxjs';
 import { GoogleAuthService } from '../../core/google-auth.service';
 import { I18nPipe, I18nService } from '../../core/i18n.service';
 import { AddonsService } from '../../core/stremio/addons.service';
@@ -9,6 +9,9 @@ import { AddonSyncService } from '../../core/sync/addon-sync.service';
 import { ListPrefsSyncService } from '../../core/sync/list-prefs-sync.service';
 import { PreferencesSyncService } from '../../core/sync/preferences-sync.service';
 import { AliasPrefsService } from '../../core/alias-prefs.service';
+import { LibraryProvider, LibraryProviderService } from '../../core/library-provider.service';
+import { TraktLinkState } from '../../core/trakt/models';
+import { TraktAuthService } from '../../core/trakt/trakt-auth.service';
 
 /** Addons worth pointing people at, with what each one is for. */
 interface Suggestion {
@@ -38,7 +41,7 @@ const AIOSTREAMS_ELFHOSTED: Suggestion = {
   templateUrl: './addons.html',
   styleUrl: './addons.scss',
 })
-export class Addons {
+export class Addons implements OnDestroy {
   private readonly service = inject(AddonsService);
   private readonly stremio = inject(StremioAccountService);
   private readonly cloud = inject(AddonSyncService);
@@ -46,6 +49,8 @@ export class Addons {
   private readonly listCloud = inject(ListPrefsSyncService);
   private readonly googleAuth = inject(GoogleAuthService);
   private readonly preferencesSync = inject(PreferencesSyncService);
+  private readonly traktAuth = inject(TraktAuthService);
+  private readonly libraryProvider = inject(LibraryProviderService);
   private readonly i18n = inject(I18nService);
 
   // ------------------------------------------------------ firebase sync
@@ -60,6 +65,50 @@ export class Addons {
   protected readonly syncFailure = computed(() => this.cloud.error() ?? this.listCloud.error());
   protected readonly lastSync = computed(() => this.cloud.lastSync() ?? this.listCloud.lastSync());
   protected readonly pulled = signal<number | null>(null);
+
+  // --------------------------------------------------------------- trakt
+  protected readonly traktLinked = this.traktAuth.linked;
+  protected readonly traktAccount = this.traktAuth.account;
+  /** What the user picked, not what is answering — see `LibraryProviderService`. */
+  protected readonly provider = this.libraryProvider.preference;
+
+  /** Non-null only while a link attempt is running. */
+  private readonly linkState = signal<TraktLinkState | null>(null);
+  private linkRun: Subscription | null = null;
+
+  protected readonly traktBusy = computed(() => {
+    const state = this.linkState();
+    return state?.kind === 'requesting' || state?.kind === 'awaiting';
+  });
+
+  protected readonly traktCode = computed(() => {
+    const state = this.linkState();
+    return state?.kind === 'awaiting' ? state.code : null;
+  });
+
+  /** "8:31" — the same countdown the TV app prints under the code. */
+  protected readonly traktCountdown = computed(() => {
+    const state = this.linkState();
+    if (state?.kind !== 'awaiting') return '';
+    const seconds = state.secondsRemaining;
+    return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+  });
+
+  protected readonly traktJustLinked = computed(() => this.linkState()?.kind === 'linked');
+
+  protected readonly traktError = computed(() => {
+    const state = this.linkState();
+    if (state?.kind !== 'failed') return null;
+
+    switch (state.reason) {
+      case 'expired':
+        return this.i18n.t('The code expired before it was approved. Ask for a new one.');
+      case 'denied':
+        return this.i18n.t('Access was denied on Trakt.');
+      default:
+        return this.i18n.t('Could not reach Trakt. Try again.');
+    }
+  });
 
   protected readonly installed = this.service.installed;
 
@@ -288,6 +337,58 @@ export class Addons {
         this.syncError.set(err.message);
       },
     });
+  }
+
+  // --------------------------------------------------------------- trakt
+
+  /**
+   * Runs the device flow to the end: the panel renders whatever the last
+   * emission says, and a successful link makes Trakt the library source
+   * outright — going through a device flow *is* the request to use it, and
+   * asking the user to then pick the option they just linked would be asking
+   * twice. Same call the TV app makes at the same point.
+   */
+  protected linkTrakt(): void {
+    if (this.traktBusy()) return;
+
+    this.linkRun?.unsubscribe();
+    this.linkRun = this.traktAuth.link().subscribe((state) => {
+      this.linkState.set(state);
+      if (state.kind === 'linked') this.libraryProvider.setProvider('trakt');
+    });
+  }
+
+  protected cancelTraktLink(): void {
+    this.linkRun?.unsubscribe();
+    this.linkRun = null;
+    this.linkState.set(null);
+  }
+
+  /**
+   * Unlinking leaves the preference alone but not the effective provider:
+   * with no token, `LibraryProviderService` falls back to mdblist on its own,
+   * so the rows keep working instead of emptying.
+   */
+  protected unlinkTrakt(): void {
+    this.cancelTraktLink();
+    this.traktAuth.unlink();
+  }
+
+  /**
+   * Picking Trakt with no account linked opens the link flow instead of
+   * saving a setting that could not mean anything yet — the switch is only a
+   * switch once there is something on the other side of it.
+   */
+  protected pickProvider(provider: LibraryProvider): void {
+    if (provider === 'trakt' && !this.traktLinked()) {
+      this.linkTrakt();
+      return;
+    }
+    this.libraryProvider.setProvider(provider);
+  }
+
+  ngOnDestroy(): void {
+    this.linkRun?.unsubscribe();
   }
 
   protected configureUrl(addon: InstalledAddon): string | null {

@@ -2,10 +2,18 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Observable, catchError, map, of, shareReplay, tap } from 'rxjs';
 import { API } from './api.config';
+import { GoogleAuthService } from './google-auth.service';
 import { clearHttpCache } from './http-cache.interceptor';
 import { MdbUser } from './models';
 
 const STORAGE_KEY = 'mdblist-hub.apikey';
+
+/**
+ * Shared read-only key behind "Continue as Guest". It belongs to no one in
+ * particular, so anything that writes to an account — the library buttons, the
+ * key synced to a Google account — has to stay out of its way.
+ */
+export const GUEST_KEY = 'omqfcrbt1dm8hj98mwuvgpg9n';
 
 /**
  * Holds the visitor's mdblist API key and the account behind it.
@@ -17,6 +25,7 @@ const STORAGE_KEY = 'mdblist-hub.apikey';
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private readonly http = inject(HttpClient);
+  private readonly google = inject(GoogleAuthService);
 
   private readonly apikey = signal<string>(stored());
   private readonly account = signal<MdbUser | null>(null);
@@ -27,8 +36,23 @@ export class AuthService {
   readonly key = this.apikey.asReadonly();
   readonly user = this.account.asReadonly();
 
-  /** True if the user logged in using the hardcoded visitor API key. */
-  readonly isGuest = computed(() => this.apikey() === 'omqfcrbt1dm8hj98mwuvgpg9n');
+  /** True if the session is running on the shared visitor key. */
+  readonly isGuest = computed(() => this.apikey() === GUEST_KEY);
+
+  /**
+   * Whether playback is offered. Streams come from the installed addons, not
+   * from mdblist, so signing in with Google is identity enough — what the
+   * shared key must not do is *write*, which is `canSaveToLibrary` below.
+   */
+  readonly canPlay = computed(() => !this.isGuest() || this.google.linked());
+
+  /**
+   * Whether watchlist/collection/watched can be saved — a key of one's own
+   * and nothing else. The shared key would file every visitor's titles into
+   * the same project account, where all the others would then read them back
+   * as their own library.
+   */
+  readonly canSaveToLibrary = computed(() => !!this.apikey() && !this.isGuest());
 
   /** The signed-in account's public list page on mdblist.com. */
   readonly listsUrl = computed(() => {

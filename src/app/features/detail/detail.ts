@@ -17,13 +17,16 @@ import {
 } from '../../core/models';
 import { ThemePrefsService } from '../../core/theme-prefs.service';
 import { TvService } from '../../core/tv/tv.service';
+import { EpisodeRow } from './episode-row/episode-row';
 import { PersonModal } from '../../ui/person-modal/person-modal';
 import { RatingBadges } from '../../ui/rating-badges/rating-badges';
 import { ScrollTrack } from '../../ui/scroll-track/scroll-track';
 
 @Component({
   selector: 'app-detail',
-  imports: [DatePipe, DecimalPipe, I18nPipe, RouterLink, PersonModal, RatingBadges, ScrollTrack],
+  imports: [
+    DatePipe, DecimalPipe, I18nPipe, RouterLink, EpisodeRow, PersonModal, RatingBadges, ScrollTrack,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './detail.html',
   styleUrl: './detail.scss',
@@ -35,7 +38,8 @@ export class Detail {
   private readonly libraryService = inject(LibraryService);
   private readonly auth = inject(AuthService);
   protected readonly tv = inject(TvService);
-  protected readonly isGuest = this.auth.isGuest;
+  protected readonly canPlay = this.auth.canPlay;
+  protected readonly canSaveToLibrary = this.auth.canSaveToLibrary;
   protected readonly theme = inject(ThemePrefsService).themeKey;
   private readonly i18n = inject(I18nService);
   protected readonly formatYear = formatYear;

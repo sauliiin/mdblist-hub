@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { of, switchMap } from 'rxjs';
-import { AuthService } from '../../core/auth.service';
+import { catchError, of, switchMap } from 'rxjs';
+import { AuthService, GUEST_KEY } from '../../core/auth.service';
 import { GoogleAuthService } from '../../core/google-auth.service';
 import { I18nPipe, I18nService } from '../../core/i18n.service';
 import { ListPrefsSyncService } from '../../core/sync/list-prefs-sync.service';
@@ -33,6 +33,8 @@ export class Login {
   protected readonly revealed = signal(false);
   /** True while trying the Google-linked key before asking for one by hand — see `tryAutoRestore`. */
   protected readonly autoRestoring = signal(false);
+  /** Why the Google-linked restore ended on this form instead of signing in. */
+  protected readonly restoreNote = signal<string | null>(null);
 
   // -------------------------------------------------------- Google account
   /**
@@ -71,14 +73,26 @@ export class Login {
   protected submit(event: Event): void {
     event.preventDefault();
     const key = this.key().trim();
-    if (!key || this.busy()) return;
+    if (!key) return;
+
+    this.signIn(key);
+  }
+
+  protected loginAsGuest(): void {
+    this.signIn(GUEST_KEY);
+  }
+
+  private signIn(key: string): void {
+    if (this.busy()) return;
 
     this.busy.set(true);
     this.error.set(null);
 
     this.auth.signIn(key).subscribe({
       next: () => {
-        if (this.google.linked()) {
+        // The guest key is shared and belongs to no one — syncing it would
+        // hand it back on every other device as if it were the user's own.
+        if (this.google.linked() && key !== GUEST_KEY) {
           // Bring this browser's widget order, renames and hidden lists in
           // line with whatever is already stored under that account.
           this.listPrefsSync.pull().subscribe({ error: () => undefined });
@@ -87,9 +101,7 @@ export class Login {
           this.mdblistKeySync.push(key).subscribe({ error: () => undefined });
         }
 
-        // `next` carries the page the guard bounced away from, if any.
-        const next = this.route.snapshot.queryParamMap.get('next');
-        this.router.navigateByUrl(next || '/');
+        this.goNext();
       },
       error: (err: { status?: number }) => {
         this.busy.set(false);
@@ -100,16 +112,6 @@ export class Login {
         );
       },
     });
-  }
-
-  protected loginAsGuest(): void {
-    if (this.busy()) return;
-    this.key.set('omqfcrbt1dm8hj98mwuvgpg9n');
-    // Using an arbitrary fake event to satisfy the signature if needed,
-    // or just call the logic. But submit expects an event.
-    // Instead we can just duplicate the submit logic slightly or mock the event.
-    const fakeEvent = new Event('submit');
-    this.submit(fakeEvent);
   }
 
   // -------------------------------------------------------- Google account
@@ -127,7 +129,7 @@ export class Login {
         // whatever was last synced, without blocking the button on it.
         this.preferencesSync.pull().subscribe({ error: () => undefined });
 
-        if (this.auth.user()) {
+        if (this.auth.user() && !this.auth.isGuest()) {
           // The mdblist key was already signed in on this browser — pull
           // widget order/renames/hidden lists now too (signing in with the
           // key alone already covers the other order, see `submit` above),
@@ -135,9 +137,16 @@ export class Login {
           this.listPrefsSync.pull().subscribe({ error: () => undefined });
           this.mdblistKeySync.push(this.auth.key()).subscribe({ error: () => undefined });
         } else {
-          // Not signed in yet here — see if this Google account already has
-          // a key stored, so it doesn't have to be typed by hand.
-          this.tryAutoRestore();
+          // Not signed in with a real account here — see if this Google
+          // account already has a key stored, so it doesn't have to be typed
+          // by hand. A guest session is worth replacing with it.
+          //
+          // `enterAnyway`: signing into Google is a deliberate "let me in",
+          // so it ends inside the app either way. With no key to restore that
+          // means the shared catalog, but under the Google name rather than
+          // as an anonymous guest — the key can still be pasted later from
+          // this same screen.
+          this.tryAutoRestore({ enterAnyway: true });
         }
       },
       error: (err: Error) => {
@@ -158,23 +167,67 @@ export class Login {
    * or the stored key no longer validates) just leaves the form as it was —
    * this never surfaces an error of its own.
    */
-  private tryAutoRestore(): void {
-    if (this.auth.user() || this.autoRestoring()) return;
+  private tryAutoRestore(options: { enterAnyway?: boolean } = {}): void {
+    if ((this.auth.user() && !this.auth.isGuest()) || this.autoRestoring()) return;
 
     this.autoRestoring.set(true);
+    this.restoreNote.set(null);
+
     this.mdblistKeySync
       .pull()
-      .pipe(switchMap((remoteKey) => (remoteKey ? this.auth.signIn(remoteKey) : of(null))))
+      .pipe(
+        switchMap((remoteKey) => {
+          if (!remoteKey) {
+            this.restoreNote.set(
+              this.i18n.t('No mdblist key is saved for this Google account yet — paste yours below and it will be saved for your other devices.'),
+            );
+            return of(null);
+          }
+
+          // Older builds stored the guest key here; signing back in with it
+          // would drop the account straight into the read-only session again.
+          if (remoteKey === GUEST_KEY) {
+            this.restoreNote.set(
+              this.i18n.t('The key saved for this Google account is the shared guest one — paste your own below to replace it.'),
+            );
+            return of(null);
+          }
+
+          return this.auth.signIn(remoteKey).pipe(
+            catchError(() => {
+              this.restoreNote.set(
+                this.i18n.t('The key saved for this Google account no longer works — paste a current one below.'),
+              );
+              return of(null);
+            }),
+          );
+        }),
+      )
       .subscribe({
         next: (user) => {
           this.autoRestoring.set(false);
-          if (!user) return;
+
+          if (!user) {
+            if (!options.enterAnyway) return;
+            // Nothing to restore, but the Google click was a "let me in":
+            // fall back to the shared catalog, or just go if a session for it
+            // is already open.
+            if (this.auth.user()) this.goNext();
+            else this.signIn(GUEST_KEY);
+            return;
+          }
 
           this.listPrefsSync.pull().subscribe({ error: () => undefined });
-          const next = this.route.snapshot.queryParamMap.get('next');
-          this.router.navigateByUrl(next || '/');
+          this.goNext();
         },
         error: () => this.autoRestoring.set(false),
       });
   }
+
+  /** Back to whatever the guard bounced away from (`next`), or the home page. */
+  private goNext(): void {
+    const next = this.route.snapshot.queryParamMap.get('next');
+    this.router.navigateByUrl(next || '/');
+  }
+
 }
