@@ -272,6 +272,8 @@ const PT: Record<string, string> = {
   'Overview': 'Sinopse',
   'Episodes': 'Episódios',
   'Episodes watched in this season': 'Episódios assistidos nesta temporada',
+  'Dim unwatched': 'Escurecer não assistidos',
+  'Dim the still of every episode not yet watched': 'Escurece a imagem de todo episódio ainda não assistido',
   'TMDB has no episodes listed for this season.':
     'O TMDB não tem episódios cadastrados para esta temporada.',
   'Cast': 'Elenco',

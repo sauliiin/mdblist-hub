@@ -6,6 +6,15 @@
         ✓ {{ watched }}
       </span>
     }
+    <button
+      type="button"
+      class="dim-toggle"
+      [class.on]="dimUnwatched()"
+      [attr.aria-pressed]="dimUnwatched()"
+      [title]="'Dim the still of every episode not yet watched' | i18n"
+      (click)="toggleDimUnwatched()">
+      {{ 'Dim unwatched' | i18n }}
+    </button>
   </div>
 
   @if (seasons().length > 1) {
@@ -33,6 +42,7 @@
         <a
           class="episode"
           [class.seen]="isWatched(ep)"
+          [class.dim-unwatched]="dimUnwatched() && !isWatched(ep)"
           [class.static]="!playable()"
           [routerLink]="playable() ? watchLink() : null"
           [queryParams]="query(ep)">

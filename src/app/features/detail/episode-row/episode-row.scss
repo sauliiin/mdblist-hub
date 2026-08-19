@@ -17,6 +17,28 @@
   margin-bottom: 16px;
 }
 
+.dim-toggle {
+  margin-left: auto;
+  padding: 5px 12px;
+  border-radius: 99px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-dim);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: border-color 0.25s var(--ease), background 0.25s var(--ease), color 0.25s var(--ease);
+
+  &:hover { border-color: var(--border-strong); color: var(--text); }
+
+  &.on {
+    color: #fff;
+    background: linear-gradient(120deg, var(--accent), var(--accent-2));
+    border-color: transparent;
+  }
+}
+
 .block-title {
   font-size: 18px;
   margin: 0;
@@ -109,6 +131,16 @@
   /* Watched episodes step back so the unwatched ones read first. */
   &.seen .still img { opacity: 0.55; }
 
+  /*
+   * The opt-in opposite of the rule above: instead of the watched stills
+   * stepping back a little, the unwatched ones step back a lot — for anyone
+   * who wants "what's left" to jump out on a season grid full of otherwise
+   * near-identical stills. Hovering lifts the blur, so checking what an
+   * episode actually looks like never costs a click.
+   */
+  &.dim-unwatched .still img { filter: blur(6px) brightness(0.6); }
+  &.dim-unwatched:hover .still img { filter: blur(0) brightness(1); }
+
   .still {
     position: relative;
     display: block;
@@ -122,7 +154,7 @@
       height: 100%;
       object-fit: cover;
       display: block;
-      transition: opacity 0.3s var(--ease);
+      transition: opacity 0.3s var(--ease), filter 0.3s var(--ease);
     }
   }
 

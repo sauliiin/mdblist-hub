@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, catchError, forkJoin, map, of, switchMap } from 'rxjs';
 import { API } from './api.config';
-import { AuthService } from './auth.service';
+import { AuthService, GUEST_LIST_IDS } from './auth.service';
 import { alphabetical } from './list-catalog';
 import { MdbInfo, MdbItem, MdbList, MediaType } from './models';
 
@@ -25,8 +25,21 @@ export class MdblistService {
   /**
    * Every non-empty list of the signed-in account. The recommendations feed
    * reads "Last Watched" through here directly, unsorted.
+   *
+   * Guest sessions use the shared `GUEST_KEY` which authenticates via a
+   * dedicated quota account that has no lists of its own. Rather than showing
+   * an empty home page, we synthesise stubs from `GUEST_LIST_IDS` — all
+   * public lists from the owner's account — and fetch their items normally
+   * through the same guest key (public lists are readable by any valid key).
    */
   allLists(): Observable<MdbList[]> {
+    if (this.auth.isGuest()) {
+      const stubs = GUEST_LIST_IDS.map(
+        (entry) => ({ id: entry.id, name: entry.name, items: 1 } as MdbList),
+      );
+      return of(stubs);
+    }
+
     return this.http
       .get<MdbList[]>(`${API.mdblist.base}/lists/user`, { params: { apikey: this.auth.key() } })
       .pipe(map((lists) => lists.filter((l) => l.items > 0)));

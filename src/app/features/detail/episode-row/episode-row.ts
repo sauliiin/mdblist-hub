@@ -4,6 +4,7 @@ import { RouterLink } from '@angular/router';
 import { map, of, switchMap } from 'rxjs';
 import { tmdbImg } from '../../../core/api.config';
 import { AuthService } from '../../../core/auth.service';
+import { EpisodeDisplayPrefsService } from '../../../core/episode-display-prefs.service';
 import { activeLocale, I18nPipe } from '../../../core/i18n.service';
 import { LibraryService } from '../../../core/library.service';
 import { MediaDetail, TmdbEpisode, toTmdbType } from '../../../core/models';
@@ -31,8 +32,15 @@ export class EpisodeRow {
   private readonly tmdb = inject(TmdbService);
   private readonly library = inject(LibraryService);
   private readonly auth = inject(AuthService);
+  private readonly displayPrefs = inject(EpisodeDisplayPrefsService);
 
   readonly show = input.required<MediaDetail>();
+
+  protected readonly dimUnwatched = this.displayPrefs.dimUnwatched;
+
+  protected toggleDimUnwatched(): void {
+    this.displayPrefs.toggleDimUnwatched();
+  }
 
   /** Season on screen; the first one TMDB lists until someone picks another. */
   private readonly picked = signal<number | null>(null);
