@@ -77,8 +77,8 @@ export class ContinueWatching implements OnInit {
 
   protected query(item: ResumeCard): Record<string, number> {
     return item.season && item.episode
-      ? { season: item.season, episode: item.episode }
-      : {};
+      ? { season: item.season, episode: item.episode, select: 1 }
+      : { select: 1 };
   }
 
   /** Removes the entry from mdblist's continue-watching, and from the row. */

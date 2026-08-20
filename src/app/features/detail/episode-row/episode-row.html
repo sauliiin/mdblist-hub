@@ -34,18 +34,13 @@
   @if (episodes().length) {
     <app-scroll-track class="episode-track">
       @for (ep of episodes(); track ep.id) {
-        <!--
-          An anchor either way: with nothing to play — a guest session, or a
-          title with no IMDb id for the addons to be keyed by — `routerLink`
-          stays null, so the card still reads as a card but goes nowhere.
-        -->
-        <a
+        <button
+          type="button"
           class="episode"
           [class.seen]="isWatched(ep)"
           [class.dim-unwatched]="dimUnwatched() && !isWatched(ep)"
           [class.static]="!playable()"
-          [routerLink]="playable() ? watchLink() : null"
-          [queryParams]="query(ep)">
+          (click)="openEpisode(ep)">
           <span class="still">
             @if (still(ep)) {
               <img [src]="still(ep)" [alt]="ep.name" loading="lazy" />
@@ -74,10 +69,55 @@
           </span>
 
           @if (ep.overview) { <span class="ep-overview">{{ ep.overview }}</span> }
-        </a>
+        </button>
       }
     </app-scroll-track>
   } @else {
     <p class="muted">{{ 'TMDB has no episodes listed for this season.' | i18n }}</p>
   }
 </section>
+
+@if (selectedEpisode(); as ep) {
+  <div class="episode-modal-backdrop" (click)="closeEpisode()">
+    <section
+      class="episode-modal"
+      role="dialog"
+      aria-modal="true"
+      [attr.aria-label]="'Episode details' | i18n"
+      (click)="$event.stopPropagation()">
+      <button type="button" class="modal-close" (click)="closeEpisode()" [attr.aria-label]="'Close' | i18n">✕</button>
+
+      <div class="modal-still">
+        @if (still(ep)) {
+          <img [src]="still(ep)" [alt]="ep.name" />
+        } @else {
+          <span class="still-empty">{{ ep.episode_number }}</span>
+        }
+      </div>
+
+      <div class="modal-copy">
+        <p class="modal-kicker">
+          {{ 'Season {season} · Episode {episode}' | i18n: { season: ep.season_number, episode: ep.episode_number } }}
+        </p>
+        <h3>{{ ep.name }}</h3>
+        <p class="modal-meta">
+          @if (airDate(ep); as aired) { <span>{{ aired }}</span> }
+          @if (ep.runtime) { <span>{{ ep.runtime }} min</span> }
+          @if (ep.vote_average) { <span>★ {{ ep.vote_average.toFixed(1) }}</span> }
+        </p>
+        <p class="modal-overview">{{ ep.overview || ('No synopsis is available for this episode.' | i18n) }}</p>
+      </div>
+
+      @if (playable()) {
+        <div class="modal-actions">
+          <a class="modal-action primary" [routerLink]="watchLink()" [queryParams]="query(ep)">
+            {{ 'Watch' | i18n }}
+          </a>
+          <a class="modal-action" [routerLink]="watchLink()" [queryParams]="sourceQuery(ep)">
+            {{ 'Select source' | i18n }}
+          </a>
+        </div>
+      }
+    </section>
+  </div>
+}

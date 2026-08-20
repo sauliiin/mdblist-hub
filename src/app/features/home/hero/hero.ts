@@ -1,10 +1,10 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { tmdbImg } from '../../../core/api.config';
 import { currentLanguage, I18nPipe, translateGenre } from '../../../core/i18n.service';
 import { MdblistService } from '../../../core/mdblist.service';
 import { MdbItem, MdbList, TmdbDetail, TmdbLogo, toTmdbType } from '../../../core/models';
-import { ThemePrefsService } from '../../../core/theme-prefs.service';
+import { ThemePrefsService, isLandscapeTheme } from '../../../core/theme-prefs.service';
 import { TmdbService } from '../../../core/tmdb.service';
 
 interface Featured {
@@ -14,7 +14,7 @@ interface Featured {
   genres: string[];
   vote: number | null;
   link: unknown[];
-  /** Clearlogo art, when TMDB has one — see `pickLogo`. Only shown on Netflixy/Primefly. */
+  /** Clearlogo art, when TMDB has one — see `pickLogo`. */
   logo: string | null;
 }
 
@@ -50,7 +50,9 @@ const PREFERRED = ['trending movies', 'lastest movie releases', 'best ever'];
 export class Hero {
   private readonly mdblist = inject(MdblistService);
   private readonly tmdb = inject(TmdbService);
-  protected readonly theme = inject(ThemePrefsService).themeKey;
+  private readonly themePrefs = inject(ThemePrefsService);
+  protected readonly theme = this.themePrefs.themeKey;
+  protected readonly landscapeTheme = computed(() => isLandscapeTheme(this.theme()));
   protected readonly genreLabel = translateGenre;
 
   protected readonly featured = signal<Featured | null>(null);
@@ -97,8 +99,8 @@ export class Hero {
         genres: detail.genres?.map((g) => g.name) ?? current.genres,
         vote: detail.vote_average ? Math.round(detail.vote_average * 10) : null,
         // Stored regardless of the active theme — it rides along in the same
-        // `detail()` call for free, and the template is what decides whether
-        // a Netflixy/Primefly hero actually draws it.
+        // `detail()` call for free, and the template decides whether the
+        // active streaming layout actually draws it.
         logo: pickLogo(detail.images?.logos),
       },
     );

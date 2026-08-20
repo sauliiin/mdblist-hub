@@ -1,6 +1,6 @@
 {
-  "name": "open-stream-web",
-  "version": "1.0.0",
+  "name": "omnistream-web",
+  "version": "1.1.1",
   "scripts": {
     "ng": "node node_modules/@angular/cli/bin/ng.js",
     "start": "node node_modules/@angular/cli/bin/ng.js serve",
@@ -34,6 +34,6 @@
     "prettier": "^3.8.1",
     "typescript": "~6.0.2"
   },
-  "description": "Open Stream (web) — front-end em Angular para listas do mdblist, com elenco, notas, reviews e biografias.",
+  "description": "OmniStream (web) — front-end em Angular para listas do mdblist, com elenco, notas, reviews e biografias.",
   "license": "MIT"
 }

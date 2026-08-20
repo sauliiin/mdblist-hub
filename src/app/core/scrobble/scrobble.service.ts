@@ -131,6 +131,17 @@ export class ScrobbleService {
     );
   }
 
+  /**
+   * The latest paused session for a title, including its episode and provider
+   * id. Detail pages need the whole entry so "Clear progress" can address a
+   * Trakt session by id or an MDBList episode by season/number.
+   */
+  sessionForTitle(target: ScrobbleTarget): Observable<ResumeItem | null> {
+    return this.sessions().pipe(
+      map((items) => items.find((item) => matchesTitle(item, target)) ?? null),
+    );
+  }
+
   private send(
     action: ScrobbleAction,
     target: ScrobbleTarget,
@@ -182,13 +193,16 @@ export class ScrobbleService {
 }
 
 function matches(item: ResumeItem, target: ScrobbleTarget): boolean {
-  const sameTitle = target.imdbId
-    ? item.imdbId === target.imdbId
-    : item.tmdbId === target.tmdbId;
-  if (!sameTitle) return false;
+  if (!matchesTitle(item, target)) return false;
 
   if (target.type !== 'show') return true;
   return item.season === (target.season ?? null) && item.episode === (target.episode ?? null);
+}
+
+function matchesTitle(item: ResumeItem, target: ScrobbleTarget): boolean {
+  if (item.type !== target.type) return false;
+  return (!!target.imdbId && item.imdbId === target.imdbId)
+    || (!!target.tmdbId && item.tmdbId === target.tmdbId);
 }
 
 function describe(payload: unknown): string {

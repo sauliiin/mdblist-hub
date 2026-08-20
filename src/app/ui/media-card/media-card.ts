@@ -9,7 +9,7 @@ import { LandscapeArtworkService } from '../../core/landscape-artwork.service';
 import { LibraryService } from '../../core/library.service';
 import { MdbItem, formatYear, titleWithYear, toTmdbType } from '../../core/models';
 import { PrefetchService } from '../../core/prefetch.service';
-import { ThemePrefsService } from '../../core/theme-prefs.service';
+import { ThemePrefsService, isLandscapeTheme } from '../../core/theme-prefs.service';
 import { TvService } from '../../core/tv/tv.service';
 import { ParallaxCardDirective } from './parallax.directive';
 
@@ -28,6 +28,7 @@ export class MediaCard implements OnDestroy {
   private readonly hoverPreview = inject(HoverPreviewService);
   private readonly host: ElementRef<HTMLElement> = inject(ElementRef);
   protected readonly theme = inject(ThemePrefsService).themeKey;
+  protected readonly landscape = computed(() => isLandscapeTheme(this.theme()));
 
   protected readonly isWatched = computed(() => this.library.isWatched(this.item().id));
 
@@ -54,7 +55,7 @@ export class MediaCard implements OnDestroy {
    * to a cropped portrait `poster`. Every other theme just shows the poster.
    */
   protected readonly artwork = computed(() => {
-    if (this.theme() !== 'primefly' && this.theme() !== 'netflixy') return this.poster();
+    if (!this.landscape()) return this.poster();
     return this.landscapeArt.get(this.item().mediatype, this.item().id) ?? null;
   });
 
@@ -82,7 +83,7 @@ export class MediaCard implements OnDestroy {
      * mid-scroll.
      */
     effect((onCleanup) => {
-      if (this.theme() !== 'primefly' && this.theme() !== 'netflixy') return;
+      if (!this.landscape()) return;
 
       const item = this.item();
       const observer = new IntersectionObserver(

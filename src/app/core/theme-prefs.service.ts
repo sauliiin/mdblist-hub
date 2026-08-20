@@ -7,7 +7,11 @@ export interface ThemeOption {
   label: string;
 }
 
-/** Same four appearances the native apps offer — see `HubThemeVariant` (Color.kt). */
+export function isLandscapeTheme(key: string): boolean {
+  return key === 'netflixy' || key === 'primefly';
+}
+
+/** Every persisted variant understood by OmniStream's native and web clients. */
 export const THEME_OPTIONS: readonly ThemeOption[] = [
   { key: 'normal', label: 'Default' },
   { key: 'cyberpunk', label: 'Cyberpunk' },

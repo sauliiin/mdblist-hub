@@ -32,23 +32,27 @@
 .brand {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-  transition: opacity 0.25s var(--ease);
+  gap: 12px;
+  text-decoration: none;
+  transition: opacity 0.25s var(--ease), transform 0.25s var(--ease);
 
-  &:hover { opacity: 0.82; }
+  &:hover {
+    opacity: 0.88;
+    transform: scale(1.02);
+  }
 }
 
-/* The Open Stream mark — a neon ring on black, so a soft cyan glow reads
-   better than the old logo's flat drop shadow. */
+/* The OmniStream infinity mark — transparent neon emblem with a soft glow */
 .mark {
-  width: 32px;
-  height: 32px;
-  border-radius: 9px;
-  box-shadow: 0 8px 22px rgba(0, 243, 255, 0.28);
+  width: 42px;
+  height: auto;
+  max-height: 22px;
+  object-fit: contain;
+  filter: drop-shadow(0 0 8px rgba(0, 243, 255, 0.45)) drop-shadow(0 0 16px rgba(255, 0, 170, 0.3));
 }
 
 /**
- * Same brand gradient and travel as the native apps' `AnimatedOpenStreamTitle`
+ * Same brand gradient and travel as the native apps' `AnimatedBrandTitle`
  * (Compose): five stops, mirrored so it bounces rather than snapping back,
  * one loop every 2.8s. `background-clip: text` is the web equivalent of a
  * Compose `Brush` painted through a text glyph mask.

@@ -51,11 +51,17 @@ export class SubtitleSourcesService {
           this.wyzieSearch(parsed, 'pb', 'pob'),
           this.wyzieSearch(parsed, 'pt', 'por'),
           this.wyzieSearch(parsed, 'en', 'eng'),
+          this.wyzieSearch(parsed, 'hr', 'hrv'),
+          this.wyzieSearch(parsed, 'sr', 'srp'),
+          this.wyzieSearch(parsed, 'bs', 'bos'),
         ]
       : [
           this.wyzieSearch(parsed, 'en', 'eng'),
           this.wyzieSearch(parsed, 'pb', 'pob'),
           this.wyzieSearch(parsed, 'pt', 'por'),
+          this.wyzieSearch(parsed, 'hr', 'hrv'),
+          this.wyzieSearch(parsed, 'sr', 'srp'),
+          this.wyzieSearch(parsed, 'bs', 'bos'),
         ];
     return forkJoin([this.openSubtitlesSearch(parsed), ...direct]).pipe(
       map((results) => results.flat()),
@@ -90,7 +96,9 @@ export class SubtitleSourcesService {
     // the same-origin web proxy, where that redirect would escape the route.
     if (id.episode != null) params['episode_number'] = id.episode;
     params['imdb_id'] = id.imdbId.replace(/^0+/, '') || '0';
-    params['languages'] = currentLanguage() === 'pt' ? 'pt-br,pt,en' : 'en,pt-br,pt';
+    params['languages'] = currentLanguage() === 'pt'
+      ? 'pt-br,pt,en,hr,sr,bs'
+      : 'en,pt-br,pt,hr,sr,bs';
     params['order_by'] = 'download_count';
     params['order_direction'] = 'desc';
     if (id.season != null) params['season_number'] = id.season;

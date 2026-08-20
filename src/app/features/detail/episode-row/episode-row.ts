@@ -44,6 +44,7 @@ export class EpisodeRow {
 
   /** Season on screen; the first one TMDB lists until someone picks another. */
   private readonly picked = signal<number | null>(null);
+  protected readonly selectedEpisode = signal<TmdbEpisode | null>(null);
 
   protected readonly seasons = computed(() => this.show().seasonList);
 
@@ -112,6 +113,18 @@ export class EpisodeRow {
 
   protected query(episode: TmdbEpisode): Record<string, number> {
     return { season: episode.season_number, episode: episode.episode_number };
+  }
+
+  protected sourceQuery(episode: TmdbEpisode): Record<string, number> {
+    return { ...this.query(episode), select: 1 };
+  }
+
+  protected openEpisode(episode: TmdbEpisode): void {
+    this.selectedEpisode.set(episode);
+  }
+
+  protected closeEpisode(): void {
+    this.selectedEpisode.set(null);
   }
 }
 

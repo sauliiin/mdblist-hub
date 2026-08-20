@@ -73,6 +73,11 @@ export class Player {
   readonly id = input.required<string>();
   readonly season = input<string>();
   readonly episode = input<string>();
+  readonly select = input<string>();
+
+  private readonly manualSelectionRequested = computed(
+    () => this.select() === '1' || this.select() === 'true',
+  );
 
   protected readonly addonCount = this.addons.count;
 
@@ -370,7 +375,15 @@ export class Player {
       if (this.selected() || this.playbackSrc() || this.raceStarted) return;
 
       const first = streams.find((stream) => stream.playable);
-      if (first) this.startAttempts(first);
+      if (!first) return;
+      if (this.manualSelectionRequested()) {
+        this.raceStarted = true;
+        this.manualPickMode = true;
+        this.playbackError.set(true);
+        this.manuallyPicking.set(true);
+      } else {
+        this.startAttempts(first);
+      }
     });
 
     /*

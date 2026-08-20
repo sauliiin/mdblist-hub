@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <!-- OmniStream primary gradient -->
+    <linearGradient id="omniInfinity" x1="15%" y1="15%" x2="85%" y2="85%">
+      <stop offset="0%" stop-color="#00F3FF" />
+      <stop offset="28%" stop-color="#7C5CFF" />
+      <stop offset="52%" stop-color="#FF00AA" />
+      <stop offset="76%" stop-color="#BFFFFF" />
+      <stop offset="100%" stop-color="#00F3FF" />
+    </linearGradient>
+
+    <!-- Outer Bloom -->
+    <filter id="glowFilter" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="40" result="glow1" />
+      <feGaussianBlur stdDeviation="20" result="glow2" />
+      <feGaussianBlur stdDeviation="8" result="glow3" />
+      <feMerge>
+        <feMergeNode in="glow1" />
+        <feMergeNode in="glow2" />
+        <feMergeNode in="glow3" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+
+    <linearGradient id="innerShine" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.7" />
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0.0" />
+    </linearGradient>
+  </defs>
+
+  <g filter="url(#glowFilter)">
+    <!-- Base Ribbon Outer Stroke -->
+    <path d="M 512,512 C 640,320 880,320 880,512 C 880,704 640,704 512,512 C 384,320 144,320 144,512 C 144,704 384,704 512,512 Z"
+          fill="none"
+          stroke="url(#omniInfinity)"
+          stroke-width="84"
+          stroke-linecap="round"
+          stroke-linejoin="round" />
+
+    <!-- Inner Core Highlight -->
+    <path d="M 512,512 C 640,320 880,320 880,512 C 880,704 640,704 512,512 C 384,320 144,320 144,512 C 144,704 384,704 512,512 Z"
+          fill="none"
+          stroke="#FFFFFF"
+          stroke-width="16"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          opacity="0.65" />
+  </g>
+</svg>

@@ -179,6 +179,9 @@ const LANGUAGES: Record<string, string> = {
   dut: 'Dutch', nld: 'Dutch',
   swe: 'Swedish', nor: 'Norwegian', dan: 'Danish', fin: 'Finnish',
   pol: 'Polish', tur: 'Turkish', hin: 'Hindi', heb: 'Hebrew', ell: 'Greek',
+  hrv: 'Croatian', hr: 'Croatian',
+  srp: 'Serbian', sr: 'Serbian',
+  bos: 'Bosnian', bs: 'Bosnian',
 };
 
 export function languageLabel(code: string): string {
@@ -195,6 +198,9 @@ export function toBcp47(code: string): string {
   const key = (code ?? '').toLowerCase().trim();
   if (key.startsWith('pob') || key === 'pt-br') return 'pt-BR';
   if (key.startsWith('po') || key.startsWith('pt')) return 'pt';
+  if (key === 'hrv') return 'hr';
+  if (key === 'srp') return 'sr';
+  if (key === 'bos') return 'bs';
   if (key.includes('-')) return key;
   return key.slice(0, 2) || 'und';
 }

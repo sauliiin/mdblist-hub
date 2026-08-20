@@ -18,7 +18,7 @@
         is what lets that override be pure CSS with no extra signal wiring.
       -->
       <h1 class="title-fallback">{{ f.item.title }}</h1>
-      @if ((theme() === 'netflixy' || theme() === 'primefly') && f.logo) {
+      @if (landscapeTheme() && f.logo) {
         <img class="hero-logo" [src]="f.logo" [alt]="f.item.title" />
       }
 

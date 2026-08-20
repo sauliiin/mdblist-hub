@@ -16,11 +16,12 @@
 }
 
 .mark {
-  width: 52px;
-  height: 52px;
-  margin-bottom: 20px;
-  border-radius: 15px;
-  box-shadow: 0 10px 26px rgba(66, 133, 205, 0.4);
+  width: 80px;
+  height: auto;
+  max-height: 40px;
+  margin-bottom: 24px;
+  object-fit: contain;
+  filter: drop-shadow(0 0 12px rgba(0, 243, 255, 0.5)) drop-shadow(0 0 22px rgba(255, 0, 170, 0.35));
 }
 
 h1 {

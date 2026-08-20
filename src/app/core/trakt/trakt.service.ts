@@ -137,46 +137,80 @@ export class TraktService {
   // ------------------------------------------------------------------ rows
 
   /**
-   * One bucket as home-row cards, films only — the same shape and the same
-   * "movies only" reading the mdblist rows already have. Trakt carries no
-   * artwork, so each card's poster is one TMDB lookup (cached like every
-   * other read, and skipped for entries TMDB has no id for).
+   * One bucket as home-row cards (both movies and shows).
+   * Trakt carries no artwork, so each card's poster is one TMDB lookup (cached
+   * like every other read, and skipped for entries TMDB has no id for).
    */
-  movies(bucket: TraktBucket, limit: number): Observable<MdbItem[]> {
+  items(bucket: TraktBucket, limit: number): Observable<MdbItem[]> {
     if (!this.linked()) return of([]);
 
-    const path =
-      bucket === 'watched'
-        ? '/sync/history/movies'
-        : bucket === 'watchlist'
-          ? '/sync/watchlist/movies/added/desc'
-          : '/sync/collection/movies';
+    let request$: Observable<Array<{ title: TraktTitle; type: MediaType; time: string }>>;
 
-    return this.get<TraktListItem[]>(path, { limit }).pipe(
+    if (bucket === 'watchlist') {
+      request$ = forkJoin({
+        movies: this.get<TraktListItem[]>('/sync/watchlist/movies/added/desc', { limit }),
+        shows: this.get<TraktListItem[]>('/sync/watchlist/shows/added/desc', { limit }),
+      }).pipe(
+        map(({ movies, shows }) => [
+          ...movies.map((m) => ({ title: m.movie ?? (m as any), type: 'movie' as MediaType, time: timestamp(m) })),
+          ...shows.map((s) => ({ title: s.show ?? (s as any), type: 'show' as MediaType, time: timestamp(s) })),
+        ]),
+      );
+    } else if (bucket === 'collection') {
+      const wide = limit * 2;
+      request$ = forkJoin({
+        movies: this.get<TraktListItem[]>('/sync/collection/movies', { limit: wide }),
+        shows: this.get<TraktListItem[]>('/sync/collection/shows', { limit: wide }),
+      }).pipe(
+        map(({ movies, shows }) => [
+          ...movies.map((m) => ({ title: m.movie ?? (m as any), type: 'movie' as MediaType, time: timestamp(m) })),
+          ...shows.map((s) => ({ title: s.show ?? (s as any), type: 'show' as MediaType, time: timestamp(s) })),
+        ]),
+      );
+    } else {
+      // watched / history
+      const wide = limit * 2;
+      request$ = forkJoin({
+        movies: this.get<TraktListItem[]>('/sync/history/movies', { limit: wide }),
+        episodes: this.get<TraktListItem[]>('/sync/history/episodes', { limit: wide }),
+      }).pipe(
+        map(({ movies, episodes }) => [
+          ...movies.map((m) => ({ title: m.movie ?? (m as any), type: 'movie' as MediaType, time: timestamp(m) })),
+          ...episodes.map((e) => ({
+            title: e.show ?? (e as any).show ?? (e as any),
+            type: 'show' as MediaType,
+            time: timestamp(e),
+          })),
+        ]),
+      );
+    }
+
+    return request$.pipe(
       map((entries) =>
         entries
-          .slice()
-          .sort((a, b) => timestamp(b).localeCompare(timestamp(a)))
-          .map((entry) => entry.movie)
-          .filter((movie): movie is TraktTitle => !!movie?.ids?.tmdb),
+          .filter((e) => !!e.title?.ids?.tmdb)
+          .sort((a, b) => b.time.localeCompare(a.time)),
       ),
-      // A history lists a film once per play, a collection once per copy.
-      map((movies) => dedupe(movies).slice(0, limit)),
-      switchMap((movies) =>
-        movies.length
-          ? forkJoin(movies.map((movie) => this.withArtwork(movie)))
+      map((entries) => dedupeEntries(entries).slice(0, limit)),
+      switchMap((entries) =>
+        entries.length
+          ? forkJoin(entries.map((entry) => this.withArtwork(entry.title, entry.type)))
           : of([] as MdbItem[]),
       ),
       catchError(() => of([])),
     );
   }
 
-  private withArtwork(movie: TraktTitle): Observable<MdbItem> {
-    const tmdbId = movie.ids!.tmdb!;
+  movies(bucket: TraktBucket, limit: number): Observable<MdbItem[]> {
+    return this.items(bucket, limit);
+  }
 
-    return this.tmdb.card('movie', tmdbId).pipe(
-      map((card) => toMdbItem(movie, card)),
-      catchError(() => of(toMdbItem(movie, null))),
+  private withArtwork(title: TraktTitle, type: MediaType): Observable<MdbItem> {
+    const tmdbId = title.ids!.tmdb!;
+
+    return this.tmdb.card(type, tmdbId).pipe(
+      map((card) => toMdbItem(title, card, type)),
+      catchError(() => of(toMdbItem(title, null, type))),
     );
   }
 
@@ -378,29 +412,38 @@ function timestamp(entry: TraktListItem): string {
   return entry.watched_at || entry.listed_at || entry.collected_at || entry.last_watched_at || '';
 }
 
-function dedupe(movies: TraktTitle[]): TraktTitle[] {
+function dedupeEntries(
+  entries: Array<{ title: TraktTitle; type: MediaType; time: string }>,
+): Array<{ title: TraktTitle; type: MediaType; time: string }> {
   const seen = new Set<number>();
-  return movies.filter((movie) => {
-    const id = movie.ids!.tmdb!;
-    if (seen.has(id)) return false;
+  return entries.filter((entry) => {
+    const id = entry.title.ids?.tmdb;
+    if (!id || seen.has(id)) return false;
     seen.add(id);
     return true;
   });
 }
 
-function toMdbItem(movie: TraktTitle, card: TmdbCard | null): MdbItem {
-  const tmdbId = movie.ids!.tmdb!;
+function toMdbItem(title: TraktTitle, card: TmdbCard | null, type: MediaType): MdbItem {
+  const tmdbId = title.ids!.tmdb!;
+  const releaseYear =
+    title.year ??
+    (card?.release_date
+      ? Number(card.release_date.slice(0, 4))
+      : card?.first_air_date
+        ? Number(card.first_air_date.slice(0, 4))
+        : null);
 
   return {
     id: tmdbId,
-    mediatype: 'movie',
-    imdb_id: movie.ids?.imdb ?? null,
-    ids: { imdb: movie.ids?.imdb, tmdb: tmdbId, trakt: movie.ids?.trakt, tvdb: movie.ids?.tvdb },
-    title: movie.title || translate('Untitled'),
+    mediatype: type,
+    imdb_id: title.ids?.imdb ?? null,
+    ids: { imdb: title.ids?.imdb, tmdb: tmdbId, trakt: title.ids?.trakt, tvdb: title.ids?.tvdb },
+    title: title.title || card?.title || card?.name || translate('Untitled'),
     language: '',
     country: '',
-    release_year: movie.year ?? (card?.release_date ? Number(card.release_date.slice(0, 4)) : null),
-    release_date: card?.release_date ?? null,
+    release_year: releaseYear,
+    release_date: card?.release_date ?? card?.first_air_date ?? null,
     runtime: card?.runtime ?? null,
     // Built straight at the size `MediaCard` upscales mdblist's own posters
     // to — this one comes from TMDB already, so there is nothing to rewrite.

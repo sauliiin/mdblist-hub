@@ -161,50 +161,118 @@ export class LibraryService {
   }
 
   /**
-   * Movies marked watched, most recent first — the same `watched` bucket
-   * `ids()` reads for membership below, just with the extras a real row needs
-   * (poster, title, year). On Trakt that bucket is the play history, and the
-   * artwork is a TMDB lookup rather than something the answer carries.
+   * Titles marked watched (movies and shows), most recent first.
    */
   recentlyWatchedMovies(limit = 30): Observable<MdbItem[]> {
-    if (this.provider.usingTrakt()) return this.trakt.movies('watched', limit);
+    if (this.provider.usingTrakt()) return this.trakt.items('watched', limit);
 
-    return this.entries('watched', limit).pipe(
-      map((entries) =>
-        entries
-          .slice()
-          .sort((a, b) => (b.last_watched_at ?? '').localeCompare(a.last_watched_at ?? ''))
-          .map(fromBucketEntry)
-          .filter((item): item is MdbItem => item !== null),
-      ),
-    );
-  }
-
-  /** Movies on the account's watchlist, in mdblist's own order. */
-  watchlistMovies(limit = 30): Observable<MdbItem[]> {
-    return this.bucketMovies('watchlist', limit);
-  }
-
-  /** Movies in the account's collection, in mdblist's own order. */
-  collectionMovies(limit = 30): Observable<MdbItem[]> {
-    return this.bucketMovies('collection', limit);
-  }
-
-  private bucketMovies(bucket: Bucket, limit: number): Observable<MdbItem[]> {
-    if (this.provider.usingTrakt()) return this.trakt.movies(bucket, limit);
-
-    return this.entries(bucket, limit).pipe(
-      map((entries) => entries.map(fromBucketEntry).filter((item): item is MdbItem => item !== null)),
-    );
-  }
-
-  private entries(bucket: Bucket, limit: number): Observable<BucketEntry[]> {
     return this.http
-      .get<BucketResponse>(`${API.mdblist.base}${ROUTES[bucket].read}`, {
-        params: { apikey: this.auth.key(), limit, append_to_response: 'poster,ratings' },
+      .get<BucketResponse | unknown[]>(`${API.mdblist.base}${ROUTES.watched.read}`, {
+        params: {
+          apikey: this.auth.key(),
+          limit: limit * 2,
+          append_to_response: 'poster,ratings',
+        },
       })
       .pipe(
-        map((res) => res.movies ?? []),
+        map((res) => {
+          if (Array.isArray(res)) {
+            return deduplicateItems(
+              res
+                .map(fromUnifiedItem)
+                .filter((item): item is MdbItem => item !== null),
+            ).slice(0, limit);
+          }
+
+          const bucketRes = res as BucketResponse;
+          const movieEntries = (bucketRes?.movies ?? []).map((m) => ({
+            item: fromBucketEntry(m, 'movie'),
+            time: m.last_watched_at ?? '',
+          }));
+          const showEntries = (bucketRes?.shows ?? []).map((s) => ({
+            item: fromBucketEntry(s, 'show'),
+            time: s.last_watched_at ?? '',
+          }));
+          const episodeEntries = (bucketRes?.episodes ?? [])
+            .filter((e) => !!e.episode?.show)
+            .map((e) => ({
+              item: fromBucketEntry(e.episode!.show!, 'show'),
+              time: e.last_watched_at ?? '',
+            }));
+
+          const combined = [...movieEntries, ...showEntries, ...episodeEntries]
+            .filter((e): e is { item: MdbItem; time: string } => e.item !== null)
+            .sort((a, b) => b.time.localeCompare(a.time))
+            .map((e) => e.item);
+
+          return deduplicateItems(combined).slice(0, limit);
+        }),
+        catchError(() => of([])),
+      );
+  }
+
+  /** Titles on the account's watchlist (movies and shows), in newest-first order. */
+  watchlistMovies(limit = 30): Observable<MdbItem[]> {
+    if (this.provider.usingTrakt()) return this.trakt.items('watchlist', limit);
+
+    return this.http
+      .get<BucketResponse | unknown[]>(`${API.mdblist.base}${ROUTES.watchlist.read}`, {
+        params: {
+          apikey: this.auth.key(),
+          limit: Math.max(limit, 50),
+          unified: true,
+          sort: 'added',
+          order: 'desc',
+          append_to_response: 'poster,ratings',
+        },
+      })
+      .pipe(
+        map((res) => {
+          if (Array.isArray(res)) {
+            const mapped = res
+              .map(fromUnifiedItem)
+              .filter((item): item is MdbItem => item !== null);
+            return deduplicateItems(mapped).slice(0, limit);
+          }
+
+          const bucketRes = res as BucketResponse;
+          const movieEntries = (bucketRes?.movies ?? []).map((m) => fromBucketEntry(m, 'movie'));
+          const showEntries = (bucketRes?.shows ?? []).map((s) => fromBucketEntry(s, 'show'));
+          const combined = [...movieEntries, ...showEntries].filter((i): i is MdbItem => i !== null);
+          return deduplicateItems(combined).slice(0, limit);
+        }),
+        catchError(() => of([])),
+      );
+  }
+
+  /** Titles in the account's collection (movies and shows), in newest-first order. */
+  collectionMovies(limit = 30): Observable<MdbItem[]> {
+    if (this.provider.usingTrakt()) return this.trakt.items('collection', limit);
+
+    return this.http
+      .get<BucketResponse | unknown[]>(`${API.mdblist.base}${ROUTES.collection.read}`, {
+        params: {
+          apikey: this.auth.key(),
+          limit: limit * 2,
+          unified: true,
+          append_to_response: 'poster,ratings',
+        },
+      })
+      .pipe(
+        map((res) => {
+          if (Array.isArray(res)) {
+            const mapped = res
+              .map(fromUnifiedItem)
+              .filter((item): item is MdbItem => item !== null);
+            return deduplicateItems(mapped).slice(0, limit);
+          }
+
+          const bucketRes = res as BucketResponse;
+          const movieEntries = (bucketRes?.movies ?? []).map((m) => fromBucketEntry(m, 'movie'));
+          const showEntries = (bucketRes?.shows ?? []).map((s) => fromBucketEntry(s, 'show'));
+          const combined = [...movieEntries, ...showEntries].filter((i): i is MdbItem => i !== null);
+          return deduplicateItems(combined).slice(0, limit);
+        }),
         catchError(() => of([])),
       );
   }
@@ -249,26 +317,27 @@ export class LibraryService {
    */
   private mdblistIds(bucket: Bucket): Observable<Set<number>> {
     const page = (cursor?: string) =>
-      this.http.get<BucketResponse>(`${API.mdblist.base}${ROUTES[bucket].read}`, {
+      this.http.get<BucketResponse | unknown[]>(`${API.mdblist.base}${ROUTES[bucket].read}`, {
         params: cursor
           ? { apikey: this.auth.key(), limit: BUCKET_PAGE, cursor }
           : { apikey: this.auth.key(), limit: BUCKET_PAGE },
       });
 
     return page().pipe(
-      expand((res, index) => {
-        const next = res?.pagination?.next_cursor;
-        return res?.pagination?.has_more && next && index + 2 <= BUCKET_MAX_PAGES
+      expand((res: BucketResponse | unknown[], index) => {
+        if (Array.isArray(res)) return EMPTY;
+        const next = (res as BucketResponse)?.pagination?.next_cursor;
+        return (res as BucketResponse)?.pagination?.has_more && next && index + 2 <= BUCKET_MAX_PAGES
           ? page(next)
           : EMPTY;
       }),
-      reduce((pages: BucketResponse[], res) => [...pages, res], []),
+      reduce((pages: (BucketResponse | unknown[])[], res) => [...pages, res], []),
       map((pages) => {
         const set = new Set<number>();
 
         for (const res of pages) {
-          if (bucket === 'watched') {
-            for (const entry of res?.episodes ?? []) {
+          if (bucket === 'watched' && !Array.isArray(res)) {
+            for (const entry of (res as BucketResponse)?.episodes ?? []) {
               const ep = entry.episode;
               const showId = ep?.show?.ids?.tmdb;
               const season = ep?.season;
@@ -310,6 +379,7 @@ interface BucketTitle {
  */
 interface BucketEntry extends BucketTitle {
   id?: number;
+  mediatype?: string;
   movie?: BucketTitle;
   show?: BucketTitle;
   /** `sync/watched` only — what `recentlyWatchedMovies()` sorts by. */
@@ -337,38 +407,102 @@ interface BucketResponse {
   pagination?: { has_more?: boolean; next_cursor?: string | null };
 }
 
-function collectTmdbIds(res: BucketResponse): number[] {
-  const movieAndShowIds = [...(res?.movies ?? []), ...(res?.shows ?? [])]
-    .map((entry) => entry.movie?.ids?.tmdb ?? entry.show?.ids?.tmdb ?? entry.ids?.tmdb ?? entry.id)
-    .filter((id): id is number => typeof id === 'number');
-
-  const episodeShowIds = (res?.episodes ?? [])
-    .map((entry) => entry.episode?.show?.ids?.tmdb)
-    .filter((id): id is number => typeof id === 'number');
-
-  return Array.from(new Set([...movieAndShowIds, ...episodeShowIds]));
+function deduplicateItems(items: MdbItem[]): MdbItem[] {
+  const seen = new Set<number>();
+  return items.filter((item) => {
+    if (seen.has(item.id)) return false;
+    seen.add(item.id);
+    return true;
+  });
 }
 
-function fromBucketEntry(entry: BucketEntry): MdbItem | null {
-  const title = entry.movie ?? entry;
-  const tmdbId = title.ids?.tmdb ?? entry.id;
+function fromUnifiedItem(raw: unknown): MdbItem | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const item = raw as Record<string, any>;
+  const tmdbId = item['ids']?.tmdb ?? (typeof item['id'] === 'number' && item['id'] > 0 ? item['id'] : null);
   if (!tmdbId) return null;
+
+  const isShow =
+    item['mediatype'] === 'show' ||
+    item['mediatype'] === 'tv' ||
+    item['type'] === 'show' ||
+    item['type'] === 'tv' ||
+    !!item['show'];
+
+  const titleStr = item['title'] || item['name'] || translate('Untitled');
+  const releaseYear =
+    item['release_year'] ??
+    item['year'] ??
+    (item['release_date'] ? Number(String(item['release_date']).slice(0, 4)) : null);
 
   return {
     id: tmdbId,
-    mediatype: 'movie',
-    imdb_id: title.ids?.imdb ?? null,
-    ids: title.ids ?? {},
-    title: title.title || translate('Untitled'),
+    mediatype: isShow ? 'show' : 'movie',
+    imdb_id: item['imdb_id'] ?? item['ids']?.imdb ?? null,
+    ids: item['ids'] ?? { tmdb: tmdbId, imdb: item['imdb_id'] },
+    title: titleStr,
+    language: item['language'] || '',
+    country: item['country'] || '',
+    release_year: releaseYear,
+    release_date: item['release_date'] ?? null,
+    runtime: item['runtime'] ?? null,
+    poster: item['poster'] ?? null,
+    genre: Array.isArray(item['genre']) ? item['genre'] : null,
+    rank: item['rank'] ?? null,
+    ratings: item['ratings'] ?? [],
+  };
+}
+
+function fromBucketEntry(entry: BucketEntry | BucketTitle, fallbackType: MediaType = 'movie'): MdbItem | null {
+  if (!entry) return null;
+  const entryObj = entry as BucketEntry;
+  const isShow =
+    fallbackType === 'show' ||
+    !!entryObj.show ||
+    (entry as any).mediatype === 'show' ||
+    (entry as any).type === 'show' ||
+    (entry as any).type === 'tv';
+  const title = entryObj.show ?? entryObj.movie ?? entry;
+  const tmdbId =
+    title.ids?.tmdb ??
+    entryObj.ids?.tmdb ??
+    (typeof (entry as any).id === 'number' && (entry as any).id > 0 ? (entry as any).id : null);
+  if (!tmdbId) return null;
+
+  const releaseYear = title.year ?? (entry as any).release_year ?? (entry as any).year ?? null;
+
+  return {
+    id: tmdbId,
+    mediatype: isShow ? 'show' : 'movie',
+    imdb_id: title.ids?.imdb ?? (entry as any).imdb_id ?? entryObj.ids?.imdb ?? null,
+    ids: title.ids ?? entryObj.ids ?? { tmdb: tmdbId },
+    title: title.title || (entry as any).title || translate('Untitled'),
     language: '',
     country: '',
-    release_year: title.year ?? null,
-    release_date: null,
-    runtime: title.runtime ?? null,
-    // Raw mdblist URL, same convention as every other `MdbItem` source —
-    // `MediaCard` is what upscales it for the size it actually needs.
-    poster: title.poster ?? null,
-    genre: null,
-    rank: null,
+    release_year: releaseYear,
+    release_date: (entry as any).release_date ?? null,
+    runtime: title.runtime ?? (entry as any).runtime ?? null,
+    poster: title.poster ?? (entry as any).poster ?? null,
+    genre: (entry as any).genre ?? null,
+    rank: (entry as any).rank ?? null,
+    ratings: (entry as any).ratings ?? [],
   };
+}
+
+function collectTmdbIds(res: BucketResponse | unknown[]): number[] {
+  if (Array.isArray(res)) {
+    return res
+      .map((entry: any) => entry.ids?.tmdb ?? (typeof entry.id === 'number' ? entry.id : null))
+      .filter((id): id is number => typeof id === 'number' && id > 0);
+  }
+  const bucketRes = res as BucketResponse;
+  const movieAndShowIds = [...(bucketRes?.movies ?? []), ...(bucketRes?.shows ?? [])]
+    .map((entry) => entry.movie?.ids?.tmdb ?? entry.show?.ids?.tmdb ?? entry.ids?.tmdb ?? entry.id)
+    .filter((id): id is number => typeof id === 'number' && id > 0);
+
+  const episodeShowIds = (bucketRes?.episodes ?? [])
+    .map((entry) => entry.episode?.show?.ids?.tmdb)
+    .filter((id): id is number => typeof id === 'number' && id > 0);
+
+  return Array.from(new Set([...movieAndShowIds, ...episodeShowIds]));
 }

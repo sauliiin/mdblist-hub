@@ -17,7 +17,7 @@ import {
   TmdbSearchResult, WATCHLIST_PREF_ID, catalogKey, formatYear, toTmdbType,
 } from '../../core/models';
 import { AddonsService } from '../../core/stremio/addons.service';
-import { ThemePrefsService } from '../../core/theme-prefs.service';
+import { ThemePrefsService, isLandscapeTheme } from '../../core/theme-prefs.service';
 import { TmdbService } from '../../core/tmdb.service';
 import { TvService } from '../../core/tv/tv.service';
 import { MediaRow } from '../../ui/media-row/media-row';
@@ -93,6 +93,7 @@ export class Home {
   protected readonly catalogPrefs = inject(CatalogPrefsService);
   private readonly addons = inject(AddonsService);
   protected readonly theme = inject(ThemePrefsService).themeKey;
+  protected readonly landscapeTheme = computed(() => isLandscapeTheme(this.theme()));
   protected readonly i18n = inject(I18nService);
 
   protected readonly lists = signal<MdbList[]>([]);

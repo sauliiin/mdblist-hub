@@ -18,6 +18,9 @@ export interface YouTubePlayerOptions {
   playerVars?: Record<string, string | number>;
   events?: {
     onReady?: (event: { target: YouTubePlayer }) => void;
+    /** YouTube reports 0 when a non-looping preview has ended. */
+    onStateChange?: (event: { target: YouTubePlayer; data: number }) => void;
+    onError?: (event: { target: YouTubePlayer; data: number }) => void;
   };
 }
 

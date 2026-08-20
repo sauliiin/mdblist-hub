@@ -1,6 +1,6 @@
-# Open Stream
+# OmniStream
 
-A versão web do Open Stream — o mesmo projeto dos apps de TV e celular, agora
+A versão web do OmniStream — o mesmo projeto dos apps de TV e celular, agora
 no navegador. Um front-end em Angular para as suas listas do
 [mdblist](https://mdblist.com): todas as listas em fileiras horizontais e, ao
 clicar num título, uma página com elenco, notas de todos os agregadores,
@@ -106,6 +106,8 @@ trailer e ficha técnica. Além disso:
 - **Ações da biblioteca** — adicionar à watchlist, à coleção e marcar como
   assistido, com o estado atual já refletido no botão. Vale para o mdblist ou
   para o Trakt, conforme a fonte escolhida em `/addons`.
+- **Resetar progresso** — remove o ponto salvo no mdblist/Trakt diretamente na
+  ficha sempre que o título aparece em “Continuar assistindo”.
 - **Episódios** — séries ganham a fileira de episódios que os apps de TV e
   celular já tinham: seletor de temporada, still de cada episódio, sinopse,
   duração, a **data de exibição** ("sex., 18/12/2026" em português, "Fri, Dec

@@ -61,6 +61,9 @@
                 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg>
                 {{ 'Watch' | i18n }}
               </a>
+              <a class="btn ghost" [routerLink]="['/watch', type(), id()]" [queryParams]="{ select: 1 }">
+                {{ 'Select source' | i18n }}
+              </a>
             }
             @if (d.trailerKey) {
               <button type="button" class="btn ghost" (click)="openTrailer()">
@@ -90,6 +93,16 @@
                   [title]="library()[action.bucket] ? action.undo : action.label">
                   <span class="lib-icon" [innerHTML]="library()[action.bucket] ? '✓' : '+'"></span>
                   {{ library()[action.bucket] ? action.done : action.label }}
+                </button>
+              }
+              @if (resumeSession()) {
+                <button
+                  type="button"
+                  class="lib-btn"
+                  [disabled]="clearingProgress()"
+                  (click)="clearProgress()">
+                  <span class="lib-icon" aria-hidden="true">×</span>
+                  {{ 'Clear progress' | i18n }}
                 </button>
               }
             </div>
@@ -225,8 +238,8 @@
             <h2 class="block-title">{{ 'You may also like' | i18n }}</h2>
             <div class="recs">
               @for (rec of d.recommendations; track rec.id) {
-                <a class="rec" [class.landscape]="theme() === 'primefly' || theme() === 'netflixy'" [routerLink]="recLink(rec)">
-                  @if (theme() === 'primefly' || theme() === 'netflixy') {
+                <a class="rec" [class.landscape]="landscapeTheme()" [routerLink]="recLink(rec)">
+                  @if (landscapeTheme()) {
                     @if (recBackdrop(rec)) {
                       <img [src]="recBackdrop(rec)" [alt]="recTitle(rec)" loading="lazy" />
                     } @else {

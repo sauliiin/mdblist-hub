@@ -15,8 +15,10 @@ import { castCharacter, MediaDetailService } from '../../core/media-detail.servi
 import {
   MediaDetail, Review, TmdbCastMember, TmdbRecommendation, formatYear, toMediaType,
 } from '../../core/models';
-import { ThemePrefsService } from '../../core/theme-prefs.service';
+import { ThemePrefsService, isLandscapeTheme } from '../../core/theme-prefs.service';
 import { TvService } from '../../core/tv/tv.service';
+import { ResumeItem, ScrobbleTarget } from '../../core/scrobble/models';
+import { ScrobbleService } from '../../core/scrobble/scrobble.service';
 import { EpisodeRow } from './episode-row/episode-row';
 import { PersonModal } from '../../ui/person-modal/person-modal';
 import { RatingBadges } from '../../ui/rating-badges/rating-badges';
@@ -36,11 +38,13 @@ export class Detail {
   private readonly location = inject(Location);
   private readonly sanitizer = inject(DomSanitizer);
   private readonly libraryService = inject(LibraryService);
+  private readonly scrobble = inject(ScrobbleService);
   private readonly auth = inject(AuthService);
   protected readonly tv = inject(TvService);
   protected readonly canPlay = this.auth.canPlay;
   protected readonly canSaveToLibrary = this.auth.canSaveToLibrary;
   protected readonly theme = inject(ThemePrefsService).themeKey;
+  protected readonly landscapeTheme = computed(() => isLandscapeTheme(this.theme()));
   private readonly i18n = inject(I18nService);
   protected readonly formatYear = formatYear;
 
@@ -71,6 +75,8 @@ export class Detail {
     collection: false,
   });
   protected readonly libraryError = signal<string | null>(null);
+  protected readonly resumeSession = signal<ResumeItem | null>(null);
+  protected readonly clearingProgress = signal(false);
 
   protected readonly libraryActions: {
     bucket: Bucket; label: string; done: string; undo: string;
@@ -104,13 +110,17 @@ export class Detail {
     toObservable(this.params).pipe(
       tap(() => {
         this.loading.set(true);
+        this.resumeSession.set(null);
         this.showAllReviews.set(false);
         this.trailerOpen.set(false);
       }),
       switchMap(({ type, id }) => this.service.load(type, id)),
       tap((detail) => {
         this.loading.set(false);
-        if (detail) this.loadLibraryStatus(detail);
+        if (detail) {
+          this.loadLibraryStatus(detail);
+          this.loadProgress(detail);
+        }
       }),
     ),
     { initialValue: null },
@@ -225,6 +235,37 @@ export class Detail {
     this.libraryService.status(this.target(detail)).subscribe((status) => this.library.set(status));
   }
 
+  private loadProgress(detail: MediaDetail): void {
+    this.scrobble.sessionForTitle(this.scrobbleTarget(detail)).subscribe((session) => {
+      // Ignore a response belonging to a route that changed while the request
+      // was in flight.
+      const current = this.params();
+      if (current.id === detail.tmdbId && current.type === detail.type) this.resumeSession.set(session);
+    });
+  }
+
+  protected clearProgress(): void {
+    const detail = this.detail();
+    const session = this.resumeSession();
+    if (!detail || !session || this.clearingProgress()) return;
+
+    this.clearingProgress.set(true);
+    this.libraryError.set(null);
+    const target: ScrobbleTarget = {
+      type: session.type,
+      imdbId: session.imdbId ?? detail.imdbId,
+      tmdbId: session.tmdbId ?? detail.tmdbId,
+      season: session.season,
+      episode: session.episode,
+    };
+
+    this.scrobble.clear(target, session.playbackId).subscribe((cleared) => {
+      this.clearingProgress.set(false);
+      if (cleared) this.resumeSession.set(null);
+      else this.libraryError.set(this.i18n.t('Could not clear playback progress.'));
+    });
+  }
+
   /** Adds or removes the title from an mdblist bucket. */
   protected toggleBucket(bucket: Bucket): void {
     const detail = this.detail();
@@ -251,6 +292,10 @@ export class Detail {
   }
 
   private target(detail: MediaDetail): LibraryTarget {
+    return { imdbId: detail.imdbId, tmdbId: detail.tmdbId, type: detail.type };
+  }
+
+  private scrobbleTarget(detail: MediaDetail): ScrobbleTarget {
     return { imdbId: detail.imdbId, tmdbId: detail.tmdbId, type: detail.type };
   }
 
